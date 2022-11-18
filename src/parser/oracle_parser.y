@@ -489,58 +489,58 @@ provStmt:
 */
 
 igStmt:
-        IG optionalProvAsOf optionalProvWith OF '(' stmt ')' optionalTranslate
+        IG optionalIGAsOf optionalIGWith OF '(' stmt ')' optionalTranslate
         {
             RULELOG("igStmt::stmt");
             Node *stmt = $6;
-            ProvenanceStmt *p = createProvenanceStmt(stmt);
-            p->inputType = isQBUpdate(stmt) ? PROV_INPUT_UPDATE : PROV_INPUT_QUERY;
-            p->provType = PROV_PI_CS;
+            IGStmt *p = createIGStmt(stmt);
+            p->inputType = isQBUpdate(stmt) ? IG_INPUT_UPDATE : IG_INPUT_QUERY;
+            p->IGType = IG_PI_CS;
             p->asOf = (Node *) $2;
             // p->options = $3;
             p->options = concatTwoLists($3, $8);
             $$ = (Node *) p;
         }
-        | IG optionalProvAsOf optionalProvWith OF '(' stmtList ')'
+        | IG optionalIGAsOf optionalIGWith OF '(' stmtList ')'
         {
             RULELOG("igStmt::stmtlist");
-            ProvenanceStmt *p = createProvenanceStmt((Node *) $6);
-            p->inputType = PROV_INPUT_UPDATE_SEQUENCE;
-            p->provType = PROV_PI_CS;
+            IGStmt *p = createIGStmt((Node *) $6);
+            p->inputType = IG_INPUT_UPDATE_SEQUENCE;
+            p->IGType = IG_PI_CS;
             p->asOf = (Node *) $2;
             p->options = $3;
             $$ = (Node *) p;
         }
-        | IG optionalProvAsOf optionalProvWith OF TRANSACTION stringConst
+        | IG optionalIGAsOf optionalIGWith OF TRANSACTION stringConst
         {
             RULELOG("igStmt::transaction");
-            ProvenanceStmt *p = createProvenanceStmt((Node *) createConstString($6));
-            p->inputType = PROV_INPUT_TRANSACTION;
-            p->provType = PROV_PI_CS;
+            IGStmt *p = createIGStmt((Node *) createConstString($6));
+            p->inputType = IG_INPUT_TRANSACTION;
+            p->IGType = IG_PI_CS;
             p->options = $3;
             $$ = (Node *) p;
         }
        
-        | USE IG optionalProvAsOf optionalProvWith OF '(' stmt ')' optionalTranslate
+        | USE IG optionalIGAsOf optionalIGWith OF '(' stmt ')' optionalTranslate
         {
             RULELOG("igStmt::stmt");
             Node *stmt = $7;
-            ProvenanceStmt *p = createProvenanceStmt(stmt);
-            p->inputType = isQBUpdate(stmt) ? PROV_INPUT_UPDATE : PROV_INPUT_QUERY;
-            p->provType = USE_PROV_COARSE_GRAINED;
+            IGStmt *p = createIGStmt(stmt);
+            p->inputType = isQBUpdate(stmt) ? IG_INPUT_UPDATE : IG_INPUT_QUERY;
+            p->IGType = USE_IG_COARSE_GRAINED;
             p->asOf = (Node *) $3;
             // p->options = $4;
             p->options = concatTwoLists($4, $9);
             $$ = (Node *) p;
         }
         
-        | optionalTopK IG optionalProvAsOf optionalProvWith OF '(' stmt ')' optionalTranslate optionalSummarization
+        | optionalTopK IG optionalIGAsOf optionalIGWith OF '(' stmt ')' optionalTranslate optionalSummarization
         {
             RULELOG("igStmt::summaryStmt");
             Node *stmt = $7;
-            ProvenanceStmt *p = createProvenanceStmt(stmt);
-            p->inputType = isQBUpdate(stmt) ? PROV_INPUT_UPDATE : PROV_INPUT_QUERY;
-            p->provType = PROV_PI_CS;
+            IGStmt *p = createIGStmt(stmt);
+            p->inputType = isQBUpdate(stmt) ? IG_INPUT_UPDATE : IG_INPUT_QUERY;
+            p->IGType = IG_PI_CS;
             p->asOf = (Node *) $3;
             p->options = CONCAT_LISTS(singleton($1),$4,$9,$10,
                                       singleton(createNodeKeyValue((Node *) createConstString(PROP_SUMMARIZATION_DOSUM),
@@ -685,6 +685,16 @@ optionalProvAsOf:
 			$$ = $1;
 		}
 	;
+	
+/* IG OPTIONS */
+optionalIGAsOf:
+		/* empty */			{ RULELOG("optionalIGAsOf::EMPTY"); $$ = NULL; }
+		| IGAsOf
+		{
+			RULELOG("optionalIGAsOf::IGAsOf");
+			$$ = $1;
+		}
+	;	
 
 provAsOf:
 		AS OF SCN intConst
@@ -699,11 +709,35 @@ provAsOf:
 		}
 	;
 
+
+IGAsOf:
+		AS OF SCN intConst
+		{
+			RULELOG("IGAsOf::SCN");
+			$$ = (Node *) createConstLong($4);
+		}
+		| AS OF TIMESTAMP stringConst
+		{
+			RULELOG("IGAsOf::TIMESTAMP");
+			$$ = (Node *) createConstString($4);
+		}
+	;
+
 optionalProvWith:
 		/* empty */			{ RULELOG("optionalProvWith::EMPTY"); $$ = NIL; }
 		| WITH provOptionList
 		{
 			RULELOG("optionalProvWith::WITH");
+			$$ = $2;
+		}
+	;
+
+
+optionalIGWith:
+		/* empty */			{ RULELOG("optionalIGWith::EMPTY"); $$ = NIL; }
+		| WITH IGOptionList
+		{
+			RULELOG("optionalIGWith::WITH");
 			$$ = $2;
 		}
 	;
@@ -716,6 +750,16 @@ provOptionList:
 			$$ = appendToTailOfList($1,$2);
 		}
 	;
+	
+IGOptionList:
+		IGOption	{ RULELOG("IGOptionList::option"); $$ = singleton($1); }
+		| IGOptionList IGOption
+		{
+			RULELOG("IGOptionList::list");
+			$$ = appendToTailOfList($1,$2);
+		}
+	;	
+
 
 provOption:
 		TYPE stringConst
@@ -795,6 +839,93 @@ provOption:
             									(Node *) $3);
 		}
 	;
+
+
+
+
+IGOption:
+		TYPE stringConst
+		{
+			RULELOG("IGOption::TYPE");
+			$$ = (Node *) createStringKeyValue(PROP_PC_IG_TYPE, $2);
+		}
+		| TABLE identifier
+		{
+			RULELOG("IGOption::TABLE");
+			$$ = (Node *) createStringKeyValue(PROP_PC_TABLE, $2);
+		}
+		| COARSE GRAINED coarseGrainedSpec
+		{
+			RULELOG("IGOption::COARSE");
+            $$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_COARSE_GRAINED),
+            									(Node *) $3);
+		}
+		| USE COARSE GRAINED coarseGrainedSpec
+		{
+			RULELOG("IGOption::COARSE");
+            $$ = (Node *) createNodeKeyValue((Node *) createConstString(USE_PROP_PC_COARSE_GRAINED),
+            									(Node *) $4);
+		}
+		| ONLY UPDATED
+		{
+			RULELOG("IGOption::ONLY::UPDATED");
+			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_ONLY_UPDATED),
+					(Node *) createConstBool(TRUE));
+		}
+		| SHOW INTERMEDIATE
+		{
+			RULELOG("IGOption::SHOW::INTERMEDIATE");
+			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_SHOW_INTERMEDIATE),
+					(Node *) createConstBool(TRUE));
+		}
+		| TUPLE VERSIONS
+		{
+			RULELOG("IGOption::TUPLE::VERSIONS");
+			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_TUPLE_VERSIONS),
+					(Node *) createConstBool(TRUE));
+		}
+		| STATEMENT ANNOTATIONS
+		{
+			RULELOG("IGOption::STATEMENT::ANNOTATIONS");
+			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_STATEMENT_ANNOTATIONS),
+					(Node *) createConstBool(TRUE));
+		}
+		| NO STATEMENT ANNOTATIONS
+		{
+			RULELOG("IGOption::NO::STATEMENT::ANNOTATIONS");
+			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_STATEMENT_ANNOTATIONS),
+					(Node *) createConstBool(FALSE));
+		}
+		| IG
+		{
+			RULELOG("IGOption::IG");
+			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_GEN_PROVENANCE),
+					(Node *) createConstBool(TRUE));
+		}
+		| ISOLATION LEVEL identifier
+		{
+			RULELOG("IGOption::ISOLATION::LEVEL");
+			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_ISOLATION_LEVEL),
+					(Node *) createConstString(strdup($3)));
+		}
+		| COMMIT_TRANS SCN intConst
+		{
+			RULELOG("IGOption::COMMIT::SCN");
+			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_COMMIT_SCN),
+					(Node *) createConstLong($3));
+		}
+		| SEMIRING COMBINER semiringCombinerSpec
+		{
+			RULELOG("IGOption::SEMIRING::COMBINER::semiringCombinerSpec");
+            $$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_SEMIRING_COMBINER),
+            									(Node *) $3);
+		}
+	;
+	
+	
+	
+	
+
 
 coarseGrainedSpec:
 		FRAGMENT '(' fragmentList ')'

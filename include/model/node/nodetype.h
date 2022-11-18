@@ -116,6 +116,7 @@ NEW_ENUM_WITH_TO_STRING(ProvenanceType,
     PROV_NONE /* for reenactment of bag semantics only */
 );
 
+
 /* what type of database operation(s) a provenance computation is for */
 NEW_ENUM_WITH_TO_STRING(ProvenanceInputType,
     PROV_INPUT_QUERY,
@@ -129,6 +130,32 @@ NEW_ENUM_WITH_TO_STRING(ProvenanceInputType,
 	PROV_INPUT_UNCERTAIN_TUPLE_QUERY,
 	PROV_INPUT_RANGE_QUERY
 );
+
+
+NEW_ENUM_WITH_TO_STRING(IGType,
+    IG_PI_CS,
+    IG_TRANSFORMATION,
+    IG_XML,
+	IG_COARSE_GRAINED,
+	USE_IG_COARSE_GRAINED,
+    IG_NONE /* for reenactment of bag semantics only */
+);
+
+
+/* what type of database operation(s) a provenance computation is for */
+NEW_ENUM_WITH_TO_STRING(IGInputType,
+    IG_INPUT_QUERY,
+    IG_INPUT_UPDATE,
+    IG_INPUT_UPDATE_SEQUENCE,
+    IG_INPUT_REENACT,
+    IG_INPUT_REENACT_WITH_TIMES,
+    IG_INPUT_TRANSACTION,
+    IG_INPUT_TEMPORAL_QUERY,
+    IG_INPUT_UNCERTAIN_QUERY,
+	IG_INPUT_UNCERTAIN_TUPLE_QUERY,
+	IG_INPUT_RANGE_QUERY
+);
+
 
 /* stringinfo provides the string data type*/
 

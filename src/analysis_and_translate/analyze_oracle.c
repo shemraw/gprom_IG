@@ -165,12 +165,6 @@ analyzeQueryBlockStmt (Node *stmt, List *parentFroms)
             analyzeProvenanceStmt((ProvenanceStmt *) stmt, parentFroms);
             DEBUG_LOG("analyzed Provenance Stmt");
             break;
-            /*
-        case T_IGStmt:
-            analyzeIGStmt((IGStmt *) stmt, parentFroms);
-            DEBUG_LOG("analyzed IG Stmt");
-            break;
-            */
         case T_List:
             analyzeStmtList ((List *) stmt, parentFroms);
             DEBUG_LOG("analyzed List");

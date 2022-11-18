@@ -95,6 +95,15 @@ typedef struct ProvenanceComputation
     Node *asOf;
 } ProvenanceComputation;
 
+typedef struct IGComputation
+{
+    QueryOperator op;
+    IGType IGType;
+    IGInputType inputType;
+    IGTransactionInfo *transactionInfo;
+    Node *asOf;
+} IGComputation;
+
 NEW_ENUM_WITH_TO_STRING(ReenactUpdateType,
         UPDATE_TYPE_DELETE,
         UPDATE_TYPE_UPDATE,
