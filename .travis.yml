@@ -1,0 +1,68 @@
+####################
+# set up languages
+language: c
+
+services:
+  - docker
+
+####################
+# install packages
+before_install:
+  - travis_wait docker pull iitdbgroup/gprom_travis:latest
+
+####################
+# build script
+script:
+  - export PATH=.:${PATH} && travis_wait 40 ./travis/build.sh
+  - export PATH=.:${PATH} && travis_wait 20 ./travis/runjavatest.sh
+
+####################
+# branch configuration
+#branches:
+#  only:
+#  - master
+#  - /^v\.\d+.\d+.*$/
+
+####################
+# os environments
+sudo: required
+#osx_image: xcode7.3
+
+####################
+# deploy
+after_success:
+  - export PATH=.:${PATH} && ./travis/deploy.sh
+
+####################
+# build matrix
+matrix:
+  include:
+# does not have new enough ant and java version:  - { os: linux, dist: precise }
+  - { os: linux, dist: trusty }
+#  - { os: osx }
+#  allow_failures:
+#    - os: osx
+
+####################
+# deploy to github releases if this is a tagged commit
+before_deploy:
+  - export RELEASE_TARBALL_FILE=$(ls gprom-*.tar.gz)
+  - export RELEASE_DEB_FILE=$(ls packaging/gprom*.deb)
+  - export RELEASE_JDBC_JAR_FILE=build/gprom-jdbc.jar
+  - echo deploying ${RELEASE_TARBALL_FILE} and ${RELEASE_DEB_FILE} and ${RELEASE_JDBC_JAR_FILE} to GitHub releases
+# do deploy
+deploy:
+  provider: releases
+  api_key:
+    secure: GMnQ+sYvhpiqbIGRvy1pzxbl6d1c5MdsclMkl9VRQGFRGomAkBc2RTcI8kT+1SxNgLittB97z3qY7sUyEvmsMHLPT6KsxcWAqWvdouDm73/u9cufnyVqD0y1IpkjIqJJMAjG7vqLZiupTVxy5cpNQ1ObQ7/ROhadzsMFRB/WD9QtHTNPhSYqSHFUflnDS57MU3B4WJg35PQPt4FQ8QRHi2BlPHeDwPG/YmjyV24/hIMEp3RZfAMuA6H1Rhp/6NGSyRKKsiR13ZGdQCEBDkqsk78TvNleawfA/YwEZ2jT81x441BgqGxAlA8a63ciTabV/0AXyhij/Q6sDMsLuYCNgFAv3EfWvJGS2zNAbRmfXX5WICeHReD0Y8n0AETP1JN142eFZyl75zQ34T0VUZsRymwFea6Mtyl4aYDX0phxvncMIk8xEzVq5TBbZUZWHtPxx0YCmIAms5sKuN1CBKafw8L2+RK6CrP/Ix4JN02TlG/kqxjH/9nCuiG9v9Xh/dYnxyqTTW+V8rNUK6aCNuXpjj1wfJ1OLZsrAweHulEoXWKfuBLMNIfqcl3PthbdAMWhvJNGhy02QtUvR6xl/4KZ7Hn3jrzvV0TP4UGA5hZm8nGs1hgayB/nwM8536A7JmIF8LDlZYg6RAIEqAv/CY/NWKnfs4cyfgV8oZVaKZFtZHQ=
+  file_glob: true
+  file:
+    - "${RELEASE_TARBALL_FILE}"
+    - "${RELEASE_JDBC_JAR_FILE}"
+    - "${RELEASE_DEB_FILE}"
+  name: GProM 
+  skip-cleanup: true
+  on:
+    repo: IITDBGroup/gprom
+    tags: true
+    condition: $TRAVIS_OS_NAME = linux    
