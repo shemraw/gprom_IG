@@ -77,6 +77,35 @@ typedef struct ProvenanceTransactionInfo
     Constant *commitSCN;
 } ProvenanceTransactionInfo;
 
+
+typedef struct IGTransactionInfo
+{
+    NodeTag type;
+    IsolationLevel transIsolation;
+    List *updateTableNames;
+    List *originalUpdates;
+    List *scns;
+    Constant *commitSCN;
+} IGTransactionInfo;
+
+typedef struct IGStmt
+{
+    NodeTag type;
+    Node *query;
+    List *selectClause;
+    List *dts;
+    IGType IGType;
+    IGInputType inputType;
+    IGTransactionInfo *transInfo;
+    Node *asOf;
+    List *options;
+    List *sumOpts;
+//    char *summaryType;
+//    List *userQuestion;
+//    int sampleSize;
+//    int topK;
+} IGStmt;
+
 typedef struct ProvenanceStmt
 {
     NodeTag type;

@@ -129,7 +129,6 @@ Node *
 translateParseOracle (Node *q)
 {
     Node *result;
-    INFO_OP_LOG("asdasdasd", result);
     //INFO_NODE_BEATIFY_LOG("translate QB model", q);
     List *attrsOffsetsList = NIL;
 
