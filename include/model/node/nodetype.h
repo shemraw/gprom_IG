@@ -41,10 +41,12 @@ NEW_ENUM_WITH_TO_STRING(NodeTag,
     T_ProvenanceStmt,
 	T_IGStmt,
     T_ProvenanceTransactionInfo,
+	T_IGTransactionInfo,
     T_QueryBlock,
     T_SelectItem,
     T_FromItem,
     T_FromProvInfo,
+	T_FromIGInfo,
     T_FromTableRef,
     T_FromSubquery,
     T_FromJoinExpr,
@@ -67,6 +69,7 @@ NEW_ENUM_WITH_TO_STRING(NodeTag,
     T_JoinOperator,
     T_AggregationOperator,
     T_ProvenanceComputation,
+	T_IGComputation,
     T_TableAccessOperator,
     T_SetOperator,
     T_DuplicateRemoval,
@@ -117,6 +120,14 @@ NEW_ENUM_WITH_TO_STRING(ProvenanceType,
     PROV_NONE /* for reenactment of bag semantics only */
 );
 
+NEW_ENUM_WITH_TO_STRING(IGType,
+    IG_PI_CS,
+    IG_TRANSFORMATION,
+    IG_XML,
+	IG_COARSE_GRAINED,
+	USE_IG_COARSE_GRAINED,
+    IG_NONE /* for reenactment of bag semantics only */
+);
 
 /* what type of database operation(s) a provenance computation is for */
 NEW_ENUM_WITH_TO_STRING(ProvenanceInputType,
@@ -130,16 +141,6 @@ NEW_ENUM_WITH_TO_STRING(ProvenanceInputType,
     PROV_INPUT_UNCERTAIN_QUERY,
 	PROV_INPUT_UNCERTAIN_TUPLE_QUERY,
 	PROV_INPUT_RANGE_QUERY
-);
-
-
-NEW_ENUM_WITH_TO_STRING(IGType,
-    IG_PI_CS,
-    IG_TRANSFORMATION,
-    IG_XML,
-	IG_COARSE_GRAINED,
-	USE_IG_COARSE_GRAINED,
-    IG_NONE /* for reenactment of bag semantics only */
 );
 
 

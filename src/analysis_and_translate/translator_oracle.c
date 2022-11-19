@@ -53,7 +53,7 @@ static void adaptSchemaFromChildren(QueryOperator *o);
 static QueryOperator *translateSetQuery(SetQuery *sq, List **attrsOffsetsList);
 static QueryOperator *translateQueryBlock(QueryBlock *qb, List **attrsOffsetsList);
 static QueryOperator *translateProvenanceStmt(ProvenanceStmt *prov, List **attrsOffsetsList);
-static QueryOperator *translateIGStmt(ProvenanceStmt *IG, List **attrsOffsetsList);
+static QueryOperator *translateIGStmt(IGStmt *IG, List **attrsOffsetsList);
 
 static void markTableAccessForRowidProv (QueryOperator *o);
 static void markTableAccessForRowidIG (QueryOperator *o);
@@ -171,7 +171,7 @@ translateQueryOracleInternal (Node *node, List **attrsOffsetsList)
         case T_ProvenanceStmt:
             return translateProvenanceStmt((ProvenanceStmt *) node, attrsOffsetsList);
         case T_IGStmt:
-                    return translateIGStmt((IGStmt *) node, attrsOffsetsList);
+            return translateIGStmt((IGStmt *) node, attrsOffsetsList);
         case T_Insert:
         case T_Update:
         case T_Delete:

@@ -17,14 +17,32 @@
 
 // provenance
 #define PROP_SHOW_INTERMEDIATE_PROV "SHOW_INTERMEDIATE_PROV" // show provenance for this intermediate subquery result
+#define PROP_SHOW_INTERMEDIATE_IG "SHOW_INTERMEDIATE_IG"
+
 #define PROP_USE_PROVENANCE "USE_PROVENANCE"                // duplicate user provided attributes as provenance
+#define PROP_USE_IG "USE_IG"
+
 #define PROP_HAS_PROVENANCE "HAS_PROVENANCE"                // indicates the subquery already has associated provenance
+#define PROP_HAS_IG "HAS_IG"
+
 #define PROP_DUMMY_HAS_PROV_PROJ "DUMMY_HAS_PROV_PROJ"      // indicates that this is a dummy projection introduced for HAS PROVENANCE
+#define PROP_DUMMY_HAS_IG_PROJ "DUMMY_HAS_IG_PROJ"
+
 #define PROP_USER_PROV_ATTRS "USER_PROV_ATTRS"              // list of user selected provenance attribtues
+#define PROP_USER_IG_ATTRS "USER_IG_ATTRS"
+
 #define PROP_PROV_REL_NAME "PROVENANCE_REL_NAME"            // in provenance attributes refer to subquery as this name
+#define PROP_IG_REL_NAME "IG_REL_NAME"
+
 #define PROP_PROV_ADD_REL_NAME "PROVENANCE_ADD_REL_NAME"            // in provenance attributes that are added refer to subquery as this name
+#define PROP_IG_ADD_REL_NAME "IG_ADD_REL_NAME"
+
 #define PROP_ADD_PROVENANCE "ADD_PROVENANCE"                // add the following attribtues to as provenance attributes (but still rewrite and add normal provenance attrs too)
+#define PROP_ADD_IG "ADD_IG"
+
 #define PROP_PROV_IGNORE_ATTRS "IGNORE_PROV_ATTRS"          // these attributes should be ignored during rewrite
+#define PROP_IG_IGNORE_ATTRS "IGNORE_IG_ATTRS"
+
 #define PROP_TRANSLATE_AS "TRANSLATE AS"
 #define PROP_TIP_ATTR "TIP_ATTR"							// indicates TIP attribute
 #define PROP_INCOMPLETE_TABLE "INCOMPLETE_TABLE"			// indicates an incomplete table
@@ -64,20 +82,32 @@
 #define PROP_REENACT_SCHEMA_INFO "REENACT_SCHEMA"           // store additional table schemas to support reenactment of DDL commands
 #define PROP_REENACT_ASOF "REENACT_AS_OF"                   // store as of when the reenactment should happen
 #define PROP_REENACT_DO_NOT_TRACK_PROV "REENACT_DO_NOT_TRACK_PROV"     // do not track provenance for the statement marked in this way
+#define PROP_REENACT_DO_NOT_TRACK_IG "REENACT_DO_NOT_TRACK_IG"
+
 #define PROP_REENACT_NO_TRACK_LIST "REENACTMENT_NO_PROV_TRACK_LIST"    // list that indicates for each reenacted statement whether to track provenance or not
+//#define PROP_REENACT_NO_TRACK_LIST "REENACTMENT_NO_IG_TRACK_LIST"
 
 // provenance PI-CS composable
 #define PROP_RESULT_TID_ATTR "RESULT_TID_ATTR"              // result tid attribute for PI-CS composable
 #define PROP_PROV_DUP_ATTR "PROV_DUP_ATTR"                  // provenance duplicate counter attribute for PI-CS composable
+#define PROP_IG_DUP_ATTR "IG_DUP_ATTR"
+
 #define PROP_PROVENANCE_OPERATOR_TUPLE_AT_A_TIME "PROVENANCE_OPERATOR_TUPLE_AT_A_TIME" // is the operator not sensitive to duplication
+#define PROP_IG_OPERATOR_TUPLE_AT_A_TIME "IG_OPERATOR_TUPLE_AT_A_TIME"
+
 
 // provenance of transaction
 #define PROP_PROV_IS_UPDATE_ROOT "UPDATE_ROOT"              // root of a translated update reenactment query
+#define PROP_IG_IS_UPDATE_ROOT "UPDATE_ROOT"
+
 #define PROP_PROV_ORIG_UPDATE_TYPE "ORIG_UPDATE_TYPE"       // store type of update for reenacted queries
+#define PROP_IG_ORIG_UPDATE_TYPE "ORIG_UPDATE_TYPE"
 
 /* Operator type specific properties */
 /* provenance computation specific properties */
 #define PROP_PC_PROV_TYPE "PROV_TYPE"                       // type of provenance to track
+#define PROP_PC_IG_TYPE "IG_TYPE"
+
 #define PROP_PC_TABLE "TRACK_TABLE"                         // updated table to trace proveance of transaction for
 #define PROP_PC_UPDATE_COND "UPDATE_CONDS"                  // conditions of updates in transaction
 #define PROP_PC_ONLY_UPDATED "ONLY_UPDATED"                 // show only provenance of updated rows in transaction
@@ -90,6 +120,8 @@
 #define PROP_PC_VERSION_SCN_ATTR "SCN_ATTR"                 // attribute storing the version annotation
 #define PROP_PC_REENACT_METADATA "REENACT_METADATA"         // store table information for reenacting DDL commands
 #define PROP_PC_GEN_PROVENANCE "GENERATE_PROVENANCE"        // used for REENACT to indicate that provenance should be computed
+#define PROP_PC_GEN_IG "GENERATE_IG"
+
 #define PROP_PC_REQUIRES_POSTFILTERING "REQUIRES_POSTFILTER"    // set to true if the output of reenactment needs to be filtered based on version annotation attributes
 #define PROP_PC_ISOLATION_LEVEL "REENACT_ISOLEVEL"          // set isolation level for reenactment
 #define PROP_PC_COMMIT_SCN "COMMIT_SCN"                     // stores commit SCN for REENACT WITH COMMIT SCN
@@ -107,7 +139,10 @@
 /* projection properties */
 #define PROP_MERGE_ATTR_REF_CNTS "MERGE SAFE ATTRIBUTE COUNTS"                        // safe to merge this projection with its child
 #define PROP_PROJ_PROV_ATTR_DUP "PROJECTION WITH PROVENANCE ATTRIBUTE DUPLICATION"    // needed by projection pull-up
+#define PROP_PROJ_IG_ATTR_DUP "PROJECTION WITH IG ATTRIBUTE DUPLICATION"
+
 #define PROP_PROJ_PROV_ATTR_DUP_PULLUP "PROJECTION WITH PROVENANCE ATTRIBUTE DUPLICATION PULL-UP"  //no need to pull-up if this op already pull-up
+#define PROP_PROJ_IG_ATTR_DUP_PULLUP "PROJECTION WITH IG ATTRIBUTE DUPLICATION PULL-UP"
 
 /* properties used to store list of set which used in selection move around */
 #define PROP_STORE_LIST_SET_SELECTION_MOVE_AROUND "STORE LIST SET FOR SELECTION MOVE AROUND"
