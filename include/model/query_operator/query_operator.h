@@ -237,6 +237,11 @@ extern DuplicateRemoval *createDuplicateRemovalOp (List *attrs,
         QueryOperator *input, List *parents, List *attrNames);
 extern ProvenanceComputation *createProvenanceComputOp(ProvenanceType provType,
         List *inputs, List *parents, List *attrNames, List *dts, Node *asOf);
+
+extern IGComputation *createIGComputOp(IGType IGType,
+        List *inputs, List *parents, List *attrNames, List *dts, Node *asOf);
+
+
 extern ConstRelOperator *createConstRelOp(List *values,List *parents,
         List *attrNames, List *dataTypes);
 extern NestingOperator *createNestingOp(NestingExprType nestingType, Node *cond,
