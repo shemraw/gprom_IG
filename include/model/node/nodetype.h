@@ -39,6 +39,7 @@ NEW_ENUM_WITH_TO_STRING(NodeTag,
     /* query block model nodes */
     T_SetQuery,
     T_ProvenanceStmt,
+	T_IGStmt,
     T_ProvenanceTransactionInfo,
     T_QueryBlock,
     T_SelectItem,
@@ -142,7 +143,7 @@ NEW_ENUM_WITH_TO_STRING(IGType,
 );
 
 
-/* what type of database operation(s) a provenance computation is for */
+/* what type of database operation(s) a IG computation is for */
 NEW_ENUM_WITH_TO_STRING(IGInputType,
     IG_INPUT_QUERY,
     IG_INPUT_UPDATE,

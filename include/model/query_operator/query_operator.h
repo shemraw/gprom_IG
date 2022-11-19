@@ -37,6 +37,7 @@ typedef struct QueryOperator
     Schema *schema; // attributes and their data types of result tables, Schema type
     List *parents; // direct parents of the operator node, QueryOperator type
     List *provAttrs; // positions of provenance attributes in the operator's schema
+    List *IGAttrs;
     Node *properties; // generic node to store flexible list or map of properties (KeyValue) for query operators
 } QueryOperator; // common fields that all operators have
 
@@ -292,10 +293,19 @@ extern int getChildPosInParent(QueryOperator *parent, QueryOperator *child);
 
 /* attribute functions */
 extern List *getProvenanceAttrs(QueryOperator *op);
+extern List *getIGAttrs(QueryOperator *op);
+
 extern List *getProvenanceAttrDefs(QueryOperator *op);
+extern List *getIGAttrDefs(QueryOperator *op);
+
 extern List *getProvenanceAttrReferences(ProjectionOperator *op, QueryOperator *op1);
+extern List *getIGAttrReferences(ProjectionOperator *op, QueryOperator *op1);
+
 extern List *getOpProvenanceAttrNames(QueryOperator *op);
+extern List *getOpIGAttrNames(QueryOperator *op);
+
 extern int getNumProvAttrs(QueryOperator *op);
+extern int getNumIGAttrs(QueryOperator *op);
 
 extern List *getNormalAttrs(QueryOperator *op);
 extern List *getNormalAttrReferences(ProjectionOperator *op, QueryOperator *op1);

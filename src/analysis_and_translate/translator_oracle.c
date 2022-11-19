@@ -53,7 +53,11 @@ static void adaptSchemaFromChildren(QueryOperator *o);
 static QueryOperator *translateSetQuery(SetQuery *sq, List **attrsOffsetsList);
 static QueryOperator *translateQueryBlock(QueryBlock *qb, List **attrsOffsetsList);
 static QueryOperator *translateProvenanceStmt(ProvenanceStmt *prov, List **attrsOffsetsList);
+static QueryOperator *translateIGStmt(ProvenanceStmt *IG, List **attrsOffsetsList);
+
 static void markTableAccessForRowidProv (QueryOperator *o);
+static void markTableAccessForRowidIG (QueryOperator *o);
+
 static void getAffectedTableAndOperationType (Node *stmt,
         ReenactUpdateType *stmtType, char **tableName, Node **updateCond);
 static void translateProperties(QueryOperator *q, List *properties);
@@ -70,7 +74,9 @@ static inline QueryOperator *createTableAccessOpFromFromTableRef(
 static QueryOperator *translateFromJoinExpr(FromJoinExpr *fje, List **attrsOffsetsList);
 static QueryOperator *translateFromSubquery(FromSubquery *fsq, List **attrsOffsetsList);
 static QueryOperator *translateFromJsonTable(FromJsonTable *fjt);
+
 static QueryOperator *translateFromProvInfo(QueryOperator *op, FromItem *f);
+static QueryOperator *translateFromIGInfo(QueryOperator *op, FromItem *f);
 
 /* Functions of translating nested subquery in a QueryBlock */
 static QueryOperator *translateNestedSubquery(QueryBlock *qb,
@@ -164,6 +170,8 @@ translateQueryOracleInternal (Node *node, List **attrsOffsetsList)
             return translateSetQuery((SetQuery *) node, attrsOffsetsList);
         case T_ProvenanceStmt:
             return translateProvenanceStmt((ProvenanceStmt *) node, attrsOffsetsList);
+        case T_IGStmt:
+                    return translateIGStmt((IGStmt *) node, attrsOffsetsList);
         case T_Insert:
         case T_Update:
         case T_Delete:
@@ -892,6 +900,337 @@ translateProvenanceStmt(ProvenanceStmt *prov, List **attrsOffsetsList)
     return (QueryOperator *) result;
 }
 
+
+// -----------------------------------------------------------------
+
+
+static QueryOperator *
+translateIGStmt(IGStmt *IG, List **attrsOffsetsList)
+{
+    QueryOperator *child;
+    IGComputation *result;
+
+    //get type from options
+    result = createIGComputOp(IG->IGType, NIL, NIL,
+            IG->selectClause, IG->dts, NULL);
+    result->inputType = IG->inputType;
+    result->asOf = copyObject(IG->asOf);
+    translateProperties(((QueryOperator *) result), IG->options);
+
+    switch (IG->inputType)
+    {
+        case IG_INPUT_TRANSACTION:
+        {
+            //XID ?
+            char *xid = STRING_VALUE(IG->query);
+            List *scns = NIL;
+            List *sqls = NIL;
+            List *sqlBinds = NIL;
+            IsolationLevel isoLevel;
+            List *updateConds = NIL;
+            Constant *commitSCN = createConstLong(-1L);
+            boolean showIntermediate = HAS_STRING_PROP(result,PROP_PC_SHOW_INTERMEDIATE);
+            boolean useRowidScn = HAS_STRING_PROP(result,PROP_PC_TUPLE_VERSIONS);
+            List *noIG = NIL;
+            int i = 0;
+
+            DEBUG_LOG("IG for transaction");
+
+            // set XID
+            SET_STRING_PROP(result, PROP_PC_TRANS_XID, createConstString(strdup(xid)));
+
+            // call metadata lookup -> SCNS + SQLS
+            getTransactionSQLAndSCNs(xid, &scns, &sqls, &sqlBinds, &isoLevel, commitSCN);
+
+            // set provenance transaction info
+            IGTransactionInfo *tInfo = makeNode(IGTransactionInfo);
+
+            result->transactionInfo = tInfo;
+            //      tInfo->originalUpdates = copyObject(&sqls);
+            tInfo->updateTableNames = NIL;
+            tInfo->scns = scns;
+            tInfo->transIsolation = isoLevel;
+            tInfo->originalUpdates = NIL;
+
+            // call parser and analyser and translate nodes
+            FOREACH(char,sql,sqls)
+            {
+                Node *node;
+                char *bindString;
+                List *bindVals;
+
+                node = parseFromString(sql);
+
+                START_TIMER("translation - transaction - analyze update");
+                analyzeParseModel(node);
+                STOP_TIMER("translation - transaction - analyze update");
+                node = getNthOfListP((List *) node, 0);
+
+                START_TIMER("translation - transaction - analyze binds");
+                bindString = getNthOfListP(sqlBinds, i);
+                if (bindString != NULL)
+                {
+                    DEBUG_LOG("set parameters\n%s\nfor sql\n%s", nodeToString(node), bindString);
+                    bindVals = oracleBindToConsts(bindString);
+                    node = setParameterValues(node, bindVals);
+                }
+                STOP_TIMER("translation - transaction - analyze binds");
+
+                /* get table name and other information about the statement */
+                char *tableName = NULL;
+                ReenactUpdateType updateType = UPDATE_TYPE_DELETE;
+                Node *updateCond = NULL;
+
+                getAffectedTableAndOperationType(node, &updateType, &tableName, &updateCond);
+
+                DEBUG_NODE_BEATIFY_LOG("result of update translation is", node);
+
+                // store in transaction info
+                //TODO ok to do that?
+//                if (updateCond != NULL)
+                    updateConds = appendToTailOfList(updateConds, copyObject(updateCond));
+
+                tInfo->originalUpdates = appendToTailOfList(tInfo->originalUpdates, node);
+                tInfo->updateTableNames = appendToTailOfList(
+                        tInfo->updateTableNames, strdup(tableName));
+
+                // translate and add update as child to provenance computation
+                START_TIMER("translation - transaction - translate update");
+                child = translateQueryOracleInternal(node, attrsOffsetsList);
+                STOP_TIMER("translation - transaction - translate update");
+
+                // mark for showing intermediate results
+                if (showIntermediate)
+                {
+                    SET_BOOL_STRING_PROP(child, PROP_SHOW_INTERMEDIATE_IG);
+                    SET_STRING_PROP(child, PROP_IG_REL_NAME, createConstString(
+                            CONCAT_STRINGS("U", gprom_itoa(i + 1), "_", strdup(tableName))));
+                }
+
+                // use ROWID + SCN as provenance, set provenance attributes for each table
+                if (useRowidScn)
+                {
+                    markTableAccessForRowidIG(child);
+                }
+
+                // mark as root of translated update
+                SET_BOOL_STRING_PROP(child, PROP_IG_IS_UPDATE_ROOT);
+                SET_STRING_PROP(child, PROP_PROV_ORIG_UPDATE_TYPE, createConstInt(updateType));
+                DEBUG_NODE_BEATIFY_LOG("qo model of update for transaction is\n", child);
+
+                noIG = appendToTailOfList(noIG, createConstBool(FALSE));
+
+                addChildOperator((QueryOperator *) result, child);
+                i++;
+            }
+
+            // get commit scn, some tables that were targeted by statements might not have been modified
+            gprom_long_t commitScn = INVALID_SCN;
+
+            FOREACH(char,tableName,tInfo->updateTableNames)
+            {
+                DEBUG_LOG("try to get commit SCN from table <%s>", tableName);
+                commitScn = getCommitScn(tableName,
+                        LONG_VALUE(getHeadOfListP(tInfo->scns)),
+                        xid);
+                if (commitScn != INVALID_SCN)
+                    break;
+            }
+
+            if (commitScn == INVALID_SCN)
+                FATAL_NODE_BEATIFY_LOG("unable to determine commit SCN for transaction", tInfo);
+
+            tInfo->commitSCN = createConstLong(commitScn);
+
+            DEBUG_LOG("ONLY UPDATED conditions: %s", nodeToString(updateConds));
+            DEBUG_LOG("no ig: %s", nodeToString(noIG));
+            SET_STRING_PROP(result, PROP_PC_UPDATE_COND, updateConds);
+            SET_STRING_PROP(result, PROP_REENACT_NO_TRACK_LIST, noIG);
+
+            DEBUG_LOG("constructed translated ig computation for IG OF TRANSACTION");
+        }
+        break;
+        case IG_INPUT_UPDATE_SEQUENCE:
+        {
+            IGTransactionInfo *tInfo = makeNode(IGTransactionInfo);
+
+            result->transactionInfo = tInfo;
+            tInfo->originalUpdates = copyObject(IG->query);
+            tInfo->updateTableNames = NIL;
+            tInfo->transIsolation = ISOLATION_SERIALIZABLE;
+            tInfo->scns = NIL;
+
+            FOREACH(Node,n,(List *) IG->query)
+            {
+                char *tableName = NULL;
+
+                /* get table name */
+                getAffectedTableAndOperationType(n, NULL, &tableName, NULL);
+                tInfo->updateTableNames = appendToTailOfList(
+                        tInfo->updateTableNames, strdup(tableName));
+                tInfo->scns = appendToTailOfList(tInfo->scns, createConstLong(0)); //TODO get SCN
+
+                // translate and add update as child to provenance computation
+                child = translateQueryOracleInternal(n, attrsOffsetsList);
+                addChildOperator((QueryOperator *) result, child);
+            }
+        }
+        break;
+        case IG_INPUT_UPDATE:
+        case IG_INPUT_QUERY:
+        {
+            child = translateQueryOracleInternal(IG->query, attrsOffsetsList);
+            addChildOperator((QueryOperator *) result, child);
+        }
+        break;
+        case IG_INPUT_TEMPORAL_QUERY:
+        {
+            DataType tempDT = getTailOfListInt(IG->dts);
+            SET_STRING_PROP(result, PROP_TEMP_ATTR_DT, createConstInt(tempDT));
+            child = translateQueryOracleInternal(IG->query, attrsOffsetsList);
+            addChildOperator((QueryOperator *) result, child);
+        }
+        break;
+        case IG_INPUT_UNCERTAIN_QUERY:
+     	case IG_INPUT_RANGE_QUERY:
+	    case IG_INPUT_UNCERTAIN_TUPLE_QUERY:
+        {
+            child = translateQueryOracleInternal(IG->query, attrsOffsetsList);
+            addChildOperator((QueryOperator *) result, child);
+        }
+		break;
+        case IG_INPUT_REENACT:
+        case IG_INPUT_REENACT_WITH_TIMES:
+        {
+            IGTransactionInfo *tInfo = makeNode(IGTransactionInfo);
+            HashMap *tableToTranslation = NEW_MAP(Constant, QueryOperator);
+            boolean isWithTimes = (IG->inputType == IG_INPUT_REENACT_WITH_TIMES);
+            boolean showIntermediate = HAS_STRING_PROP(result,PROP_PC_SHOW_INTERMEDIATE);
+            boolean useRowidScn = HAS_STRING_PROP(result,PROP_PC_TUPLE_VERSIONS);
+            boolean hasIsolevel = HAS_STRING_PROP(result,PROP_PC_ISOLATION_LEVEL);
+            boolean hasCommitSCN = HAS_STRING_PROP(result,PROP_PC_COMMIT_SCN);
+            List *updateConds = NIL;
+            List *noIG = NIL;
+            int i = 0, j = 0;
+
+            // user has asked for provenance?
+            if (HAS_STRING_PROP(result, PROP_PC_GEN_IG))
+            {
+                result->IGType = IG_PI_CS;
+            }
+
+            if (hasCommitSCN)
+                tInfo->commitSCN = (Constant *) GET_STRING_PROP(result, PROP_PC_COMMIT_SCN);
+
+            if (hasIsolevel)
+            {
+                char *isoLevel = STRING_VALUE(GET_STRING_PROP(result,PROP_PC_ISOLATION_LEVEL));
+
+                DEBUG_LOG("has isolevel %s", isoLevel);
+
+                if (streq(strToUpper(isoLevel), "SERIALIZABLE"))
+                    tInfo->transIsolation = ISOLATION_SERIALIZABLE;
+                else if (streq(strToUpper(isoLevel), "READCOMMITTED"))
+                    tInfo->transIsolation = ISOLATION_READ_COMMITTED;
+                else
+                    FATAL_LOG("isolation level has to be either SERIALIZABLE or READCOMMITTED not <%s>", isoLevel);
+            }
+            else
+                tInfo->transIsolation = ISOLATION_SERIALIZABLE;
+
+            if (tInfo->transIsolation == ISOLATION_READ_COMMITTED && IG->inputType == IG_INPUT_REENACT)
+                FATAL_LOG("isolation level READ COMMITTED requires an AS OF clause for each reenacted DML.");
+            if (tInfo->transIsolation == ISOLATION_READ_COMMITTED && !hasCommitSCN)
+                FATAL_LOG("isolation level READ COMMITTED requires a commit scn to be specified using WITH COMMIT SCN scn.");
+
+            result->transactionInfo = tInfo;
+            tInfo->originalUpdates = NIL;
+            tInfo->updateTableNames = NIL;
+            tInfo->scns = NIL;
+
+            FOREACH(KeyValue,stmtWithOpts,(List *) IG->query)
+            {
+                char *tableName = NULL;
+                Node *n = stmtWithOpts->key;
+                List *opts = (List *) stmtWithOpts->value;
+                HashMap *optMap = NEW_MAP(Constant,Node);
+                boolean isNoIG;
+
+                // convert options into hashmap
+                FOREACH(KeyValue,opt,opts)
+                {
+                    addToMap(optMap, opt->key, opt->value);
+                }
+                isNoIG = MAP_HAS_STRING_KEY(optMap, PROP_REENACT_DO_NOT_TRACK_IG);
+                noIG = appendToTailOfList(noIG, createConstBool(isNoIG));
+
+                ReenactUpdateType stmtType;
+                Node *cond = NULL;
+
+                /* get table name and other info */
+                getAffectedTableAndOperationType(n, &stmtType, &tableName, &cond);
+
+                // store info
+                tInfo->updateTableNames = appendToTailOfList(
+                        tInfo->updateTableNames, strdup(tableName));
+
+                if (isWithTimes)
+                {
+                    tInfo->scns = appendToTailOfList(tInfo->scns, MAP_GET_STRING(optMap, PROP_REENACT_ASOF));
+                }
+
+                updateConds = appendToTailOfList(updateConds, copyObject(cond));
+
+                tInfo->originalUpdates = appendToTailOfList(tInfo->originalUpdates, n);
+
+                // translate and add update as child to provenance computation
+                child = translateQueryOracleInternal(n, attrsOffsetsList);
+                MAP_ADD_STRING_KEY(tableToTranslation, tableName, child);
+
+                addChildOperator((QueryOperator *) result, child);
+
+                // mark for showing intermediate results
+                if (showIntermediate && !isNoIG)
+                {
+                    SET_BOOL_STRING_PROP(child, PROP_SHOW_INTERMEDIATE_IG);
+                    SET_STRING_PROP(child, PROP_IG_REL_NAME, createConstString(
+                            CONCAT_STRINGS("U", gprom_itoa(j + 1), "_", strdup(tableName))));
+                    j++;
+                }
+
+                // use ROWID + SCN as provenance, set provenance attributes for each table
+                if (useRowidScn)
+                {
+                    markTableAccessForRowidIG(child);
+                }
+
+                // mark as root of translated update
+                SET_BOOL_STRING_PROP(child, PROP_IG_IS_UPDATE_ROOT);
+                if (isNoIG)
+                    SET_BOOL_STRING_PROP(child, PROP_REENACT_DO_NOT_TRACK_IG);
+                SET_STRING_PROP(child, PROP_IG_ORIG_UPDATE_TYPE, createConstInt(stmtType));
+                DEBUG_NODE_BEATIFY_LOG("qo model of update for transaction is\n", child);
+
+                i++;
+
+                //TODO
+            }
+            //TODO check that no prov statements are a prefix of all the statements updating a table
+            DEBUG_LOG("ONLY UPDATED conditions: %s", nodeToString(updateConds));
+            DEBUG_LOG("no prov: %s", nodeToString(noIG));
+            SET_STRING_PROP(result, PROP_PC_UPDATE_COND, updateConds);
+            SET_STRING_PROP(result, PROP_REENACT_NO_TRACK_LIST, noIG);
+            break;
+        }
+    }
+    return (QueryOperator *) result;
+}
+
+
+// -----------------------------------------------------------------
+
+
+
 static void
 markTableAccessForRowidProv (QueryOperator *o)
 {
@@ -916,6 +1255,33 @@ markTableAccessForRowidProv (QueryOperator *o)
         }
     }
 }
+
+
+static void
+markTableAccessForRowidIG (QueryOperator *o)
+{
+    List *tables = NIL;
+    findTableAccessVisitor((Node *) o, &tables);
+
+    FOREACH(TableAccessOperator,t,tables)
+    {
+        if (HAS_STRING_PROP(t,PROP_TABLE_IS_UPDATED))
+        {
+            SET_BOOL_STRING_PROP(t,PROP_TABLE_USE_ROWID_VERSION);
+            SET_BOOL_STRING_PROP(t,PROP_USE_IG);
+            SET_STRING_PROP(t,PROP_USER_IG_ATTRS,
+                    stringListToConstList(LIST_MAKE(
+                            strdup("ROWID"),
+                            strdup("VERSIONS_STARTSCN"))));
+
+            t->op.schema->attrDefs = appendToTailOfList(t->op.schema->attrDefs,
+                    createAttributeDef("ROWID", DT_STRING));
+            t->op.schema->attrDefs = appendToTailOfList(t->op.schema->attrDefs,
+                    createAttributeDef("VERSIONS_STARTSCN", DT_LONG));
+        }
+    }
+}
+
 
 /**
  * determines a stmts update type, affected table, and (if the stmt is an UPDATE) it's condition
