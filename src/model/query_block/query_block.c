@@ -449,6 +449,7 @@ createAlterTableRemoveColumn (char *tName, char *colName)
 
 /* fromProvInfo ProvProperties helper functions*/
 static KeyValue *getProvProp (FromProvInfo *from, Node *key);
+static KeyValue *getIGProp (FromIGInfo *from, Node *key);
 
 void
 setProvProperty (FromProvInfo *from, Node *key, Node *value)
@@ -470,6 +471,29 @@ setProvProperty (FromProvInfo *from, Node *key, Node *value)
 	addToMap((HashMap *) from->provProperties, key, value);
 }
 
+
+void
+setIGProperty (FromIGInfo *from, Node *key, Node *value)
+{
+	if (from->IGProperties == NULL)
+	{
+		from->IGProperties = (Node *) NEW_MAP(Node,Node);
+	}
+
+	/*
+	KeyValue *val = getProp(op, key);
+	if (val)
+	{
+		val->value = value;
+		return;
+	}
+	*/
+
+	addToMap((HashMap *) from->IGProperties, key, value);
+}
+
+
+
 Node *
 getProvProperty (FromProvInfo *from, Node *key)
 {
@@ -479,12 +503,32 @@ getProvProperty (FromProvInfo *from, Node *key)
 }
 
 Node *
+getIGProperty (FromIGInfo *from, Node *key)
+{
+	KeyValue *kv = getIGProp(from, key);
+
+	return kv ? kv->value : NULL;
+}
+
+
+Node *
 getStringProvProperty (FromProvInfo *from, char *key)
 {
 	if (from->provProperties == NULL)
 		from->provProperties = (Node *) NEW_MAP(Node,Node);
 	return getMapString((HashMap *) from->provProperties, key);
 }
+
+
+
+Node *
+getStringIGProperty (FromIGInfo *from, char *key)
+{
+	if (from->IGProperties == NULL)
+		from->IGProperties = (Node *) NEW_MAP(Node,Node);
+	return getMapString((HashMap *) from->IGProperties, key);
+}
+
 
 static KeyValue *
 getProvProp (FromProvInfo *from, Node *key)
@@ -496,8 +540,30 @@ getProvProp (FromProvInfo *from, Node *key)
 	return getMapEntry((HashMap *) from->provProperties, key);
 }
 
+
+static KeyValue *
+getIGProp (FromIGInfo *from, Node *key)
+{
+	if (from->IGProperties == NULL)
+	{
+		from->IGProperties = (Node *) NEW_MAP(Node, Node);
+	}
+	return getMapEntry((HashMap *) from->IGProperties, key);
+}
+
+
 void
 setStringProvProperty (FromProvInfo *from, char *key, Node *value)
 {
 	setProvProperty(from, (Node *) createConstString(key), value);
 }
+
+
+
+void
+setStringIGProperty (FromIGInfo *from, char *key, Node *value)
+{
+	setIGProperty(from, (Node *) createConstString(key), value);
+}
+
+

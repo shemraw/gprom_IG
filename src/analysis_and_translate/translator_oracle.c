@@ -67,6 +67,8 @@ static QueryOperator *translateWithStmt(WithStmt *with, List **attrsOffsetsList)
 static QueryOperator *translateFromClause(List *fromClause, List **attrsOffsetsList);
 static QueryOperator *buildJoinTreeFromOperatorList(List *opList);
 static List *translateFromClauseToOperatorList(List *fromClause, List **attrsOffsetsList);
+
+
 //static void addPrefixToAttrNames (List *str, char *prefix);
 static List *getAttrsOffsets(List *fromClause);
 static inline QueryOperator *createTableAccessOpFromFromTableRef(
@@ -1538,25 +1540,28 @@ static List *
 translateFromClauseToOperatorList(List *fromClause, List **attrsOffsetsList)
 {
     List *opList = NIL;
-
     DEBUG_LOG("translate from clause");
-
     FOREACH(FromItem, from, fromClause)
     {
         QueryOperator *op = NULL;
+        QueryOperator *opIG = NULL;
         switch (from->type)
         {
             case T_FromTableRef:
                 op = createTableAccessOpFromFromTableRef((FromTableRef *) from);
+                opIG = createTableAccessOpFromFromTableRef((FromTableRef *) from);
                 break;
             case T_FromJoinExpr:
                 op = translateFromJoinExpr((FromJoinExpr *) from, attrsOffsetsList);
+                opIG = translateFromJoinExpr((FromJoinExpr *) from, attrsOffsetsList);
                 break;
             case T_FromSubquery:
                 op = translateFromSubquery((FromSubquery *) from, attrsOffsetsList);
+                opIG = translateFromJoinExpr((FromJoinExpr *) from, attrsOffsetsList);
                 break;
             case T_FromJsonTable:
             	op = translateFromJsonTable((FromJsonTable *) from);
+            	opIG = translateFromJoinExpr((FromJoinExpr *) from, attrsOffsetsList);
             	break;
             default:
                 FATAL_LOG("did not expect node <%s> in from list", nodeToString(from));
@@ -1564,6 +1569,8 @@ translateFromClauseToOperatorList(List *fromClause, List **attrsOffsetsList)
         }
 
         op = translateFromProvInfo(op, from);
+        opIG = translateFromIGInfo(opIG, from);
+
 
         ASSERT(op);
         opList = appendToTailOfList(opList, op);
@@ -1684,6 +1691,119 @@ translateFromProvInfo(QueryOperator *op, FromItem *f)
 
     return op;
 }
+
+
+
+static QueryOperator *
+translateFromIGInfo(QueryOperator *op, FromItem *f)
+{
+    FromIGInfo *from = f->IGInfo;
+    boolean hasIG = FALSE;
+
+    if (from == NULL)
+        return op;
+
+    if (from->intermediateIG)
+        SET_BOOL_STRING_PROP(op,PROP_SHOW_INTERMEDIATE_IG);
+    else if (from->baserel)
+        SET_BOOL_STRING_PROP(op,PROP_USE_IG);
+    else
+    {
+        SET_BOOL_STRING_PROP(op,PROP_HAS_IG);
+        hasIG = TRUE;
+    }
+
+    if (from->userIGAttrs != NIL)
+        setStringProperty(op, PROP_USER_IG_ATTRS, (Node *) stringListToConstList(from->userIGAttrs));
+    else
+        setStringProperty(op, PROP_USER_IG_ATTRS, (Node *) stringListToConstList(getQueryOperatorAttrNames(op)));
+
+    if (from->IGProperties)
+    {
+
+		if (getStringIGProperty(from, IG_PROP_TIP_ATTR))
+		{
+			setStringProperty(op, PROP_TIP_ATTR, (Node *) createConstString(STRING_VALUE(getStringIGProperty(from, IG_PROP_TIP_ATTR))));
+			hasIG = TRUE;
+			//removed strdup
+			from->userIGAttrs = singleton(STRING_VALUE(getStringIGProperty(from, IG_PROP_TIP_ATTR)));
+		}
+
+		if (getStringIGProperty(from, IG_PROP_RADB_LIST))
+		{
+			setStringProperty(op, PROP_HAS_RANGE, (Node *) createConstBool(1));
+			hasIG = TRUE;
+			from->userIGAttrs = constStringListToStringList((List *) getStringIGProperty(from, IG_PROP_RADB_LIST));
+		}
+		if (getStringIGProperty(from, IG_PROP_UADB_LIST))
+		{
+			setStringProperty(op, PROP_HAS_UNCERT, (Node *) createConstBool(1));
+			hasIG = TRUE;
+			from->userIGAttrs = constStringListToStringList((List *) getStringIGProperty(from, IG_PROP_UADB_LIST));
+		}
+
+
+		if (getStringIGProperty(from, IG_PROP_INCOMPLETE_TABLE))
+		{
+			setStringProperty(op, PROP_INCOMPLETE_TABLE, (Node *) createConstBool(1));
+		}
+
+
+		if (getStringIGProperty(from, IG_PROP_XTABLE_GROUPID))
+		{
+			if (getStringIGProperty(from, IG_PROP_XTABLE_PROB))
+			{
+				setStringProperty(op, PROP_XTABLE_GROUPID,
+								  (Node *) createConstString(STRING_VALUE(getStringIGProperty(from, IG_PROP_XTABLE_GROUPID))));
+				setStringProperty(op, PROP_XTABLE_PROB,
+								  (Node *) createConstString(STRING_VALUE(getStringIGProperty(from, IG_PROP_XTABLE_PROB))));
+				hasIG = TRUE;
+				from->userIGAttrs = LIST_MAKE(
+					STRING_VALUE(getStringIGProperty(from, IG_PROP_XTABLE_GROUPID)),
+					STRING_VALUE(getStringIGProperty(from, IG_PROP_XTABLE_PROB)));
+			}
+		}
+    }
+
+
+    setStringProperty(op, PROP_IG_REL_NAME, (Node *) createConstString(f->name));
+
+
+    if (hasIG)
+    {
+        ProjectionOperator *p;
+        List *attrs, *newAttrs;
+        List *IGAttrs = from->userIGAttrs;
+        List *IGPos = NIL;
+
+        attrs = getQueryOperatorAttrNames(op);
+        newAttrs = NIL;
+
+        FOREACH(char,name,attrs)
+        {
+            if(!searchListString(IGAttrs, name))
+            {
+                newAttrs = appendToTailOfList(newAttrs, strdup(name));
+            }
+            else
+            {
+                IGPos = appendToTailOfListInt(IGPos, getAttrPos(op, name));
+            }
+        }
+        p = (ProjectionOperator *) createProjOnAttrsByName(op, newAttrs, NIL);
+        op->IGAttrs = IGPos;
+        // mark as dummy projection so it can be excluded from rewrite
+        SET_BOOL_STRING_PROP(p, PROP_DUMMY_HAS_IG_PROJ);
+        addChildOperator((QueryOperator *) p,op);
+        return (QueryOperator *) p;
+    }
+
+    return op;
+}
+
+
+
+
 
 static inline QueryOperator *
 createTableAccessOpFromFromTableRef(FromTableRef *ftr)

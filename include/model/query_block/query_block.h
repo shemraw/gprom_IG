@@ -143,6 +143,15 @@ typedef struct FromProvInfo
     Node *provProperties;
 } FromProvInfo;
 
+typedef struct FromIGInfo
+{
+    NodeTag type;
+    boolean baserel;
+    boolean intermediateIG;
+    List *userIGAttrs;
+    Node *IGProperties;
+} FromIGInfo;
+
 typedef struct FromItem
 {
     NodeTag type;
@@ -150,6 +159,7 @@ typedef struct FromItem
     List *attrNames;
     List *dataTypes;
     FromProvInfo *provInfo;
+    FromIGInfo *IGInfo;
 } FromItem;
 
 typedef struct FromTableRef
@@ -337,6 +347,8 @@ extern SetQuery *createSetQuery(char *opType, boolean all, Node *lChild,
         Node *rChild);
 extern QueryBlock *createQueryBlock(void);
 extern ProvenanceStmt *createProvenanceStmt(Node *query);
+extern IGStmt *createIGStmt(Node *query);
+
 extern SelectItem *createSelectItem(char *alias, Node *expr);
 extern FromItem *createFromItem (char *alias, List *attrNames);
 extern FromItem *createFromTableRef(char *alias, List *attrNames,
@@ -367,8 +379,16 @@ extern AlterTable *createAlterTableRemoveColumn (char *tName, char *colName);
 
 /* deal with provProperties*/
 extern void setProvProperty (FromProvInfo *from, Node *key, Node *value);
+extern void setIGProperty (FromIGInfo *from, Node *key, Node *value);
+
 extern Node *getProvProperty (FromProvInfo *from, Node *key);
+extern Node *getIGProperty (FromIGInfo *from, Node *key);
+
 extern void setStringProvProperty (FromProvInfo *from, char *key, Node *value);
+extern void setStringIGProperty (FromIGInfo *from, char *key, Node *value);
+
 extern Node *getStringProvProperty (FromProvInfo *from, char *key);
+extern Node *getStringIGProperty (FromIGInfo *from, char *key);
+
 
 #endif /* QUERY_BLOCK_H */

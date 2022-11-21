@@ -196,6 +196,17 @@
 #define PROV_PROP_RADB_LIST "PROV_PROP_RADB_LIST"
 #define PROV_PROP_UADB_LIST "PROV_PROP_UADB_LIST"
 
+
+#define IG_PROP_TIP_ATTR "IG_PROP_TIP_ATTR"
+#define IG_PROP_INCOMPLETE_TABLE "IG_PROP_INCOMPLETE_TABLE"
+#define IG_PROP_XTABLE_GROUPID "IG_PROP_XTABLE_GROUPID"
+#define IG_PROP_XTABLE_PROB "IG_PROP_XTABLE_PROB"
+#define IG_PROP_RADB "IG_PROP_RADB"
+#define IG_PROP_UADB "IG_PROP_UADB"
+#define IG_PROP_RADB_LIST "IG_PROP_RADB_LIST"
+#define IG_PROP_UADB_LIST "IG_PROP_UADB_LIST"
+
+
 /* properties for aggregation operators created by lateral rewrite */
 #define PROP_OPT_AGGREGATION_BY_LATREAL_WRITE "AGGREGATION BY LATERAL REWRITE" //mark the aggregation created by lateral rewrite for nested queries
 
