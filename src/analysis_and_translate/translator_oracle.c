@@ -45,6 +45,8 @@ typedef struct ReplaceGroupByState {
 
 // function declarations
 static Node *translateGeneral(Node *node, List **attrsOffsetsList);
+static Node *translateGeneralIG(Node *node, List **attrsOffsetsList);
+
 static QueryOperator *translateQueryOracleInternal (Node *node, List **attrsOffsetsList);
 //static Node *translateSummary(Node *input, Node *node);
 static void adaptSchemaFromChildren(QueryOperator *o);
@@ -71,6 +73,8 @@ static List *translateFromClauseToOperatorList(List *fromClause, List **attrsOff
 
 //static void addPrefixToAttrNames (List *str, char *prefix);
 static List *getAttrsOffsets(List *fromClause);
+//static List *getAttrsOffsetsIG(List *fromClause);
+
 static inline QueryOperator *createTableAccessOpFromFromTableRef(
         FromTableRef *ftr);
 static QueryOperator *translateFromJoinExpr(FromJoinExpr *fje, List **attrsOffsetsList);
@@ -137,15 +141,19 @@ Node *
 translateParseOracle (Node *q)
 {
     Node *result;
+    Node *result1;
     //INFO_NODE_BEATIFY_LOG("translate QB model", q);
     List *attrsOffsetsList = NIL;
 
     // INFO_NODE_BEATIFY_LOG("translate QB model", q);
 
     result = translateGeneral(q, &attrsOffsetsList);
+    result1 = translateGeneralIG(q, &attrsOffsetsList);
+
 
     //DEBUG_NODE_BEATIFY_LOG("result of translation is:", result);
     INFO_OP_LOG("result of translation overview is", result);
+    INFO_OP_LOG("------- result of translation overview is", result1);
     ASSERT(equal(result, copyObject(result)));
 
     return result;
@@ -240,6 +248,89 @@ translateGeneral (Node *node, List **attrsOffsetsList)
             ProvenanceStmt *prov = (ProvenanceStmt *) node;
 
             FOREACH(Node,n,prov->sumOpts)
+            {
+                if(isA(n,List))
+                {
+                    List *sumOpts = (List *) n;
+
+                    FOREACH(KeyValue,sn,sumOpts)
+                    if(streq(STRING_VALUE(sn->key),"sumtype"))
+                        summaryType = STRING_VALUE(sn->value);
+                }
+            }
+
+            if(summaryType == NULL)
+                result = (Node *) translateQueryOracleInternal(node, attrsOffsetsList);
+            else
+            {
+                r = translateQueryOracleInternal(node, attrsOffsetsList);
+                r->properties = copyObject(prop);
+                result = (Node *) r;
+            }
+        }
+        else
+        {
+            result = (Node *) translateQueryOracleInternal(node, attrsOffsetsList);
+        }
+    }
+
+    Set *done = PSET();
+    disambiguiteAttrNames(result, done);
+
+    return result;
+}
+
+
+
+static Node *
+translateGeneralIG (Node *node, List **attrsOffsetsList)
+{
+    Node *result;
+    QueryOperator *r;
+
+    if (isA(node, List))
+    {
+        result = (Node *) copyList((List *) node);
+        FOREACH(Node,stmt,(List *) result)
+        {
+            if (isA(stmt, IGStmt))
+            {
+                IGStmt *IG = (IGStmt *) stmt;
+
+                FOREACH(Node,n,IG->sumOpts)
+                {
+                    if(isA(n,List))
+                    {
+                        List *sumOpts = (List *) n;
+
+                        FOREACH(KeyValue,sn,sumOpts)
+                        if(streq(STRING_VALUE(sn->key),"sumtype"))
+                            summaryType = STRING_VALUE(sn->value);
+                    }
+                }
+
+                if(summaryType == NULL)
+                    stmt_his_cell->data.ptr_value = (Node *) translateQueryOracleInternal(stmt, attrsOffsetsList);
+                else
+                {
+                    r = translateQueryOracleInternal(stmt, attrsOffsetsList);
+                    r->properties = copyObject(prop);
+                    stmt_his_cell->data.ptr_value = (Node *) r;
+                }
+            }
+            else
+            {
+                stmt_his_cell->data.ptr_value = (Node *) translateQueryOracleInternal(stmt, attrsOffsetsList);
+            }
+        }
+    }
+    else
+    {
+        if (isA(node, IGStmt))
+        {
+            IGStmt *IG = (IGStmt *) node;
+
+            FOREACH(Node,n,IG->sumOpts)
             {
                 if(isA(n,List))
                 {
@@ -1017,7 +1108,7 @@ translateIGStmt(IGStmt *IG, List **attrsOffsetsList)
 
                 // mark as root of translated update
                 SET_BOOL_STRING_PROP(child, PROP_IG_IS_UPDATE_ROOT);
-                SET_STRING_PROP(child, PROP_PROV_ORIG_UPDATE_TYPE, createConstInt(updateType));
+                SET_STRING_PROP(child, PROP_IG_ORIG_UPDATE_TYPE, createConstInt(updateType));
                 DEBUG_NODE_BEATIFY_LOG("qo model of update for transaction is\n", child);
 
                 noIG = appendToTailOfList(noIG, createConstBool(FALSE));
@@ -1535,6 +1626,37 @@ getAttrsOffsets(List *fromClause)
 
     return offsets;
 }
+/*
+static List *
+getAttrsOffsetsIG(List *fromClause)
+{
+//    int len = getListLength(fromClause);
+    List *offsets = NIL;
+    int curOffset = 0;
+    FromIGInfo *fp;
+
+    FOREACH(FromItem, from, fromClause)
+    {
+       int numAttrs;
+       offsets = appendToTailOfListInt(offsets, curOffset);
+       numAttrs = getListLength(from->attrNames);
+       if (from->IGInfo != NULL)
+       {
+           fp = from->IGInfo;
+           if(!fp->intermediateIG && !fp->baserel && fp->userIGAttrs)
+           {
+               numAttrs -= LIST_LENGTH(fp->userIGAttrs);
+           }
+       }
+       curOffset += numAttrs;
+    }
+
+    DEBUG_LOG("attribute offsets for from clause items are %s",
+            nodeToString(offsets));
+
+    return offsets;
+}
+*/
 
 static List *
 translateFromClauseToOperatorList(List *fromClause, List **attrsOffsetsList)
