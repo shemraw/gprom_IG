@@ -236,6 +236,8 @@ extern SetOperator *createSetOperator (SetOpType setOpType, List *inputs,
         List *parents, List *attrNames);
 extern DuplicateRemoval *createDuplicateRemovalOp (List *attrs,
         QueryOperator *input, List *parents, List *attrNames);
+
+
 extern ProvenanceComputation *createProvenanceComputOp(ProvenanceType provType,
         List *inputs, List *parents, List *attrNames, List *dts, Node *asOf);
 
