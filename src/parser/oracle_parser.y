@@ -65,6 +65,7 @@ Node *oracleParseResult = NULL;
 %token <stringVal> SELECT INSERT UPDATE DELETE
 %token <stringVal> SEQUENCED TEMPORAL TIME
 %token <stringVal> PROVENANCE OF BASERELATION SCN TIMESTAMP HAS TABLE ONLY UPDATED SHOW INTERMEDIATE USE TUPLE VERSIONS STATEMENT ANNOTATIONS NO REENACT OPTIONS SEMIRING COMBINER MULT UNCERTAIN URANGE
+%token <stringVal> IG
 %token <stringVal> TIP INCOMPLETE XTABLE RADB UADB
 %token <stringVal> CAPTURE COARSE GRAINED FRAGMENT PAGE RANGESA RANGESB
 %token <stringVal> FROM
@@ -85,7 +86,7 @@ Node *oracleParseResult = NULL;
 %token <stringVal> CAST
 %token <stringVal> CREATE ALTER ADD REMOVE COLUMN
 %token <stringVal> SUMMARIZED TO EXPLAIN SAMPLE TOP
-%token <stringVal> IG
+
 
 %token <stringVal> DUMMYEXPR
 
@@ -125,7 +126,8 @@ Node *oracleParseResult = NULL;
 /*
  * Types of non-terminal symbols
  */
-%type <node> stmt provStmt igStmt dmlStmt queryStmt ddlStmt reenactStmtWithOptions
+%type <node> stmt provStmt dmlStmt queryStmt ddlStmt reenactStmtWithOptions
+%type <node> igStmt
 %type <node> createTableStmt alterTableStmt alterTableCommand
 %type <list> tableElemList optTableElemList attrElemList
 %type <node> tableElement attr
@@ -139,6 +141,10 @@ Node *oracleParseResult = NULL;
 %type <node> selectItem fromClauseItem fromJoinItem optionalFromProv optionalAlias optionalDistinct optionalWhere optionalLimit optionalOffset optionalHaving orderExpr insertContent
              //optionalReruning optionalGroupBy optionalOrderBy optionalLimit
 %type <node> optionalFromTIP optionalFromIncompleteTable optionalFromXTable optionalFromRADB optionalFromUADB
+
+%type <list> optionalIGWith IGOptionList 
+%type <node> optionalFromIG optionalIGAsOf IGAsOf IGOption
+
 %type <node> expression constant attributeRef sqlParameter sqlFunctionCall whereExpression setExpression caseExpression caseWhen optionalCaseElse castExpression
 %type <node> overClause windowSpec optWindowFrame windowBound
 %type <node> jsonTable jsonColInfoItem
