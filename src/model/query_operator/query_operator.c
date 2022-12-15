@@ -773,20 +773,6 @@ createProvenanceComputOp(ProvenanceType provType, List *inputs, List *parents, L
     return p;
 }
 
-IGComputation *
-createIGComputOp(IGType IGType, List *inputs, List *parents, List *attrNames, List *dts, Node *asOf)
-{
-    IGComputation *p = makeNode(IGComputation);
-
-    p->op.parents = parents;
-    p->op.inputs = inputs;
-    p->op.schema = createSchemaFromLists("IG", attrNames, dts);
-    p->IGType = IGType;
-    p->asOf = asOf;
-
-    return p;
-}
-
 ConstRelOperator *
 createConstRelOp(List *values, List *parents, List *attrNames, List *dataTypes)
 {

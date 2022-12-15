@@ -35,7 +35,6 @@ static void analyzeStmtList (List *l, List *parentFroms);
 static void analyzeQueryBlock (QueryBlock *qb, List *parentFroms);
 static void analyzeSetQuery (SetQuery *q, List *parentFroms);
 static void analyzeProvenanceStmt (ProvenanceStmt *q, List *parentFroms);
-//static void analyzeIGStmt (IGStmt *q, List *parentFroms);
 static void analyzeProvenanceOptions (ProvenanceStmt *prov);
 static boolean reenactOptionHasTimes (List *opts);
 static void analyzeWithStmt (WithStmt *w);
@@ -2019,6 +2018,7 @@ analyzeProvenanceStmt (ProvenanceStmt *q, List *parentFroms)
 	analyzeProvenanceOptions(q);
 }
 
+
 static boolean
 checkTemporalAttributesVisitor (Node *node, DataType **context)
 {
@@ -2164,6 +2164,7 @@ analyzeProvenanceOptions (ProvenanceStmt *prov)
         }
     }
 }
+
 
 static void
 analyzeWithStmt (WithStmt *w)

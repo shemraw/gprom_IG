@@ -155,6 +155,7 @@ createProvenanceStmt(Node *query)
     return result;
 }
 
+
 SelectItem *
 createSelectItem(char *alias, Node *expr)
 {

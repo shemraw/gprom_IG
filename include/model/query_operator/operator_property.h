@@ -120,7 +120,6 @@
 #define PROP_PC_VERSION_SCN_ATTR "SCN_ATTR"                 // attribute storing the version annotation
 #define PROP_PC_REENACT_METADATA "REENACT_METADATA"         // store table information for reenacting DDL commands
 #define PROP_PC_GEN_PROVENANCE "GENERATE_PROVENANCE"        // used for REENACT to indicate that provenance should be computed
-#define PROP_PC_GEN_IG "GENERATE_IG"
 
 #define PROP_PC_REQUIRES_POSTFILTERING "REQUIRES_POSTFILTER"    // set to true if the output of reenactment needs to be filtered based on version annotation attributes
 #define PROP_PC_ISOLATION_LEVEL "REENACT_ISOLEVEL"          // set isolation level for reenactment

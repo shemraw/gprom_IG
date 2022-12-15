@@ -3,8 +3,6 @@
  *     This is a bison file which contains grammar rules to parse Oracle-ish SQL
  */
 
-
-
 %{
 #include "common.h"
 #include "mem_manager/mem_mgr.h"
@@ -141,10 +139,8 @@ Node *oracleParseResult = NULL;
 %type <node> selectItem fromClauseItem fromJoinItem optionalFromProv optionalAlias optionalDistinct optionalWhere optionalLimit optionalOffset optionalHaving orderExpr insertContent
              //optionalReruning optionalGroupBy optionalOrderBy optionalLimit
 %type <node> optionalFromTIP optionalFromIncompleteTable optionalFromXTable optionalFromRADB optionalFromUADB
-
-%type <list> optionalIGWith IGOptionList 
-%type <node> optionalFromIG optionalIGAsOf IGAsOf IGOption
-
+//%type <list> optionalIGWith IGOptionList 
+//%type <node> optionalIGAsOf IGAsOf IGOption
 %type <node> expression constant attributeRef sqlParameter sqlFunctionCall whereExpression setExpression caseExpression caseWhen optionalCaseElse castExpression
 %type <node> overClause windowSpec optWindowFrame windowBound
 %type <node> jsonTable jsonColInfoItem
@@ -281,7 +277,7 @@ alterTableStmt:
 		ALTER TABLE identifier alterTableCommand
 		{
 			RULELOG("alterTable:");
-			AlterTable *a = (AlterTable *) $4;
+AlterTable *a = (AlterTable *) $4;
 			a->tableName = $3;
 			$$ = (Node *) a;
 		}
@@ -304,9 +300,9 @@ alterTableCommand:
  * Rule to parse all DML statements.
  */
 dmlStmt:
-        insertQuery        { RULELOG("dmlStmt::insertQuery"); }
-        | deleteQuery        { RULELOG("dmlStmt::deleteQuery"); }
-        | updateQuery        { RULELOG("dmlStmt::updateQuery"); }
+        insertQuery        { RULELOG("dmlStmt::insertQuery");}
+        | deleteQuery        { RULELOG("dmlStmt::deleteQuery");}
+        | updateQuery        { RULELOG("dmlStmt::updateQuery");}
     ;
 
 /*
@@ -314,10 +310,10 @@ dmlStmt:
  */
 queryStmt:
 		'(' queryStmt ')'	{ RULELOG("queryStmt::bracketedQuery"); $$ = $2; }
-		| selectQuery        { RULELOG("queryStmt::selectQuery"); }
-		| provStmt        { RULELOG("queryStmt::provStmt"); }
-        | igStmt            { RULELOG("queryStmt::igStmt"); }
-		| setOperatorQuery        { RULELOG("queryStmt::setOperatorQuery"); }
+		| selectQuery        { RULELOG("queryStmt::selectQuery");}
+		| provStmt        { RULELOG("queryStmt::provStmt");}
+        | igStmt            { RULELOG("queryStmt::igStmt");}
+		| setOperatorQuery        { RULELOG("queryStmt::setOperatorQuery");}
     ;
 
 withQuery:
@@ -350,9 +346,12 @@ withView:
 	;
 
 transactionIdentifier:
-        BEGIN_TRANS        { RULELOG("transactionIdentifier::BEGIN"); $$ = strdup("TRANSACTION_BEGIN"); }
-        | COMMIT_TRANS        { RULELOG("transactionIdentifier::COMMIT"); $$ = strdup("TRANSACTION_COMMIT"); }
-        | ROLLBACK_TRANS        { RULELOG("transactionIdentifier::ROLLBACK"); $$ = strdup("TRANSACTION_ABORT"); }
+        BEGIN_TRANS        { RULELOG("transactionIdentifier::BEGIN");
+        $$ = strdup("TRANSACTION_BEGIN"); }
+        | COMMIT_TRANS        { RULELOG("transactionIdentifier::COMMIT");
+        $$ = strdup("TRANSACTION_COMMIT"); }
+        | ROLLBACK_TRANS        { RULELOG("transactionIdentifier::ROLLBACK");
+        $$ = strdup("TRANSACTION_ABORT"); }
     ;
 
 /*
@@ -413,7 +412,7 @@ provStmt:
         {
             RULELOG("provStmt::stmt");
             Node *stmt = $7;
-	    		ProvenanceStmt *p = createProvenanceStmt(stmt);
+	    	ProvenanceStmt *p = createProvenanceStmt(stmt);
 		    p->inputType = isQBUpdate(stmt) ? PROV_INPUT_UPDATE : PROV_INPUT_QUERY;
 		    p->provType = PROV_COARSE_GRAINED;
 		    p->asOf = (Node *) $3;
@@ -495,66 +494,87 @@ provStmt:
 */
 
 igStmt:
-        IG optionalIGAsOf optionalIGWith OF '(' stmt ')' optionalTranslate
+	IG optionalProvAsOf optionalProvWith OF '(' stmt ')' optionalTranslate
         {
-            RULELOG("igStmt::stmt");
+            RULELOG("provStmt::stmt");
             Node *stmt = $6;
-            IGStmt *p = createIGStmt(stmt);
-            p->inputType = isQBUpdate(stmt) ? IG_INPUT_UPDATE : IG_INPUT_QUERY;
-            p->IGType = IG_PI_CS;
-            p->asOf = (Node *) $2;
-            // p->options = $3;
-            p->options = concatTwoLists($3, $8);
+	    	ProvenanceStmt *p = createProvenanceStmt(stmt);
+		    p->inputType = isQBUpdate(stmt) ? PROV_INPUT_UPDATE : PROV_INPUT_QUERY;
+		    p->provType = IG_PI_CS;
+		    p->asOf = (Node *) $2;
+//            p->options = $3;
+            p->options = concatLists($3,$8);
             $$ = (Node *) p;
         }
-        | IG optionalIGAsOf optionalIGWith OF '(' stmtList ')'
-        {
-            RULELOG("igStmt::stmtlist");
-            IGStmt *p = createIGStmt((Node *) $6);
-            p->inputType = IG_INPUT_UPDATE_SEQUENCE;
-            p->IGType = IG_PI_CS;
-            p->asOf = (Node *) $2;
-            p->options = $3;
-            $$ = (Node *) p;
-        }
-        | IG optionalIGAsOf optionalIGWith OF TRANSACTION stringConst
-        {
-            RULELOG("igStmt::transaction");
-            IGStmt *p = createIGStmt((Node *) createConstString($6));
-            p->inputType = IG_INPUT_TRANSACTION;
-            p->IGType = IG_PI_CS;
-            p->options = $3;
-            $$ = (Node *) p;
-        }
-       
-        | USE IG optionalIGAsOf optionalIGWith OF '(' stmt ')' optionalTranslate
-        {
-            RULELOG("igStmt::stmt");
-            Node *stmt = $7;
-            IGStmt *p = createIGStmt(stmt);
-            p->inputType = isQBUpdate(stmt) ? IG_INPUT_UPDATE : IG_INPUT_QUERY;
-            p->IGType = USE_IG_COARSE_GRAINED;
-            p->asOf = (Node *) $3;
-            // p->options = $4;
-            p->options = concatTwoLists($4, $9);
-            $$ = (Node *) p;
-        }
-        
-        | optionalTopK IG optionalIGAsOf optionalIGWith OF '(' stmt ')' optionalTranslate optionalSummarization
-        {
-            RULELOG("igStmt::summaryStmt");
-            Node *stmt = $7;
-            IGStmt *p = createIGStmt(stmt);
-            p->inputType = isQBUpdate(stmt) ? IG_INPUT_UPDATE : IG_INPUT_QUERY;
-            p->IGType = IG_PI_CS;
-            p->asOf = (Node *) $3;
-            p->options = CONCAT_LISTS(singleton($1),$4,$9,$10,
-                                      singleton(createNodeKeyValue((Node *) createConstString(PROP_SUMMARIZATION_DOSUM),
-                                                                   (Node *) createConstBool(TRUE))));
-               /* p->sumOpts = appendToTailOfList(p->sumOpts,$1); */
-               /* p->sumOpts = appendToTailOfList(p->sumOpts,(Node *) $10); */
-            $$ = (Node *) p;
-        }
+		| IG optionalProvAsOf optionalProvWith OF '(' stmtList ')'
+		{
+			RULELOG("provStmt::stmtlist");
+			ProvenanceStmt *p = createProvenanceStmt((Node *) $6);
+			p->inputType = PROV_INPUT_UPDATE_SEQUENCE;
+			p->provType = IG_PI_CS;
+			p->asOf = (Node *) $2;
+			p->options = concatLists(listMake($1),$3);
+			$$ = (Node *) p;
+		}
+//        IG optionalIGAsOf optionalIGWith OF '(' stmt ')' optionalTranslate
+//        {
+//            RULELOG("igStmt::stmt");
+//            Node *stmt = $6;
+//            IGStmt *p = create(stmt);
+//            p->inputType = isQBUpdate(stmt) ? IG_INPUT_UPDATE : IG_INPUT_QUERY;
+//            p->IGType = IG_PI_CS;
+//            p->asOf = (Node *) $2;
+//            // p->options = $3;
+//            p->options = concatTwoLists($3, $8);
+//            $$ = (Node *) p;
+//        }
+//        | IG optionalIGAsOf optionalIGWith OF '(' stmtList ')'
+//        {
+//            RULELOG("igStmt::stmtlist");
+//            IGStmt *p = createIGStmt((Node *) $6);
+//            p->inputType = IG_INPUT_UPDATE_SEQUENCE;
+//            p->IGType = IG_PI_CS;
+//            p->asOf = (Node *) $2;
+//            p->options = $3;
+//            $$ = (Node *) p;
+//        }
+//        | IG optionalIGAsOf optionalIGWith OF TRANSACTION stringConst
+//        {
+//            RULELOG("igStmt::transaction");
+//            IGStmt *p = createProvenanceStmt((Node *) createConstString($6));
+//            p->inputType = IG_INPUT_TRANSACTION;
+//            p->IGType = IG_PI_CS;
+//            p->options = $3;
+//            $$ = (Node *) p;
+//        }
+//        | USE IG optionalIGAsOf optionalIGWith OF '(' stmt ')' optionalTranslate
+//        {
+//            RULELOG("igStmt::stmt");
+//            Node *stmt = $7;
+//            IGStmt *p = createIGStmt(stmt);
+//            p->inputType = isQBUpdate(stmt) ? IG_INPUT_UPDATE : IG_INPUT_QUERY;
+//            p->IGType = USE_IG_COARSE_GRAINED;
+//            p->asOf = (Node *) $3;
+//            // p->options = $4;
+//            p->options = concatTwoLists($4, $9);
+//            $$ = (Node *) p;
+//        }
+//        
+//        | optionalTopK IG optionalIGAsOf optionalIGWith OF '(' stmt ')' optionalTranslate optionalSummarization
+//        {
+//            RULELOG("igStmt::summaryStmt");
+//            Node *stmt = $7;
+//            IGStmt *p = createIGStmt(stmt);
+//            p->inputType = isQBUpdate(stmt) ? IG_INPUT_UPDATE : IG_INPUT_QUERY;
+//            p->IGType = IG_PI_CS;
+//            p->asOf = (Node *) $3;
+//            p->options = CONCAT_LISTS(singleton($1),$4,$9,$10,
+//                                      singleton(createNodeKeyValue((Node *) createConstString(PROP_SUMMARIZATION_DOSUM),
+//                                                                   (Node *) createConstBool(TRUE))));
+//               /* p->sumOpts = appendToTailOfList(p->sumOpts,$1); */
+//               /* p->sumOpts = appendToTailOfList(p->sumOpts,(Node *) $10); */
+//            $$ = (Node *) p;
+//        }
     ;
 
 
@@ -573,21 +593,22 @@ optionalTopK:
 
 
 optionalSummarization:
-		optionalSumType		{ RULELOG("optionalSumType::sumType"); $$ = singleton($1); }
+		optionalSumType		{ RULELOG("optionalSumType::sumType");
+		$$ = singleton($1); }
 		| optionalSummarization optionalSumType
         {
         	RULELOG("optionalSummarization::sumOpts");
-			$$ = appendToTailOfList($1,$2);
+        	$$ = appendToTailOfList($1,$2);
         }
         | optionalSummarization optionalToExplain
         {
         	RULELOG("optionalSummarization::sumOpts");
-			$$ = appendToTailOfList($1,$2);
+        	$$ = appendToTailOfList($1,$2);
         }
         | optionalSummarization optionalSumSample
         {
         	RULELOG("optionalSummarization::sumOpts");
-			$$ = appendToTailOfList($1,$2);
+        	$$ = appendToTailOfList($1,$2);
         }
 	;
 
@@ -684,23 +705,25 @@ optionalSumSample:
 
 
 optionalProvAsOf:
-		/* empty */			{ RULELOG("optionalProvAsOf::EMPTY"); $$ = NULL; }
+		/* empty */			{ RULELOG("optionalProvAsOf::EMPTY");
+		$$ = NULL; }
 		| provAsOf
 		{
 			RULELOG("optionalProvAsOf::provAsOf");
-			$$ = $1;
+$$ = $1;
 		}
 	;
 	
-/* IG OPTIONS */
-optionalIGAsOf:
-		/* empty */			{ RULELOG("optionalIGAsOf::EMPTY"); $$ = NULL; }
-		| IGAsOf
-		{
-			RULELOG("optionalIGAsOf::IGAsOf");
-			$$ = $1;
-		}
-	;	
+///* IG OPTIONS */
+//optionalIGAsOf:
+//		/* empty */			{ RULELOG("optionalIGAsOf::EMPTY");
+//		$$ = NULL; }
+//		| IGAsOf
+//		{
+//			RULELOG("optionalIGAsOf::IGAsOf");
+//			$$ = $1;
+//		}
+//	;	
 
 provAsOf:
 		AS OF SCN intConst
@@ -716,21 +739,22 @@ provAsOf:
 	;
 
 
-IGAsOf:
-		AS OF SCN intConst
-		{
-			RULELOG("IGAsOf::SCN");
-			$$ = (Node *) createConstLong($4);
-		}
-		| AS OF TIMESTAMP stringConst
-		{
-			RULELOG("IGAsOf::TIMESTAMP");
-			$$ = (Node *) createConstString($4);
-		}
-	;
+//IGAsOf:
+//		AS OF SCN intConst
+//		{
+//			RULELOG("IGAsOf::SCN");
+//			$$ = (Node *) createConstLong($4);
+//		}
+//		| AS OF TIMESTAMP stringConst
+//		{
+//			RULELOG("IGAsOf::TIMESTAMP");
+//			$$ = (Node *) createConstString($4);
+//		}
+//	;
 
 optionalProvWith:
-		/* empty */			{ RULELOG("optionalProvWith::EMPTY"); $$ = NIL; }
+		/* empty */			{ RULELOG("optionalProvWith::EMPTY");
+		$$ = NIL; }
 		| WITH provOptionList
 		{
 			RULELOG("optionalProvWith::WITH");
@@ -739,17 +763,19 @@ optionalProvWith:
 	;
 
 
-optionalIGWith:
-		/* empty */			{ RULELOG("optionalIGWith::EMPTY"); $$ = NIL; }
-		| WITH IGOptionList
-		{
-			RULELOG("optionalIGWith::WITH");
-			$$ = $2;
-		}
-	;
+//optionalIGWith:
+//		/* empty */			{ RULELOG("optionalIGWith::EMPTY");
+//		$$ = NIL; }
+//		| WITH IGOptionList
+//		{
+//			RULELOG("optionalIGWith::WITH");
+//			$$ = $2;
+//		}
+//	;
 
 provOptionList:
-		provOption	{ RULELOG("provOptionList::option"); $$ = singleton($1); }
+		provOption	{ RULELOG("provOptionList::option");
+		$$ = singleton($1); }
 		| provOptionList provOption
 		{
 			RULELOG("provOptionList::list");
@@ -757,14 +783,15 @@ provOptionList:
 		}
 	;
 	
-IGOptionList:
-		IGOption	{ RULELOG("IGOptionList::option"); $$ = singleton($1); }
-		| IGOptionList IGOption
-		{
-			RULELOG("IGOptionList::list");
-			$$ = appendToTailOfList($1,$2);
-		}
-	;	
+//IGOptionList:
+//		IGOption	{ RULELOG("IGOptionList::option");
+//		$$ = singleton($1); }
+//		| IGOptionList IGOption
+//		{
+//			RULELOG("IGOptionList::list");
+//			$$ = appendToTailOfList($1,$2);
+//		}
+//	;	
 
 
 provOption:
@@ -781,13 +808,13 @@ provOption:
 		| COARSE GRAINED coarseGrainedSpec
 		{
 			RULELOG("provOption::COARSE");
-            $$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_COARSE_GRAINED),
+			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_COARSE_GRAINED),
             									(Node *) $3);
 		}
 		| USE COARSE GRAINED coarseGrainedSpec
 		{
 			RULELOG("provOption::COARSE");
-            $$ = (Node *) createNodeKeyValue((Node *) createConstString(USE_PROP_PC_COARSE_GRAINED),
+			$$ = (Node *) createNodeKeyValue((Node *) createConstString(USE_PROP_PC_COARSE_GRAINED),
             									(Node *) $4);
 		}
 		| ONLY UPDATED
@@ -841,7 +868,7 @@ provOption:
 		| SEMIRING COMBINER semiringCombinerSpec
 		{
 			RULELOG("provOption::SEMIRING::COMBINER::semiringCombinerSpec");
-            $$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_SEMIRING_COMBINER),
+			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_SEMIRING_COMBINER),
             									(Node *) $3);
 		}
 	;
@@ -849,89 +876,87 @@ provOption:
 
 
 
-IGOption:
-		TYPE stringConst
-		{
-			RULELOG("IGOption::TYPE");
-			$$ = (Node *) createStringKeyValue(PROP_PC_IG_TYPE, $2);
-		}
-		| TABLE identifier
-		{
-			RULELOG("IGOption::TABLE");
-			$$ = (Node *) createStringKeyValue(PROP_PC_TABLE, $2);
-		}
-		| COARSE GRAINED coarseGrainedSpec
-		{
-			RULELOG("IGOption::COARSE");
-            $$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_COARSE_GRAINED),
-            									(Node *) $3);
-		}
-		| USE COARSE GRAINED coarseGrainedSpec
-		{
-			RULELOG("IGOption::COARSE");
-            $$ = (Node *) createNodeKeyValue((Node *) createConstString(USE_PROP_PC_COARSE_GRAINED),
-            									(Node *) $4);
-		}
-		| ONLY UPDATED
-		{
-			RULELOG("IGOption::ONLY::UPDATED");
-			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_ONLY_UPDATED),
-					(Node *) createConstBool(TRUE));
-		}
-		| SHOW INTERMEDIATE
-		{
-			RULELOG("IGOption::SHOW::INTERMEDIATE");
-			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_SHOW_INTERMEDIATE),
-					(Node *) createConstBool(TRUE));
-		}
-		| TUPLE VERSIONS
-		{
-			RULELOG("IGOption::TUPLE::VERSIONS");
-			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_TUPLE_VERSIONS),
-					(Node *) createConstBool(TRUE));
-		}
-		| STATEMENT ANNOTATIONS
-		{
-			RULELOG("IGOption::STATEMENT::ANNOTATIONS");
-			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_STATEMENT_ANNOTATIONS),
-					(Node *) createConstBool(TRUE));
-		}
-		| NO STATEMENT ANNOTATIONS
-		{
-			RULELOG("IGOption::NO::STATEMENT::ANNOTATIONS");
-			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_STATEMENT_ANNOTATIONS),
-					(Node *) createConstBool(FALSE));
-		}
-		| IG
-		{
-			RULELOG("IGOption::IG");
-			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_GEN_PROVENANCE),
-					(Node *) createConstBool(TRUE));
-		}
-		| ISOLATION LEVEL identifier
-		{
-			RULELOG("IGOption::ISOLATION::LEVEL");
-			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_ISOLATION_LEVEL),
-					(Node *) createConstString(strdup($3)));
-		}
-		| COMMIT_TRANS SCN intConst
-		{
-			RULELOG("IGOption::COMMIT::SCN");
-			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_COMMIT_SCN),
-					(Node *) createConstLong($3));
-		}
-		| SEMIRING COMBINER semiringCombinerSpec
-		{
-			RULELOG("IGOption::SEMIRING::COMBINER::semiringCombinerSpec");
-            $$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_SEMIRING_COMBINER),
-            									(Node *) $3);
-		}
-	;
+//IGOption:
+//		TYPE stringConst
+//		{
+//			RULELOG("IGOption::TYPE");
+//			$$ = (Node *) createStringKeyValue(PROP_PC_IG_TYPE, $2);
+//		}
+//		| TABLE identifier
+//		{
+//			RULELOG("IGOption::TABLE");
+//			$$ = (Node *) createStringKeyValue(PROP_PC_TABLE, $2);
+//		}
+//		| COARSE GRAINED coarseGrainedSpec
+//		{
+//			RULELOG("IGOption::COARSE");
+//			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_COARSE_GRAINED),
+//            									(Node *) $3);
+//		}
+//		| USE COARSE GRAINED coarseGrainedSpec
+//		{
+//			RULELOG("IGOption::COARSE");
+//			$$ = (Node *) createNodeKeyValue((Node *) createConstString(USE_PROP_PC_COARSE_GRAINED),
+//            									(Node *) $4);
+//		}
+//		| ONLY UPDATED
+//		{
+//			RULELOG("IGOption::ONLY::UPDATED");
+//			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_ONLY_UPDATED),
+//					(Node *) createConstBool(TRUE));
+//		}
+//		| SHOW INTERMEDIATE
+//		{
+//			RULELOG("IGOption::SHOW::INTERMEDIATE");
+//			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_SHOW_INTERMEDIATE),
+//					(Node *) createConstBool(TRUE));
+//		}
+//		| TUPLE VERSIONS
+//		{
+//			RULELOG("IGOption::TUPLE::VERSIONS");
+//			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_TUPLE_VERSIONS),
+//					(Node *) createConstBool(TRUE));
+//		}
+//		| STATEMENT ANNOTATIONS
+//		{
+//			RULELOG("IGOption::STATEMENT::ANNOTATIONS");
+//			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_STATEMENT_ANNOTATIONS),
+//					(Node *) createConstBool(TRUE));
+//		}
+//		| NO STATEMENT ANNOTATIONS
+//		{
+//			RULELOG("IGOption::NO::STATEMENT::ANNOTATIONS");
+//			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_STATEMENT_ANNOTATIONS),
+//					(Node *) createConstBool(FALSE));
+//		}
+//		| IG
+//		{
+//			RULELOG("IGOption::IG");
+//			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_GEN_IG),
+//					(Node *) createConstBool(TRUE));
+//		}
+//		| ISOLATION LEVEL identifier
+//		{
+//			RULELOG("IGOption::ISOLATION::LEVEL");
+//			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_ISOLATION_LEVEL),
+//					(Node *) createConstString(strdup($3)));
+//		}
+//		| COMMIT_TRANS SCN intConst
+//		{
+//			RULELOG("IGOption::COMMIT::SCN");
+//			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_COMMIT_SCN),
+//					(Node *) createConstLong($3));
+//		}
+//		| SEMIRING COMBINER semiringCombinerSpec
+//		{
+//			RULELOG("IGOption::SEMIRING::COMBINER::semiringCombinerSpec");
+//			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_PC_SEMIRING_COMBINER),
+//            									(Node *) $3);
+//		}
+//	;
 	
 	
 	
-	
-
 
 coarseGrainedSpec:
 		FRAGMENT '(' fragmentList ')'
@@ -1051,7 +1076,7 @@ rangeBList:
        identifier '(' attrRangeList ')' optionalCoarseGrainedPara
        {
             RULELOG("rangeList::identifierList::intConstList");
-            List *l = NIL;
+List *l = NIL;
             KeyValue *k1 = createNodeKeyValue((Node *) createConstString("PTYPE"),
             									(Node *) createConstString("RANGEB"));
             KeyValue *k2 = createNodeKeyValue((Node *) createConstString("ATTRSRANGES"),
@@ -1078,7 +1103,7 @@ rangeBList:
        rangeBList ',' identifier '(' attrRangeList ')' optionalCoarseGrainedPara
        {
             RULELOG("rangeList::rangeList::rangeList ");
-            List *l = NIL;
+List *l = NIL;
             KeyValue *k1 = createNodeKeyValue((Node *) createConstString("PTYPE"),
             									(Node *) createConstString("RANGEB"));
             KeyValue *k2 = createNodeKeyValue((Node *) createConstString("ATTRSRANGES"),
@@ -1107,7 +1132,7 @@ pageList:
        identifier intConst optionalCoarseGrainedPara
        {
             RULELOG("pageList::identifier::identifier");
-            List *l = NIL;
+List *l = NIL;
             KeyValue *k1 = createNodeKeyValue((Node *) createConstString("PTYPE"),
             									(Node *) createConstString("PAGE"));
             KeyValue *k2 = createNodeKeyValue((Node *) createConstString("HVALUE"),
@@ -1132,7 +1157,7 @@ pageList:
        pageList ',' identifier intConst optionalCoarseGrainedPara
        {
             RULELOG("pageList::pageList::pageList");
-            List *l = NIL;
+List *l = NIL;
             KeyValue *k1 = createNodeKeyValue((Node *) createConstString("PTYPE"),
             									(Node *) createConstString("PAGE"));
             KeyValue *k2 = createNodeKeyValue((Node *) createConstString("HVALUE"),
@@ -1156,7 +1181,7 @@ fragmentList:
        identifier '(' identifierList ')' intConst optionalCoarseGrainedPara
        {
             RULELOG("fragmentList::identifier::identifierList::identifier");
-            List *l = NIL;
+List *l = NIL;
             KeyValue *k1 = createNodeKeyValue((Node *) createConstString("PTYPE"),
             									(Node *) createConstString("FRAGMENT"));
             KeyValue *k2 = createNodeKeyValue((Node *) createConstString("ATTRS"),
@@ -1183,7 +1208,7 @@ fragmentList:
        fragmentList ',' identifier '(' identifierList ')' intConst optionalCoarseGrainedPara
        {
             RULELOG("fragmentList::fragmentList::fragmentList");
-            List *l = NIL;
+List *l = NIL;
             KeyValue *k1 = createNodeKeyValue((Node *) createConstString("PTYPE"),
             									(Node *) createConstString("FRAGMENT"));
             KeyValue *k2 = createNodeKeyValue((Node *) createConstString("ATTRS"),
@@ -1207,7 +1232,8 @@ fragmentList:
     ;
 
 optionalCoarseGrainedPara:
-         /* empty */ { RULELOG("optionalCoarseGrainedPara::EMPTY"); $$ = NULL;}
+         /* empty */ { RULELOG("optionalCoarseGrainedPara::EMPTY");
+$$ = NULL;}
          |
          intConst
          {
@@ -1219,23 +1245,24 @@ semiringCombinerSpec:
         {
             //$$ = createConstString($1);
             RULELOG("semiringCombinerSpec::identifier");
-            $$ = (Node *)createConstString($1);
+$$ = (Node *)createConstString($1);
         }
         |
         ADD '(' expression ')'  MULT '(' expression ')'
         {
             RULELOG("semiringCombinerSpec::ADD::expression::MULT::expression");
-            $$ = (Node *) LIST_MAKE($3, $7);
+$$ = (Node *) LIST_MAKE($3, $7);
         }
 ;
 
 optionalTranslate:
-                /* empty */ { RULELOG("optionalTranslate::EMPTY"); $$ = NULL;}
+                /* empty */ { RULELOG("optionalTranslate::EMPTY");
+$$ = NULL;}
                 |
 		TRANSLATE AS optionalstringConst
 		{
 			RULELOG("optionaltranslate::TRANSLATE::AS");
-			$$ = singleton((Node *) createStringKeyValue(strdup("TRANSLATE AS"), $3));
+$$ = singleton((Node *) createStringKeyValue(strdup("TRANSLATE AS"), $3));
 		}
         ;
 
@@ -1243,7 +1270,7 @@ optionalstringConst:
 		JSON
 		{
 			RULELOG("optionalstringConst::JSON");
-                        $$ = strdup("JSON");
+$$ = strdup("JSON");
 		}
         ;
 
@@ -1255,14 +1282,16 @@ deleteQuery:
          DELETE fromString identifier WHERE whereExpression /* optionalReturning */
          {
              RULELOG("deleteQuery");
-             $$ = (Node *) createDelete($3, $5);
+$$ = (Node *) createDelete($3, $5);
          }
 /* No provision made for RETURNING statements in delete clause */
     ;
 
 fromString:
-        /* Empty */        { RULELOG("fromString::NULL"); $$ = NULL; }
-        | FROM        { RULELOG("fromString::FROM"); $$ = $1; }
+        /* Empty */        { RULELOG("fromString::NULL");
+$$ = NULL; }
+        | FROM        { RULELOG("fromString::FROM");
+$$ = $1; }
     ;
 
 
@@ -1279,7 +1308,7 @@ updateQuery:
         UPDATE identifier SET setClause optionalWhere
             {
                 RULELOG(updateQuery);
-                $$ = (Node *) createUpdate($2, $4, $5);
+$$ = (Node *) createUpdate($2, $4, $5);
             }
     ;
 
@@ -1287,12 +1316,12 @@ setClause:
         setExpression
             {
                 RULELOG("setClause::setExpression");
-                $$ = singleton($1);
+$$ = singleton($1);
             }
         | setClause ',' setExpression
             {
                 RULELOG("setClause::setClause::setExpression");
-                $$ = appendToTailOfList($1, $3);
+$$ = appendToTailOfList($1, $3);
             }
     ;
 
@@ -1301,7 +1330,7 @@ setExpression:
             {
                 if (!strcmp($2,"=")) {
                     RULELOG("setExpression::attributeRef::expression");
-                    List *expr = singleton($1);
+List *expr = singleton($1);
                     expr = appendToTailOfList(expr, $3);
                     $$ = (Node *) createOpExpr($2, expr);
                 }
@@ -1310,7 +1339,7 @@ setExpression:
             {
                 if (!strcmp($2, "=")) {
                     RULELOG("setExpression::attributeRef::queryStmt");
-                    List *expr = singleton($1);
+List *expr = singleton($1);
                     expr = appendToTailOfList(expr, $3);
                     $$ = (Node *) createOpExpr($2, expr);
                 }
@@ -1324,12 +1353,12 @@ insertQuery:
         INSERT INTO identifier insertContent
         {
            	RULELOG("insertQuery::insertList");
-           	$$ = (Node *) createInsert($3,(Node *) $4, NIL);
+$$ = (Node *) createInsert($3,(Node *) $4, NIL);
         }
         | INSERT INTO identifier '(' identifierList ')' insertContent
         {
            	RULELOG("insertQuery::insertList");
-           	$$ = (Node *) createInsert($3,(Node *) $7, $5);
+$$ = (Node *) createInsert($3,(Node *) $7, $5);
      	}
     ;
 
@@ -1351,28 +1380,30 @@ setOperatorQuery:     // Need to look into createFunction
         queryStmt INTERSECT optionalAll queryStmt
             {
                 RULELOG("setOperatorQuery::INTERSECT");
-                $$ = (Node *) createSetQuery($2, ($3 != NULL), $1, $4);
+$$ = (Node *) createSetQuery($2, ($3 != NULL), $1, $4);
             }
         | queryStmt MINUS optionalAll queryStmt
             {
                 RULELOG("setOperatorQuery::EXCEPT");
-                $$ = (Node *) createSetQuery($2, ($3 != NULL), $1, $4);
+$$ = (Node *) createSetQuery($2, ($3 != NULL), $1, $4);
             }
 		| queryStmt EXCEPT optionalAll queryStmt
             {
                 RULELOG("setOperatorQuery::MINUS");
-                $$ = (Node *) createSetQuery($2, ($3 != NULL), $1, $4);
+$$ = (Node *) createSetQuery($2, ($3 != NULL), $1, $4);
             }
         | queryStmt UNION optionalAll queryStmt
             {
                 RULELOG("setOperatorQuery::UNION");
-                $$ = (Node *) createSetQuery($2, ($3 != NULL), $1, $4);
+$$ = (Node *) createSetQuery($2, ($3 != NULL), $1, $4);
             }
     ;
 
 optionalAll:
-        /* Empty */ { RULELOG("optionalAll::NULL"); $$ = NULL; }
-        | ALL        { RULELOG("optionalAll::ALLTRUE"); $$ = $1; }
+        /* Empty */ { RULELOG("optionalAll::NULL");
+$$ = NULL; }
+        | ALL        { RULELOG("optionalAll::ALLTRUE");
+$$ = $1; }
     ;
 
 /*
@@ -1384,7 +1415,7 @@ selectQuery:
         SELECT optionalDistinct selectClause optionalFrom optionalWhere optionalGroupBy optionalHaving optionalOrderBy optionalLimit optionalOffset
             {
                 RULELOG(selectQuery);
-                QueryBlock *q =  createQueryBlock();
+QueryBlock *q =  createQueryBlock();
 
                 q->distinct = $2;
                 q->selectClause = $3;
@@ -1405,16 +1436,17 @@ selectQuery:
  * Rule to parse optional distinct clause.
  */
 optionalDistinct:
-        /* empty */                     { RULELOG("optionalDistinct::NULL"); $$ = NULL; }
+        /* empty */                     { RULELOG("optionalDistinct::NULL");
+$$ = NULL; }
         | DISTINCT
             {
                 RULELOG("optionalDistinct::DISTINCT");
-                $$ = (Node *) createDistinctClause(NULL);
+$$ = (Node *) createDistinctClause(NULL);
             }
         | DISTINCT ON '(' exprList ')'
             {
                 RULELOG("optionalDistinct::DISTINCT::exprList");
-                $$ = (Node *) createDistinctClause($4);
+$$ = (Node *) createDistinctClause($4);
             }
     ;
 
@@ -1425,12 +1457,13 @@ optionalDistinct:
 selectClause:
         selectItem
              {
-                RULELOG("selectClause::selectItem"); $$ = singleton($1);
+                RULELOG("selectClause::selectItem");
+$$ = singleton($1);
             }
         | selectClause ',' selectItem
             {
                 RULELOG("selectClause::selectClause::selectItem");
-                $$ = appendToTailOfList($1, $3);
+$$ = appendToTailOfList($1, $3);
             }
     ;
 
@@ -1438,22 +1471,22 @@ selectItem:
          expression
              {
                  RULELOG("selectItem::expression");
-                 $$ = (Node *) createSelectItem(NULL, $1);
+$$ = (Node *) createSelectItem(NULL, $1);
              }
          | expression AS identifier
              {
                  RULELOG("selectItem::expression::identifier");
-                 $$ = (Node *) createSelectItem($3, $1);
+$$ = (Node *) createSelectItem($3, $1);
              }
          | '*'
 			{
          		RULELOG("selectItem::*");
-         		$$ = (Node *) createSelectItem(strdup("*"), NULL);
+$$ = (Node *) createSelectItem(strdup("*"), NULL);
      		}
          | identifier '.' '*'
          	{
          		RULELOG("selectItem::*");
-     			$$ = (Node *) createSelectItem(CONCAT_STRINGS($1,".*"), NULL);
+$$ = (Node *) createSelectItem(CONCAT_STRINGS($1,".*"), NULL);
  			}
     ;
 
@@ -1461,11 +1494,12 @@ selectItem:
  * Rule to parse an expression list
  */
 exprList:
-        expression        { RULELOG("exprList::SINGLETON"); $$ = singleton($1); }
+        expression        { RULELOG("exprList::SINGLETON");
+$$ = singleton($1); }
         | exprList ',' expression
              {
                   RULELOG("exprList::exprList::expression");
-                  $$ = appendToTailOfList($1, $3);
+$$ = appendToTailOfList($1, $3);
              }
     ;
 
@@ -1474,16 +1508,26 @@ exprList:
  * Rule to parse expressions used in various lists
  */
 expression:
-		'(' expression ')'				{ RULELOG("expression::bracked"); $$ = $2; }
-		| constant     				   	{ RULELOG("expression::constant"); }
-        | attributeRef         		  	{ RULELOG("expression::attributeRef"); }
-	    | sqlParameter					{ RULELOG("expression::sqlParameter"); }
-        | binaryOperatorExpression		{ RULELOG("expression::binaryOperatorExpression"); }
-        | unaryOperatorExpression       { RULELOG("expression::unaryOperatorExpression"); }
-        | sqlFunctionCall        		{ RULELOG("expression::sqlFunctionCall"); }
-        | castExpression				{ RULELOG("expression::castExpression"); }
-		| caseExpression				{ RULELOG("expression::case"); }
-		| ROWNUM						{ RULELOG("expression::ROWNUM"); $$ = (Node *) makeNode(RowNumExpr); }
+		'(' expression ')'				{ RULELOG("expression::bracked");
+$$ = $2; }
+		| constant     				   	{ RULELOG("expression::constant");
+}
+        | attributeRef         		  	{ RULELOG("expression::attributeRef");
+}
+	    | sqlParameter					{ RULELOG("expression::sqlParameter");
+}
+        | binaryOperatorExpression		{ RULELOG("expression::binaryOperatorExpression");
+}
+        | unaryOperatorExpression       { RULELOG("expression::unaryOperatorExpression");
+}
+        | sqlFunctionCall        		{ RULELOG("expression::sqlFunctionCall");
+}
+        | castExpression				{ RULELOG("expression::castExpression");
+}
+		| caseExpression				{ RULELOG("expression::case");
+}
+		| ROWNUM						{ RULELOG("expression::ROWNUM");
+$$ = (Node *) makeNode(RowNumExpr); }
 /*        | '(' queryStmt ')'       { RULELOG ("expression::subQuery"); $$ = $2; } */
 /*        | STARALL        { RULELOG("expression::STARALL"); } */
     ;
@@ -1492,11 +1536,16 @@ expression:
  * Constant parsing
  */
 constant:
-        intConst            { RULELOG("constant::INT"); $$ = (Node *) createConstInt($1); }
-        | floatConst        { RULELOG("constant::FLOAT"); $$ = (Node *) createConstFloat($1); }
-        | stringConst       { RULELOG("constant::STRING"); $$ = (Node *) createConstString($1); }
-        | boolConst			{ RULELOG("constant::BOOL"); $$ = (Node *) createConstBoolFromString($1); }
-		| NULLVAL           { RULELOG("constant::NULL"); $$ = (Node *) createNullConst(DT_STRING); }
+        intConst            { RULELOG("constant::INT");
+        $$ = (Node *) createConstInt($1); }
+        | floatConst        { RULELOG("constant::FLOAT");
+        $$ = (Node *) createConstFloat($1); }
+        | stringConst       { RULELOG("constant::STRING");
+        $$ = (Node *) createConstString($1); }
+        | boolConst			{ RULELOG("constant::BOOL");
+        $$ = (Node *) createConstBoolFromString($1); }
+		| NULLVAL           { RULELOG("constant::NULL");
+		$$ = (Node *) createNullConst(DT_STRING); }
     ;
 
 /*
@@ -1506,12 +1555,12 @@ attributeRef:
         identifier
         {
 	        	RULELOG("attributeRef::IDENTIFIER");
-    	       	$$ = (Node *) createAttributeReference($1);
+$$ = (Node *) createAttributeReference($1);
         }
         | compositeIdentifier
         {
         		RULELOG("attributeRef::COMPOSITEIDENT");
-        		$$ = (Node *) createAttributeReference($1);
+$$ = (Node *) createAttributeReference($1);
         }
 	;
 
@@ -1520,7 +1569,8 @@ attributeRef:
  * SQL parameter
  */
 sqlParameter:
-		parameter		   { RULELOG("sqlParameter::PARAMETER"); $$ = (Node *) createSQLParameter($1); }
+		parameter		   { RULELOG("sqlParameter::PARAMETER");
+$$ = (Node *) createSQLParameter($1); }
 	;
 
 /* HELP HELP ??
@@ -1618,7 +1668,7 @@ unaryOperatorExpression:
         '!' expression
             {
                 RULELOG("unaryOperatorExpression:: '!' ");
-                List *expr = singleton($2);
+List *expr = singleton($2);
                 $$ = (Node *) createOpExpr($1, expr);
             }
          | expression IS NULLVAL
@@ -1655,7 +1705,7 @@ sqlFunctionCall:
         | identifier '(' exprList ')' overClause
             {
                 RULELOG("sqlFunctionCall::IDENTIFIER::exprList");
-				FunctionCall *f = createFunctionCall($1, $3);
+                FunctionCall *f = createFunctionCall($1, $3);
 				if ($5 != NULL)
 					$$ = (Node *) createWindowFunction(f, (WindowDef *) $5);
 				else
@@ -1664,7 +1714,7 @@ sqlFunctionCall:
 		| AMMSC '(' optionalCountDistinct exprList ')' overClause
             {
                 RULELOG("sqlFunctionCall::AMMSC::exprList");
-				FunctionCall *f = createFunctionCall($1, $4);
+                FunctionCall *f = createFunctionCall($1, $4);
 				if ($3 == 1)
 				{
 					f->isDistinct = TRUE;
@@ -1677,7 +1727,7 @@ sqlFunctionCall:
         | AMMSC '(' '*' ')' overClause
             {
                 RULELOG("sqlFunctionCall::COUNT::*");
-				FunctionCall *f = createFunctionCall($1, singleton(createConstInt(1)));
+FunctionCall *f = createFunctionCall($1, singleton(createConstInt(1)));
 				if (strcasecmp($1,"COUNT") != 0)
 					yyerror("* can only be used as an input of the COUNT aggregate function, but no any other function.");
 				if ($5 != NULL)
@@ -1689,8 +1739,10 @@ sqlFunctionCall:
 
 // optional distinct in count (distinct ...)
 optionalCountDistinct:
-	   /*  EMPTY */ { RULELOG("optionalDistinct::EMPTY"); $$ = 0; }
-	   | DISTINCT { RULELOG("optionalDistinct::DISTINCT"); $$ = 1; }
+	   /*  EMPTY */ { RULELOG("optionalDistinct::EMPTY");
+	   $$ = 0; }
+	   | DISTINCT { RULELOG("optionalDistinct::DISTINCT");
+	   $$ = 1; }
     ;
 
 /*
@@ -1700,7 +1752,7 @@ castExpression:
 		CAST '(' expression AS identifier ')'
 			{
 				RULELOG("castExpression");
-				CastExpr *c = createCastExpr($3, SQLdataTypeToDataType($5));
+CastExpr *c = createCastExpr($3, SQLdataTypeToDataType($5));
 				$$ = (Node *) c;
 			}
 	;
@@ -1743,7 +1795,8 @@ caseWhen:
 	;
 
 optionalCaseElse:
-		/* empty */				{ RULELOG("optionalCaseElse::NULL"); $$ = NULL; }
+		/* empty */				{ RULELOG("optionalCaseElse::NULL");
+		$$ = NULL; }
 		| ELSE expression
 			{
 				RULELOG("optionalCaseElse::ELSE::expression");
@@ -1755,7 +1808,8 @@ optionalCaseElse:
   * Rule to parser OVER clause for window functions
   */
 overClause:
-		/* empty */ 	{ RULELOG("overclause::NULL"); $$ = NULL; }
+		/* empty */ 	{ RULELOG("overclause::NULL");
+		$$ = NULL; }
 		| OVER_TOK windowSpec
 			{
 				RULELOG("overclause::window");
@@ -1772,7 +1826,8 @@ windowSpec:
 	;
 
 optWindowPart:
-		/* empty */ 			{ RULELOG("optWindowPart::NULL"); $$ = NIL; }
+		/* empty */ 			{ RULELOG("optWindowPart::NULL");
+		$$ = NIL; }
 		| PARTITION BY exprList
 			{
 				RULELOG("optWindowPart::PARTITION:BY::expressionList");
@@ -1781,7 +1836,8 @@ optWindowPart:
 	;
 
 optWindowFrame:
-		/* empty */				{ RULELOG("optWindowFrame::NULL"); $$ = NULL; }
+		/* empty */				{ RULELOG("optWindowFrame::NULL");
+		$$ = NULL; }
 		| ROWS windowBoundaries
 			{
 				WindowBound *l, *u = NULL;
@@ -1842,11 +1898,12 @@ windowBound:
  * Rule to parse JSON Functions
  */
 jsonTable:
-                /* empty */	{ RULELOG("jsonTable::NULL"); $$ = NULL; }
+                /* empty */	{ RULELOG("jsonTable::NULL");
+                $$ = NULL; }
 		| JSON_TABLE '(' attributeRef ',' stringConst COLUMNS '(' jsonColInfo ')' ')' AS identifier
 			{
 				RULELOG("jsonTable::jsonTable");
-  $$ = (Node *) createFromJsonTable((AttributeReference *) $3, $5, $8, $12, NULL);
+				$$ = (Node *) createFromJsonTable((AttributeReference *) $3, $5, $8, $12, NULL);
 			}
 	;
 
@@ -1864,23 +1921,25 @@ jsonColInfo:
         ;
 
 jsonColInfoItem:
-                /* empty */ { RULELOG("jsonColInfoItem::NULL"); }
+                /* empty */ { RULELOG("jsonColInfoItem::NULL");
+}
                 | identifier identifier optionalFormat optionalWrapper PATH stringConst
                         {
                                 RULELOG("jsonColInfoItem::jsonColInfoItem");
-                                JsonColInfoItem *c = createJsonColInfoItem ($1, $2, $6, $3, $4, NULL, NULL);
+JsonColInfoItem *c = createJsonColInfoItem ($1, $2, $6, $3, $4, NULL, NULL);
                                 $$ = (Node *) c;
                         }
                 | NESTED PATH stringConst COLUMNS '(' jsonColInfo ')'
                         {
                                 RULELOG("jsonColInfoItem::jsonColInfoItem");
-                                JsonColInfoItem *c = createJsonColInfoItem (NULL, NULL, $3, NULL, NULL, $6, NULL);
+JsonColInfoItem *c = createJsonColInfoItem (NULL, NULL, $3, NULL, NULL, $6, NULL);
                                 $$ = (Node *) c;
                         }
         ;
 
 optionalFormat:
-                /* empty */ { RULELOG("optionalFormat::NULL"); $$ = NULL; }
+                /* empty */ { RULELOG("optionalFormat::NULL");
+                $$ = NULL; }
                 | FORMAT JSON
                         {
                                 RULELOG("optionalFormat::FORMAT");
@@ -1889,7 +1948,8 @@ optionalFormat:
         ;
 
 optionalWrapper:
-                /* empty */ { RULELOG("optionalWrapper::NULL"); $$ = NULL; }
+                /* empty */ { RULELOG("optionalWrapper::NULL");
+                $$ = NULL; }
                 | WITH WRAPPER
                         {
                                 RULELOG("optionalWrapper::WITH WRAPPER");
@@ -1913,8 +1973,10 @@ optionalWrapper:
  *            Later on other forms of from clause will be added.
  */
 optionalFrom:
-        /* empty */              { RULELOG("optionalFrom::NULL"); $$ = NULL; }
-        | FROM fromClause        { RULELOG("optionalFrom::fromClause"); $$ = $2; }
+        /* empty */              { RULELOG("optionalFrom::NULL");
+        $$ = NULL; }
+        | FROM fromClause        { RULELOG("optionalFrom::fromClause");
+        $$ = $2; }
     ;
 
 fromClause:
@@ -1935,7 +1997,7 @@ fromClauseItem:
 		identifier optionalFromProv
             {
                 RULELOG("fromClauseItem");
-				FromItem *f = createFromTableRef(NULL, NIL, $1, NIL);
+                FromItem *f = createFromTableRef(NULL, NIL, $1, NIL);
 				f->provInfo = (FromProvInfo *) $2;
                 $$ = (Node *) f;
             }
@@ -1985,8 +2047,8 @@ fromClauseItem:
          | jsonTable
                 {
                     RULELOG("fromClauseItem::jsonTable");
-                    //FromJsonTable *jt = (FromJsonTable *) $1;
-                    FromItem *jt = (FromItem *)$1;
+//FromJsonTable *jt = (FromJsonTable *) $1;
+FromItem *jt = (FromItem *)$1;
                     $$ = (Node*) jt;
                 }
     ;
@@ -2022,13 +2084,13 @@ fromJoinItem:
      	| fromClauseItem CROSS JOIN fromClauseItem
         	{
 				RULELOG("fromJoinItem::CROSS JOIN");
-                $$ = (Node *) createFromJoin(NULL, NIL, (FromItem *) $1,
+				$$ = (Node *) createFromJoin(NULL, NIL, (FromItem *) $1,
                 		(FromItem *) $4, "JOIN_CROSS", "JOIN_COND_ON", NULL);
           	}
      	| fromClauseItem joinType JOIN fromClauseItem joinCond
         	{
 				RULELOG("fromJoinItem::JOIN::joinType::joinCond");
-				char *condType = (isA($5,List)) ? "JOIN_COND_USING" :
+char *condType = (isA($5,List)) ? "JOIN_COND_USING" :
 						"JOIN_COND_ON";
                 $$ = (Node *) createFromJoin(NULL, NIL, (FromItem *) $1,
                 		(FromItem *) $4, $2, condType, $5);
@@ -2036,7 +2098,7 @@ fromJoinItem:
      	| fromClauseItem JOIN fromClauseItem joinCond
         	{
 				RULELOG("fromJoinItem::JOIN::joinCond");
-				char *condType = (isA($4,List)) ? "JOIN_COND_USING" :
+char *condType = (isA($4,List)) ? "JOIN_COND_USING" :
 						"JOIN_COND_ON";
                 $$ = (Node *) createFromJoin(NULL, NIL, (FromItem *) $1,
                 		(FromItem *) $3, "JOIN_INNER",
@@ -2045,13 +2107,20 @@ fromJoinItem:
      ;
 
 joinType:
-		LEFT 			{ RULELOG("joinType::LEFT"); $$ = "JOIN_LEFT_OUTER"; }
-		| LEFT OUTER 	{ RULELOG("joinType::LEFT OUTER"); $$ = "JOIN_LEFT_OUTER"; }
-		| RIGHT 		{ RULELOG("joinType::RIGHT "); $$ = "JOIN_RIGHT_OUTER"; }
-		| RIGHT OUTER  	{ RULELOG("joinType::RIGHT OUTER"); $$ = "JOIN_RIGHT_OUTER"; }
-		| FULL OUTER  	{ RULELOG("joinType::FULL OUTER"); $$ = "JOIN_FULL_OUTER"; }
-		| FULL 	  		{ RULELOG("joinType::FULL"); $$ = "JOIN_FULL_OUTER"; }
-		| INNER  		{ RULELOG("joinType::INNER"); $$ = "JOIN_INNER"; }
+		LEFT 			{ RULELOG("joinType::LEFT");
+$$ = "JOIN_LEFT_OUTER"; }
+		| LEFT OUTER 	{ RULELOG("joinType::LEFT OUTER");
+$$ = "JOIN_LEFT_OUTER"; }
+		| RIGHT 		{ RULELOG("joinType::RIGHT ");
+$$ = "JOIN_RIGHT_OUTER"; }
+		| RIGHT OUTER  	{ RULELOG("joinType::RIGHT OUTER");
+$$ = "JOIN_RIGHT_OUTER"; }
+		| FULL OUTER  	{ RULELOG("joinType::FULL OUTER");
+$$ = "JOIN_FULL_OUTER"; }
+		| FULL 	  		{ RULELOG("joinType::FULL");
+$$ = "JOIN_FULL_OUTER"; }
+		| INNER  		{ RULELOG("joinType::INNER");
+$$ = "JOIN_INNER"; }
 	;
 
 joinCond:
@@ -2063,14 +2132,14 @@ optionalAlias:
         optionalFromProv identifier optionalAttrAlias
 			{
 				RULELOG("optionalAlias::identifier");
-				FromItem *f = createFromItem($2,$3);
+FromItem *f = createFromItem($2,$3);
  				f->provInfo = (FromProvInfo *) $1;
 				$$ = (Node *) f;
 			}
         | optionalFromProv AS identifier optionalAttrAlias
 			{
 				RULELOG("optionalAlias::identifier");
-				FromItem *f = createFromItem($3,$4);
+FromItem *f = createFromItem($3,$4);
  				f->provInfo = (FromProvInfo *) $1;
 				$$ = (Node *) f;
 			}
@@ -2080,7 +2149,7 @@ optionalFromTIP:
 		IS TIP '(' identifier ')'
 		{
 			RULELOG("optionalFromTIP");
-			FromProvInfo *p = makeNode(FromProvInfo);
+FromProvInfo *p = makeNode(FromProvInfo);
 			setStringProvProperty(p, PROV_PROP_TIP_ATTR, (Node *) createConstString($4));
 			$$ = (Node *) p;
 		}
@@ -2090,7 +2159,7 @@ optionalFromIncompleteTable:
 		IS INCOMPLETE
 		{
 			RULELOG("optionalFromIncompleteTable");
-			FromProvInfo *p = makeNode(FromProvInfo);
+FromProvInfo *p = makeNode(FromProvInfo);
 			setStringProvProperty(p, PROV_PROP_INCOMPLETE_TABLE, (Node *) createConstBool(1));
 			$$ = (Node *) p;
 		}
@@ -2099,7 +2168,7 @@ optionalFromRADB:
 		IS RADB
 		{
 			RULELOG("optionalFromRADB");
-			FromProvInfo *p = makeNode(FromProvInfo);
+FromProvInfo *p = makeNode(FromProvInfo);
 			setStringProvProperty(p, PROV_PROP_RADB, (Node *) createConstBool(1));
 			$$ = (Node *) p;
 		}
@@ -2108,7 +2177,7 @@ optionalFromUADB:
 		IS UADB
 		{
 			RULELOG("optionalFromUADB");
-			FromProvInfo *p = makeNode(FromProvInfo);
+FromProvInfo *p = makeNode(FromProvInfo);
 			setStringProvProperty(p, PROV_PROP_UADB, (Node *) createConstBool(1));
 			$$ = (Node *) p;
 		}
@@ -2117,7 +2186,7 @@ optionalFromXTable:
 		IS XTABLE '(' identifier  ',' identifier ')'
 		{
 			RULELOG("optionalFromXTable");
-			FromProvInfo *p = makeNode(FromProvInfo);
+FromProvInfo *p = makeNode(FromProvInfo);
 			setStringProvProperty(p, PROV_PROP_XTABLE_GROUPID, (Node *) createConstString($4));
 			setStringProvProperty(p, PROV_PROP_XTABLE_PROB, (Node *) createConstString($6));
 			$$ = (Node *) p;
@@ -2127,7 +2196,8 @@ optionalFromXTable:
 
 
 optionalFromProv:
-		/* empty */ { RULELOG("optionalFromProv::empty"); $$ = NULL; }
+		/* empty */ { RULELOG("optionalFromProv::empty");
+		$$ = NULL; }
 		| optionalFromTIP {  $$ = $1; }
 		| optionalFromRADB {  $$ = $1; }
 		| optionalFromUADB {  $$ = $1; }
@@ -2183,10 +2253,12 @@ optionalFromProv:
 	;
 
 optionalAttrAlias:
-		/* empty */ { RULELOG("optionalAttrAlias::empty"); $$ = NULL; }
+		/* empty */ { RULELOG("optionalAttrAlias::empty");
+		$$ = NULL; }
 		| '(' identifierList ')'
 			{
-				RULELOG("optionalAttrAlias::identifierList"); $$ = $2;
+				RULELOG("optionalAttrAlias::identifierList");
+				$$ = $2;
 			}
     ;
 
@@ -2194,30 +2266,34 @@ optionalAttrAlias:
  * Rule to parse the where clause.
  */
 optionalWhere:
-        /* empty */             { RULELOG("optionalWhere::NULL"); $$ = NULL; }
-        | WHERE whereExpression        { RULELOG("optionalWhere::whereExpression"); $$ = $2; }
+        /* empty */             { RULELOG("optionalWhere::NULL");
+        $$ = NULL; }
+        | WHERE whereExpression        { RULELOG("optionalWhere::whereExpression");
+        $$ = $2; }
     ;
 
 whereExpression:
-		'(' whereExpression ')' { RULELOG("where::brackedWhereExpression"); $$ = $2; } %prec DUMMYEXPR
-        | expression        { RULELOG("whereExpression::expression"); $$ = $1; } %prec '+'
+		'(' whereExpression ')' { RULELOG("where::brackedWhereExpression");
+$$ = $2; } %prec DUMMYEXPR
+        | expression        { RULELOG("whereExpression::expression");
+$$ = $1; } %prec '+'
         | NOT whereExpression
             {
                 RULELOG("whereExpression::NOT");
-                List *expr = singleton($2);
+List *expr = singleton($2);
                 $$ = (Node *) createOpExpr($1, expr);
             }
         | whereExpression AND whereExpression
             {
                 RULELOG("whereExpression::AND");
-                List *expr = singleton($1);
+List *expr = singleton($1);
                 expr = appendToTailOfList(expr, $3);
                 $$ = (Node *) createOpExpr($2, expr);
             }
         | whereExpression OR whereExpression
             {
                 RULELOG("whereExpression::OR");
-                List *expr = singleton($1);
+List *expr = singleton($1);
                 expr = appendToTailOfList(expr, $3);
                 $$ = (Node *) createOpExpr($2, expr);
             }
@@ -2226,7 +2302,7 @@ whereExpression:
 				//if ($2 == NULL)
                 //{
                 	RULELOG("whereExpression::LIKE");
-	                List *expr = singleton($1);
+List *expr = singleton($1);
 	                expr = appendToTailOfList(expr, $3);
 	                $$ = (Node *) createOpExpr($2, expr);
                 /* }
@@ -2242,7 +2318,7 @@ whereExpression:
         | whereExpression BETWEEN expression AND expression
             {
                 RULELOG("whereExpression::BETWEEN-AND");
-                List *expr = singleton($1);
+List *expr = singleton($1);
                 expr = appendToTailOfList(expr, $3);
                 expr = appendToTailOfList(expr, $5);
                 $$ = (Node *) createOpExpr($2, expr);
@@ -2250,12 +2326,12 @@ whereExpression:
         | expression comparisonOps nestedSubQueryOperator '(' queryStmt ')'
             {
                 RULELOG("whereExpression::comparisonOps::nestedSubQueryOperator::Subquery");
-                $$ = (Node *) createNestedSubquery($3, $1, $2, $5);
+$$ = (Node *) createNestedSubquery($3, $1, $2, $5);
             }
         | expression comparisonOps '(' queryStmt ')'
             {
                 RULELOG("whereExpression::Subquery");
-                Node *q = (Node *) createNestedSubquery("SCALAR", NULL, NULL, $4);
+Node *q = (Node *) createNestedSubquery("SCALAR", NULL, NULL, $4);
                 List *expr = LIST_MAKE($1, q);
                 $$ = (Node *) createOpExpr($2, expr);
             }
@@ -2263,73 +2339,85 @@ whereExpression:
             {
                 if ($2 == NULL)
                 {
-                    RULELOG("whereExpression::IN");
-                    $$ = (Node *) createQuantifiedComparison("ANY", $1, OPNAME_EQ, $5);
+                    RULELOG("whereExpression::IN");$$ = (Node *) createQuantifiedComparison("ANY", $1, OPNAME_EQ, $5);
                 }
                 else
                 {
                     RULELOG("whereExpression::NOT::IN");
-                    $$ = (Node *) createQuantifiedComparison("ALL",$1, "<>", $5);
+$$ = (Node *) createQuantifiedComparison("ALL",$1, "<>", $5);
                 }
             }
         | expression optionalNot IN '(' queryStmt ')'
             {
                 if ($2 == NULL)
                 {
-                    RULELOG("whereExpression::IN");
-                    $$ = (Node *) createNestedSubquery("ANY", $1, OPNAME_EQ, $5);
+                    RULELOG("whereExpression::IN");$$ = (Node *) createNestedSubquery("ANY", $1, OPNAME_EQ, $5);
                 }
                 else
                 {
                     RULELOG("whereExpression::NOT::IN");
-                    $$ = (Node *) createNestedSubquery("ALL",$1, "<>", $5);
+$$ = (Node *) createNestedSubquery("ALL",$1, "<>", $5);
                 }
             }
         | EXISTS '(' queryStmt ')'
             {
                 RULELOG("whereExpression::EXISTS");
-                $$ = (Node *) createNestedSubquery($1, NULL, NULL, $3);
+$$ = (Node *) createNestedSubquery($1, NULL, NULL, $3);
             }
     ;
 
 nestedSubQueryOperator:
-        ANY { RULELOG("nestedSubQueryOperator::ANY"); $$ = $1; }
-        | ALL { RULELOG("nestedSubQueryOperator::ALL"); $$ = $1; }
-        | SOME { RULELOG("nestedSubQueryOperator::SOME"); $$ = "ANY"; }
+        ANY { RULELOG("nestedSubQueryOperator::ANY");
+$$ = $1; }
+        | ALL { RULELOG("nestedSubQueryOperator::ALL");
+$$ = $1; }
+        | SOME { RULELOG("nestedSubQueryOperator::SOME");
+$$ = "ANY"; }
     ;
 
 optionalNot:
-        /* Empty */    { RULELOG("optionalNot::NULL"); $$ = NULL; }
-        | NOT    { RULELOG("optionalNot::NOT"); $$ = $1; }
+        /* Empty */    { RULELOG("optionalNot::NULL");
+$$ = NULL; }
+        | NOT    { RULELOG("optionalNot::NOT");
+$$ = $1; }
     ;
 
 optionalGroupBy:
-        /* Empty */        { RULELOG("optionalGroupBy::NULL"); $$ = NULL; }
-        | GROUP BY exprList      { RULELOG("optionalGroupBy::GROUPBY"); $$ = $3; }
+        /* Empty */        { RULELOG("optionalGroupBy::NULL");
+$$ = NULL; }
+        | GROUP BY exprList      { RULELOG("optionalGroupBy::GROUPBY");
+$$ = $3; }
     ;
 
 optionalHaving:
-        /* Empty */        { RULELOG("optionalOrderBy:::NULL"); $$ = NULL; }
+        /* Empty */        { RULELOG("optionalOrderBy:::NULL");
+$$ = NULL; }
         | HAVING whereExpression
             {
                 RULELOG("optionalHaving::HAVING");
-                $$ = (Node *) $2;
+$$ = (Node *) $2;
             }
     ;
 
 optionalOrderBy:
-        /* Empty */        { RULELOG("optionalOrderBy:::NULL"); $$ = NULL; }
-        | ORDER BY orderList       { RULELOG("optionalOrderBy::ORDERBY"); $$ = $3; }
+        /* Empty */        { RULELOG("optionalOrderBy:::NULL");
+$$ = NULL; }
+        | ORDER BY orderList       { RULELOG("optionalOrderBy::ORDERBY");
+$$ = $3; }
     ;
 
 optionalLimit:
-        /* Empty */        { RULELOG("optionalLimit::NULL"); $$ = NULL; }
-        | LIMIT constant        { RULELOG("optionalLimit::CONSTANT"); $$ = $2;}
+        /* Empty */        { RULELOG("optionalLimit::NULL");
+$$ = NULL; }
+        | LIMIT constant        { RULELOG("optionalLimit::CONSTANT");
+$$ = $2;}
     ;
 
 optionalOffset:
-        /* Empty */        { RULELOG("optionalOffset::NULL"); $$ = NULL; }
-        | OFFSET constant        { RULELOG("optionalOffset::CONSTANT"); $$ = $2;}
+        /* Empty */        { RULELOG("optionalOffset::NULL");
+$$ = NULL; }
+        | OFFSET constant        { RULELOG("optionalOffset::CONSTANT");
+$$ = $2;}
     ;
 
 
@@ -2337,12 +2425,12 @@ orderList:
 		 orderExpr
             {
                 RULELOG("clauseList::orderExpr");
-                $$ = singleton($1);
+$$ = singleton($1);
             }
         | orderList ',' orderExpr
             {
                 RULELOG("orderList::orderList::orderExpr");
-                $$ = appendToTailOfList($1, $3);
+$$ = appendToTailOfList($1, $3);
             }
     ;
 
@@ -2350,7 +2438,7 @@ orderExpr:
 		expression optionalSortOrder optionalNullOrder
 			{
 				RULELOG("orderExpr::expr::sortOrder::nullOrder");
-				SortOrder o = (strcmp($2,"ASC") == 0) ?  SORT_ASC : SORT_DESC;
+SortOrder o = (strcmp($2,"ASC") == 0) ?  SORT_ASC : SORT_DESC;
 				SortNullOrder n = (strcmp($3,"NULLS_FIRST") == 0) ?
 						SORT_NULLS_FIRST :
 						SORT_NULLS_LAST;
@@ -2359,39 +2447,42 @@ orderExpr:
 	;
 
 optionalSortOrder:
-		/* empty */ { RULELOG("optionalSortOrder::empty"); $$ = "ASC"; }
+		/* empty */ { RULELOG("optionalSortOrder::empty");
+$$ = "ASC"; }
 		| ASC
 			{
 				RULELOG("optionalSortOrder::ASC");
-				$$ = "ASC";
+$$ = "ASC";
 			}
 		| DESC
 			{
 				RULELOG("optionalSortOrder::DESC");
-				$$ = "DESC";
+$$ = "DESC";
 			}
 	;
 
 optionalNullOrder:
-		/* empty */ { RULELOG("optionalNullOrder::empty"); $$ = "NULLS_LAST"; }
+		/* empty */ { RULELOG("optionalNullOrder::empty");
+$$ = "NULLS_LAST"; }
 		| NULLS FIRST
 			{
 				RULELOG("optionalNullOrder::NULLS FIRST");
-				$$ = "NULLS_FIRST";
+$$ = "NULLS_FIRST";
 			}
 		| NULLS LAST
 			{
 				RULELOG("optionalNullOrder::NULLS LAST");
-				$$ = "NULLS_LAST";
+$$ = "NULLS_LAST";
 			}
 	;
 
 delimIdentifier:
-		identifier { RULELOG("identifierList::ident"); }
+		identifier { RULELOG("identifierList::ident");
+}
 		| delimIdentifier '.' identifier
 		{
 			RULELOG("identifierList::list::ident");
-			$$ = CONCAT_STRINGS($1, ".", $3); //TODO
+$$ = CONCAT_STRINGS($1, ".", $3); //TODO
 		}
 	;
 
@@ -2399,12 +2490,12 @@ attrElemList:
 		attr
             {
                 RULELOG("userQuestList::identifier");
-                $$ = singleton($1);
+$$ = singleton($1);
             }
         | attrElemList ',' attr
             {
                 RULELOG("attrElemList::attrElemList::identifier");
-                $$ = appendToTailOfList($1, $3);
+$$ = appendToTailOfList($1, $3);
             }
     ;
 
@@ -2412,13 +2503,13 @@ attr:
  		constant
  			{
  				RULELOG("arg:constant");
- 				$$ = $1;
+$$ = $1;
 			}
 		| '*'
 			{
  				RULELOG("arg:star");
- 				$$ = (Node *) createConstString(strdup("*"));
-			}
-	;
+$$ = (Node *) createConstString(strdup("*"));
+}
+;
 
 %%

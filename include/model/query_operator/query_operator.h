@@ -96,15 +96,6 @@ typedef struct ProvenanceComputation
     Node *asOf;
 } ProvenanceComputation;
 
-typedef struct IGComputation
-{
-    QueryOperator op;
-    IGType IGType;
-    IGInputType inputType;
-    IGTransactionInfo *transactionInfo;
-    Node *asOf;
-} IGComputation;
-
 NEW_ENUM_WITH_TO_STRING(ReenactUpdateType,
         UPDATE_TYPE_DELETE,
         UPDATE_TYPE_UPDATE,
@@ -240,11 +231,6 @@ extern DuplicateRemoval *createDuplicateRemovalOp (List *attrs,
 
 extern ProvenanceComputation *createProvenanceComputOp(ProvenanceType provType,
         List *inputs, List *parents, List *attrNames, List *dts, Node *asOf);
-
-extern IGComputation *createIGComputOp(IGType IGType,
-        List *inputs, List *parents, List *attrNames, List *dts, Node *asOf);
-
-
 extern ConstRelOperator *createConstRelOp(List *values,List *parents,
         List *attrNames, List *dataTypes);
 extern NestingOperator *createNestingOp(NestingExprType nestingType, Node *cond,

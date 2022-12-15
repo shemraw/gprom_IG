@@ -72,6 +72,13 @@ getProvenanceAttributes(QueryOperator *q, ProvenanceType type)
         {
             return NIL;
         }
+        case IG_PI_CS: //TODO implement
+		{
+			ProvSchemaInfo *pSchema= NEW(ProvSchemaInfo);
+
+			findBaserelationsVisitor((Node *) q, pSchema);
+			return pSchema->provAttrs;
+		}
     }
     return NIL; //keep compiler quiet
 }

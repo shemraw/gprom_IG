@@ -78,34 +78,6 @@ typedef struct ProvenanceTransactionInfo
 } ProvenanceTransactionInfo;
 
 
-typedef struct IGTransactionInfo
-{
-    NodeTag type;
-    IsolationLevel transIsolation;
-    List *updateTableNames;
-    List *originalUpdates;
-    List *scns;
-    Constant *commitSCN;
-} IGTransactionInfo;
-
-typedef struct IGStmt
-{
-    NodeTag type;
-    Node *query;
-    List *selectClause;
-    List *dts;
-    IGType IGType;
-    IGInputType inputType;
-    IGTransactionInfo *transInfo;
-    Node *asOf;
-    List *options;
-    List *sumOpts;
-//    char *summaryType;
-//    List *userQuestion;
-//    int sampleSize;
-//    int topK;
-} IGStmt;
-
 typedef struct ProvenanceStmt
 {
     NodeTag type;
@@ -347,8 +319,6 @@ extern SetQuery *createSetQuery(char *opType, boolean all, Node *lChild,
         Node *rChild);
 extern QueryBlock *createQueryBlock(void);
 extern ProvenanceStmt *createProvenanceStmt(Node *query);
-extern IGStmt *createIGStmt(Node *query);
-
 extern SelectItem *createSelectItem(char *alias, Node *expr);
 extern FromItem *createFromItem (char *alias, List *attrNames);
 extern FromItem *createFromTableRef(char *alias, List *attrNames,

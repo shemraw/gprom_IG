@@ -39,7 +39,6 @@ NEW_ENUM_WITH_TO_STRING(NodeTag,
     /* query block model nodes */
     T_SetQuery,
     T_ProvenanceStmt,
-	T_IGStmt,
     T_ProvenanceTransactionInfo,
 	T_IGTransactionInfo,
     T_QueryBlock,
@@ -117,16 +116,8 @@ NEW_ENUM_WITH_TO_STRING(ProvenanceType,
     PROV_XML,
 	PROV_COARSE_GRAINED,
 	USE_PROV_COARSE_GRAINED,
-    PROV_NONE /* for reenactment of bag semantics only */
-);
-
-NEW_ENUM_WITH_TO_STRING(IGType,
-    IG_PI_CS,
-    IG_TRANSFORMATION,
-    IG_XML,
-	IG_COARSE_GRAINED,
-	USE_IG_COARSE_GRAINED,
-    IG_NONE /* for reenactment of bag semantics only */
+    PROV_NONE, /* for reenactment of bag semantics only */
+	IG_PI_CS
 );
 
 /* what type of database operation(s) a provenance computation is for */
@@ -142,22 +133,6 @@ NEW_ENUM_WITH_TO_STRING(ProvenanceInputType,
 	PROV_INPUT_UNCERTAIN_TUPLE_QUERY,
 	PROV_INPUT_RANGE_QUERY
 );
-
-
-/* what type of database operation(s) a IG computation is for */
-NEW_ENUM_WITH_TO_STRING(IGInputType,
-    IG_INPUT_QUERY,
-    IG_INPUT_UPDATE,
-    IG_INPUT_UPDATE_SEQUENCE,
-    IG_INPUT_REENACT,
-    IG_INPUT_REENACT_WITH_TIMES,
-    IG_INPUT_TRANSACTION,
-    IG_INPUT_TEMPORAL_QUERY,
-    IG_INPUT_UNCERTAIN_QUERY,
-	IG_INPUT_UNCERTAIN_TUPLE_QUERY,
-	IG_INPUT_RANGE_QUERY
-);
-
 
 /* stringinfo provides the string data type*/
 
