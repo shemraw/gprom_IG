@@ -90,6 +90,7 @@ typedef struct ProvenanceStmt
     Node *asOf;
     List *options;
     List *sumOpts;
+    boolean igFlag;
 //    char *summaryType;
 //    List *userQuestion;
 //    int sampleSize;

@@ -656,6 +656,7 @@ outProvenanceStmt (StringInfo str, ProvenanceStmt *node)
     WRITE_NODE_FIELD(asOf);
     WRITE_NODE_FIELD(options);
     WRITE_NODE_FIELD(sumOpts);
+    WRITE_BOOL_FIELD(igFlag);
 }
 
 static void

@@ -496,7 +496,7 @@ provStmt:
 igStmt:
 	IG optionalProvAsOf optionalProvWith OF '(' stmt ')' optionalTranslate
         {
-            RULELOG("provStmt::stmt");
+            RULELOG("igStmt::stmt");
             Node *stmt = $6;
 	    	ProvenanceStmt *p = createProvenanceStmt(stmt);
 		    p->inputType = isQBUpdate(stmt) ? PROV_INPUT_UPDATE : PROV_INPUT_QUERY;
@@ -504,16 +504,18 @@ igStmt:
 		    p->asOf = (Node *) $2;
 //            p->options = $3;
             p->options = concatLists($3,$8);
+            p->igFlag = TRUE;
             $$ = (Node *) p;
         }
 		| IG optionalProvAsOf optionalProvWith OF '(' stmtList ')'
 		{
-			RULELOG("provStmt::stmtlist");
+			RULELOG("igStmt::stmtlist");
 			ProvenanceStmt *p = createProvenanceStmt((Node *) $6);
 			p->inputType = PROV_INPUT_UPDATE_SEQUENCE;
 			p->provType = IG_PI_CS;
 			p->asOf = (Node *) $2;
 			p->options = concatLists(listMake($1),$3);
+			p->igFlag = TRUE;
 			$$ = (Node *) p;
 		}
 //        IG optionalIGAsOf optionalIGWith OF '(' stmt ')' optionalTranslate
@@ -2107,20 +2109,13 @@ char *condType = (isA($4,List)) ? "JOIN_COND_USING" :
      ;
 
 joinType:
-		LEFT 			{ RULELOG("joinType::LEFT");
-$$ = "JOIN_LEFT_OUTER"; }
-		| LEFT OUTER 	{ RULELOG("joinType::LEFT OUTER");
-$$ = "JOIN_LEFT_OUTER"; }
-		| RIGHT 		{ RULELOG("joinType::RIGHT ");
-$$ = "JOIN_RIGHT_OUTER"; }
-		| RIGHT OUTER  	{ RULELOG("joinType::RIGHT OUTER");
-$$ = "JOIN_RIGHT_OUTER"; }
-		| FULL OUTER  	{ RULELOG("joinType::FULL OUTER");
-$$ = "JOIN_FULL_OUTER"; }
-		| FULL 	  		{ RULELOG("joinType::FULL");
-$$ = "JOIN_FULL_OUTER"; }
-		| INNER  		{ RULELOG("joinType::INNER");
-$$ = "JOIN_INNER"; }
+		LEFT 			{ RULELOG("joinType::LEFT"); $$ = "JOIN_LEFT_OUTER"; }
+		| LEFT OUTER 	{ RULELOG("joinType::LEFT OUTER"); $$ = "JOIN_LEFT_OUTER"; }
+		| RIGHT 		{ RULELOG("joinType::RIGHT "); $$ = "JOIN_RIGHT_OUTER"; }
+		| RIGHT OUTER  	{ RULELOG("joinType::RIGHT OUTER"); $$ = "JOIN_RIGHT_OUTER"; }
+		| FULL OUTER  	{ RULELOG("joinType::FULL OUTER"); $$ = "JOIN_FULL_OUTER"; }
+		| FULL 	  		{ RULELOG("joinType::FULL"); $$ = "JOIN_FULL_OUTER"; }
+		| INNER  		{ RULELOG("joinType::INNER"); $$ = "JOIN_INNER"; }
 	;
 
 joinCond:
@@ -2326,12 +2321,12 @@ List *expr = singleton($1);
         | expression comparisonOps nestedSubQueryOperator '(' queryStmt ')'
             {
                 RULELOG("whereExpression::comparisonOps::nestedSubQueryOperator::Subquery");
-$$ = (Node *) createNestedSubquery($3, $1, $2, $5);
+                $$ = (Node *) createNestedSubquery($3, $1, $2, $5);
             }
         | expression comparisonOps '(' queryStmt ')'
             {
                 RULELOG("whereExpression::Subquery");
-Node *q = (Node *) createNestedSubquery("SCALAR", NULL, NULL, $4);
+                Node *q = (Node *) createNestedSubquery("SCALAR", NULL, NULL, $4);
                 List *expr = LIST_MAKE($1, q);
                 $$ = (Node *) createOpExpr($2, expr);
             }
@@ -2344,7 +2339,7 @@ Node *q = (Node *) createNestedSubquery("SCALAR", NULL, NULL, $4);
                 else
                 {
                     RULELOG("whereExpression::NOT::IN");
-$$ = (Node *) createQuantifiedComparison("ALL",$1, "<>", $5);
+                    $$ = (Node *) createQuantifiedComparison("ALL",$1, "<>", $5);
                 }
             }
         | expression optionalNot IN '(' queryStmt ')'
@@ -2356,68 +2351,54 @@ $$ = (Node *) createQuantifiedComparison("ALL",$1, "<>", $5);
                 else
                 {
                     RULELOG("whereExpression::NOT::IN");
-$$ = (Node *) createNestedSubquery("ALL",$1, "<>", $5);
+                    $$ = (Node *) createNestedSubquery("ALL",$1, "<>", $5);
                 }
             }
         | EXISTS '(' queryStmt ')'
             {
                 RULELOG("whereExpression::EXISTS");
-$$ = (Node *) createNestedSubquery($1, NULL, NULL, $3);
+                $$ = (Node *) createNestedSubquery($1, NULL, NULL, $3);
             }
     ;
 
 nestedSubQueryOperator:
-        ANY { RULELOG("nestedSubQueryOperator::ANY");
-$$ = $1; }
-        | ALL { RULELOG("nestedSubQueryOperator::ALL");
-$$ = $1; }
-        | SOME { RULELOG("nestedSubQueryOperator::SOME");
-$$ = "ANY"; }
+        ANY { RULELOG("nestedSubQueryOperator::ANY"); $$ = $1; }
+        | ALL { RULELOG("nestedSubQueryOperator::ALL"); $$ = $1; }
+        | SOME { RULELOG("nestedSubQueryOperator::SOME"); $$ = "ANY"; }
     ;
 
 optionalNot:
-        /* Empty */    { RULELOG("optionalNot::NULL");
-$$ = NULL; }
-        | NOT    { RULELOG("optionalNot::NOT");
-$$ = $1; }
+        /* Empty */    { RULELOG("optionalNot::NULL"); $$ = NULL; }
+        | NOT    { RULELOG("optionalNot::NOT"); $$ = $1; }
     ;
 
 optionalGroupBy:
-        /* Empty */        { RULELOG("optionalGroupBy::NULL");
-$$ = NULL; }
-        | GROUP BY exprList      { RULELOG("optionalGroupBy::GROUPBY");
-$$ = $3; }
+        /* Empty */        { RULELOG("optionalGroupBy::NULL"); $$ = NULL; }
+        | GROUP BY exprList      { RULELOG("optionalGroupBy::GROUPBY"); $$ = $3; }
     ;
 
 optionalHaving:
-        /* Empty */        { RULELOG("optionalOrderBy:::NULL");
-$$ = NULL; }
+        /* Empty */        { RULELOG("optionalOrderBy:::NULL"); $$ = NULL; }
         | HAVING whereExpression
             {
                 RULELOG("optionalHaving::HAVING");
-$$ = (Node *) $2;
+                $$ = (Node *) $2;
             }
     ;
 
 optionalOrderBy:
-        /* Empty */        { RULELOG("optionalOrderBy:::NULL");
-$$ = NULL; }
-        | ORDER BY orderList       { RULELOG("optionalOrderBy::ORDERBY");
-$$ = $3; }
+        /* Empty */        { RULELOG("optionalOrderBy:::NULL");	$$ = NULL; }
+        | ORDER BY orderList       { RULELOG("optionalOrderBy::ORDERBY"); $$ = $3; }
     ;
 
 optionalLimit:
-        /* Empty */        { RULELOG("optionalLimit::NULL");
-$$ = NULL; }
-        | LIMIT constant        { RULELOG("optionalLimit::CONSTANT");
-$$ = $2;}
+        /* Empty */        { RULELOG("optionalLimit::NULL"); $$ = NULL; }
+        | LIMIT constant        { RULELOG("optionalLimit::CONSTANT"); $$ = $2;}
     ;
 
 optionalOffset:
-        /* Empty */        { RULELOG("optionalOffset::NULL");
-$$ = NULL; }
-        | OFFSET constant        { RULELOG("optionalOffset::CONSTANT");
-$$ = $2;}
+        /* Empty */        { RULELOG("optionalOffset::NULL"); $$ = NULL; }
+        | OFFSET constant        { RULELOG("optionalOffset::CONSTANT"); $$ = $2;}
     ;
 
 
@@ -2425,12 +2406,12 @@ orderList:
 		 orderExpr
             {
                 RULELOG("clauseList::orderExpr");
-$$ = singleton($1);
+                $$ = singleton($1);
             }
         | orderList ',' orderExpr
             {
                 RULELOG("orderList::orderList::orderExpr");
-$$ = appendToTailOfList($1, $3);
+                $$ = appendToTailOfList($1, $3);
             }
     ;
 
@@ -2438,7 +2419,7 @@ orderExpr:
 		expression optionalSortOrder optionalNullOrder
 			{
 				RULELOG("orderExpr::expr::sortOrder::nullOrder");
-SortOrder o = (strcmp($2,"ASC") == 0) ?  SORT_ASC : SORT_DESC;
+				SortOrder o = (strcmp($2,"ASC") == 0) ?  SORT_ASC : SORT_DESC;
 				SortNullOrder n = (strcmp($3,"NULLS_FIRST") == 0) ?
 						SORT_NULLS_FIRST :
 						SORT_NULLS_LAST;
@@ -2447,32 +2428,28 @@ SortOrder o = (strcmp($2,"ASC") == 0) ?  SORT_ASC : SORT_DESC;
 	;
 
 optionalSortOrder:
-		/* empty */ { RULELOG("optionalSortOrder::empty");
-$$ = "ASC"; }
+		/* empty */ { RULELOG("optionalSortOrder::empty"); $$ = "ASC"; }
 		| ASC
 			{
-				RULELOG("optionalSortOrder::ASC");
-$$ = "ASC";
+				RULELOG("optionalSortOrder::ASC"); $$ = "ASC";
 			}
 		| DESC
 			{
-				RULELOG("optionalSortOrder::DESC");
-$$ = "DESC";
+				RULELOG("optionalSortOrder::DESC"); $$ = "DESC";
 			}
 	;
 
 optionalNullOrder:
-		/* empty */ { RULELOG("optionalNullOrder::empty");
-$$ = "NULLS_LAST"; }
+		/* empty */ { RULELOG("optionalNullOrder::empty"); $$ = "NULLS_LAST"; }
 		| NULLS FIRST
 			{
 				RULELOG("optionalNullOrder::NULLS FIRST");
-$$ = "NULLS_FIRST";
+				$$ = "NULLS_FIRST";
 			}
 		| NULLS LAST
 			{
 				RULELOG("optionalNullOrder::NULLS LAST");
-$$ = "NULLS_LAST";
+				$$ = "NULLS_LAST";
 			}
 	;
 
@@ -2482,7 +2459,7 @@ delimIdentifier:
 		| delimIdentifier '.' identifier
 		{
 			RULELOG("identifierList::list::ident");
-$$ = CONCAT_STRINGS($1, ".", $3); //TODO
+			$$ = CONCAT_STRINGS($1, ".", $3); //TODO
 		}
 	;
 
@@ -2490,12 +2467,12 @@ attrElemList:
 		attr
             {
                 RULELOG("userQuestList::identifier");
-$$ = singleton($1);
+                $$ = singleton($1);
             }
         | attrElemList ',' attr
             {
                 RULELOG("attrElemList::attrElemList::identifier");
-$$ = appendToTailOfList($1, $3);
+                $$ = appendToTailOfList($1, $3);
             }
     ;
 
@@ -2503,12 +2480,12 @@ attr:
  		constant
  			{
  				RULELOG("arg:constant");
-$$ = $1;
+ 				$$ = $1;
 			}
 		| '*'
 			{
  				RULELOG("arg:star");
-$$ = (Node *) createConstString(strdup("*"));
+ 				$$ = (Node *) createConstString(strdup("*"));
 }
 ;
 
