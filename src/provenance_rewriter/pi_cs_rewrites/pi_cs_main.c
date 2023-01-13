@@ -168,13 +168,16 @@ rewritePI_CSOperator (QueryOperator *op)
     {
         case T_SelectionOperator:
             DEBUG_LOG("go selection");
+            INFO_LOG("pi_cs T_SelectionOperator ----------------- ");
             rewrittenOp = rewritePI_CSSelection((SelectionOperator *) op);
             break;
         case T_ProjectionOperator:
             DEBUG_LOG("go projection");
+            INFO_LOG("pi_cs T_ProjectionOperator ----------------- ");
             rewrittenOp = rewritePI_CSProjection((ProjectionOperator *) op);
             break;
         case T_AggregationOperator:
+        	INFO_LOG("pi_cs T_AggregationOperator ----------------- ");
         	if(combinerAggrOpt) {
         		rewrittenOp = rewriteCoarseGrainedAggregation ((AggregationOperator *) op);
         		INFO_LOG("go SEMIRING COMBINER aggregation optimization!");
@@ -189,41 +192,55 @@ rewritePI_CSOperator (QueryOperator *op)
         	}
             break;
         case T_JoinOperator:
+        	INFO_LOG("pi_cs T_JoinOperator ----------------- ");
             DEBUG_LOG("go join");
             rewrittenOp = rewritePI_CSJoin((JoinOperator *) op);
             break;
         case T_SetOperator:
             DEBUG_LOG("go set");
+            INFO_LOG("pi_cs T_SetOperator ----------------- ");
             rewrittenOp = rewritePI_CSSet((SetOperator *) op);
             break;
         case T_TableAccessOperator:
             DEBUG_LOG("go table access");
+            INFO_LOG("pi_cs T_TableAccessOperator 1 ----------------- ");
             //rewrittenOp = rewritePI_CSTableAccess((TableAccessOperator *) op);
-            if(HAS_STRING_PROP(op, PROP_COARSE_GRAINED_TABLEACCESS_MARK))
+            if(HAS_STRING_PROP(op, PROP_COARSE_GRAINED_TABLEACCESS_MARK)){
             		rewrittenOp = rewriteCoarseGrainedTableAccess((TableAccessOperator *) op);
-            else if(HAS_STRING_PROP(op, USE_PROP_COARSE_GRAINED_TABLEACCESS_MARK))
+            		INFO_LOG("pi_cs T_TableAccessOperator 2 ----------------- ");
+            }
+            else if(HAS_STRING_PROP(op, USE_PROP_COARSE_GRAINED_TABLEACCESS_MARK)){
             		rewrittenOp = rewriteUseCoarseGrainedTableAccess((TableAccessOperator *) op);
-            else
+            		INFO_LOG("pi_cs T_TableAccessOperator 3 ----------------- ");
+            }
+            else{
             		rewrittenOp = rewritePI_CSTableAccess((TableAccessOperator *) op);
+            		INFO_LOG("pi_cs T_TableAccessOperator 4 ----------------- ");
+            }
             break;
         case T_ConstRelOperator:
             DEBUG_LOG("go const rel operator");
+            INFO_LOG("pi_cs T_ConstRelOperator ----------------- ");
             rewrittenOp = rewritePI_CSConstRel((ConstRelOperator *) op);
             break;
         case T_DuplicateRemoval:
             DEBUG_LOG("go duplicate removal operator");
+            INFO_LOG("pi_cs T_DuplicateRemoval ----------------- ");
             rewrittenOp = rewritePI_CSDuplicateRemOp((DuplicateRemoval *) op);
             break;
         case T_OrderOperator:
             DEBUG_LOG("go order operator");
+            INFO_LOG("pi_cs T_OrderOperator ----------------- ");
             rewrittenOp = rewritePI_CSOrderOp((OrderOperator *) op);
             break;
         case T_JsonTableOperator:
             DEBUG_LOG("go JsonTable operator");
+            INFO_LOG("pi_cs T_JsonTableOperator ----------------- ");
             rewrittenOp = rewritePI_CSJsonTableOp((JsonTableOperator *) op);
 	     break;
         case T_NestingOperator:
             DEBUG_LOG("go nesting operator");
+            INFO_LOG("pi_cs T_NestingOperator ----------------- ");
             rewrittenOp = rewritePI_CSNestingOp((NestingOperator *) op);
             break;
         default:
@@ -231,15 +248,22 @@ rewritePI_CSOperator (QueryOperator *op)
             return NULL;
     }
 
-    if (showIntermediate)
+    if (showIntermediate){
         rewrittenOp = addIntermediateProvenance(rewrittenOp, userProvAttrs, ignoreProvAttrs, provRelName);
+        INFO_LOG("pi_cs if showIntermediate ----------------- ");
+    }
 
-    if (rewriteAddProv)
+    if (rewriteAddProv){
         rewrittenOp = addUserProvenanceAttributes(rewrittenOp, addProvAttrs, showIntermediate, provRelName, provAddRelName);
+        INFO_LOG("pi_cs if rewriteAddProv ----------------- ");
+    }
 
-    if (isRewriteOptionActivated(OPTION_AGGRESSIVE_MODEL_CHECKING))
+    if (isRewriteOptionActivated(OPTION_AGGRESSIVE_MODEL_CHECKING)){
         ASSERT(checkModel(rewrittenOp));
+        INFO_LOG("pi_cs if isRewriteOptionActivated ----------------- ");
+    }
 
+    INFO_LOG("pi_cs return rewrittenOp ----------------- ");
     return rewrittenOp;
 }
 
@@ -644,16 +668,18 @@ rewritePI_CSProjection (ProjectionOperator *op)
 
     // rewrite child
     rewritePI_CSOperator(OP_LCHILD(op));
-
+    LOG_RESULT("Rewritten Operator tree after rewritePI_CSOperator", op);
     // add projection expressions for provenance attrs
     QueryOperator *child = OP_LCHILD(op);
+    LOG_RESULT("Query operator child", child);
+
     FOREACH_INT(a, child->provAttrs)
     {
         AttributeDef *att = getAttrDef(child,a);
         op->projExprs = appendToTailOfList(op->projExprs,
                  createFullAttrReference(att->attrName, 0, a, 0, att->dataType));
     }
-
+    LOG_RESULT("Rewritten Operator tree before adding ProvenanceAttrsToSchema", op);
     // adapt schema
     addProvenanceAttrsToSchema((QueryOperator *) op, OP_LCHILD(op));
 
@@ -1260,8 +1286,12 @@ rewritePI_CSTableAccess(TableAccessOperator *op)
 {
 //    List *tableAttr;
     List *provAttr = NIL;
+    //List *provAttr_1 = NIL;
+
     List *projExpr = NIL;
+
     char *newAttrName;
+    //char *newAttrName_IG;
 
     int relAccessCount = getRelNameCount(&nameState, op->tableName);
     int cnt = 0;
@@ -1294,11 +1324,14 @@ rewritePI_CSTableAccess(TableAccessOperator *op)
 
     DEBUG_LOG("rewrite table access, \n\nattrs <%s> and \n\nprojExprs <%s> and \n\nprovAttrs <%s>",
             stringListToString(provAttr),
+			//stringListToString(provAttr_1),
             nodeToString(projExpr),
             nodeToString(newProvPosList));
 
     // Create a new projection operator with these new attributes
     ProjectionOperator *newpo = createProjectionOp(projExpr, NULL, NIL, provAttr);
+
+
     newpo->op.provAttrs = newProvPosList;
     SET_BOOL_STRING_PROP((QueryOperator *)newpo, PROP_PROJ_PROV_ATTR_DUP);
 
@@ -1442,13 +1475,13 @@ addForOrdinality(JsonTableOperator **op, JsonColInfoItem **attr, int *countFOD, 
 	if(LIST_LENGTH(path) == 2 && (*attr)->nested)
 	{
 		StringInfo forOrdinality = makeStringInfo ();
-		char *prefixFOD = "prov_for_ord_";
+		char *prefixFOD = "ig_for_ord_";
 		appendStringInfoString(forOrdinality, prefixFOD);
 		appendStringInfoString(forOrdinality, gprom_itoa(*countFOD));
         (*attr)->forOrdinality = forOrdinality->data;
 
 		StringInfo renameFOD = makeStringInfo ();
-		char *prefixRFOD = "prov_path_";
+		char *prefixRFOD = "ig_path_";
 		appendStringInfoString(renameFOD, prefixRFOD);
 		appendStringInfoString(renameFOD, gprom_itoa(*countFOD));
 		(*countFOD) ++;
@@ -1655,13 +1688,13 @@ rewritePI_CSJsonTableOp(JsonTableOperator *op)
 	if(LIST_LENGTH(cnewPath) == 2)
 	{
 		StringInfo forOrdinality = makeStringInfo ();
-		char *prefixFOD = "prov_for_ord_";
+		char *prefixFOD = "ig_for_ord_";
 		appendStringInfoString(forOrdinality, prefixFOD);
 		appendStringInfoString(forOrdinality, gprom_itoa(countFOD));
         op->forOrdinality = forOrdinality->data;
 
 		StringInfo renameFOD = makeStringInfo ();
-		char *prefixRFOD = "prov_path_";
+		char *prefixRFOD = "ig_path_";
 		appendStringInfoString(renameFOD, prefixRFOD);
 		appendStringInfoString(renameFOD, gprom_itoa(countFOD));
 		countFOD ++;
@@ -1855,7 +1888,7 @@ rewriteCoarseGrainedTableAccess(TableAccessOperator *op)
     {
     	DEBUG_LOG("Partition by fragment");
 
-    	newAttrName = CONCAT_STRINGS("PROV_", strdup(op->tableName), gprom_itoa(numTable));
+    	newAttrName = CONCAT_STRINGS("ig_", strdup(op->tableName), gprom_itoa(numTable));
     	provAttr = appendToTailOfList(provAttr, newAttrName);
 
     	List *ol = NIL;
@@ -1888,7 +1921,7 @@ rewriteCoarseGrainedTableAccess(TableAccessOperator *op)
 
     	opTable->schema->attrDefs = appendToTailOfList(opTable->schema->attrDefs, rid);
 
-    	newAttrName = CONCAT_STRINGS("PROV_", strdup(op->tableName), gprom_itoa(numTable));
+    	newAttrName = CONCAT_STRINGS("ig_", strdup(op->tableName), gprom_itoa(numTable));
     	provAttr = appendToTailOfList(provAttr, newAttrName);
 
     	//functioncall substr(ROWID,7,3)
@@ -1903,7 +1936,7 @@ rewriteCoarseGrainedTableAccess(TableAccessOperator *op)
     {
     	DEBUG_LOG("Partition by range type A");
 
-    	newAttrName = CONCAT_STRINGS("PROV_", strdup(op->tableName), gprom_itoa(numTable));
+    	newAttrName = CONCAT_STRINGS("ig_", strdup(op->tableName), gprom_itoa(numTable));
     	provAttr = appendToTailOfList(provAttr, newAttrName);
 
     	int pValue = INT_VALUE(hvalue);
@@ -1942,7 +1975,7 @@ rewriteCoarseGrainedTableAccess(TableAccessOperator *op)
     {
     	DEBUG_LOG("Partition by range type B");
 
-    	newAttrName = CONCAT_STRINGS("PROV_", strdup(op->tableName), gprom_itoa(numTable));
+    	newAttrName = CONCAT_STRINGS("ig_", strdup(op->tableName), gprom_itoa(numTable));
     	provAttr = appendToTailOfList(provAttr, newAttrName);
 
     List *fList = NIL;
@@ -2325,7 +2358,7 @@ rewriteUseCoarseGrainedTableAccess(TableAccessOperator *op)
       }
     }
 
-    newAttrName = CONCAT_STRINGS("PROV_", strdup(op->tableName), gprom_itoa(numTable));
+    newAttrName = CONCAT_STRINGS("ig_", strdup(op->tableName), gprom_itoa(numTable));
     provAttr = appendToTailOfList(provAttr, newAttrName);
 
     //three cases: fragment or range or page
@@ -2342,7 +2375,7 @@ rewriteUseCoarseGrainedTableAccess(TableAccessOperator *op)
 
         	opTable->schema->attrDefs = appendToTailOfList(opTable->schema->attrDefs, rid);
 
-        	newAttrName = CONCAT_STRINGS("PROV_", strdup(op->tableName), gprom_itoa(numTable));
+        	newAttrName = CONCAT_STRINGS("ig_", strdup(op->tableName), gprom_itoa(numTable));
         	provAttr = appendToTailOfList(provAttr, newAttrName);
 
         	//functioncall substr(ROWID,7,3)
@@ -2357,7 +2390,7 @@ rewriteUseCoarseGrainedTableAccess(TableAccessOperator *op)
     {
         	DEBUG_LOG("deal with range paratation type A");
 
-        	newAttrName = CONCAT_STRINGS("PROV_", strdup(op->tableName), gprom_itoa(numTable));
+        	newAttrName = CONCAT_STRINGS("ig_", strdup(op->tableName), gprom_itoa(numTable));
         	provAttr = appendToTailOfList(provAttr, newAttrName);
 
         	int pValue = INT_VALUE(hvalue);
@@ -2392,7 +2425,7 @@ rewriteUseCoarseGrainedTableAccess(TableAccessOperator *op)
     {
         	DEBUG_LOG("deal with range paratation type B");
 
-        	newAttrName = CONCAT_STRINGS("PROV_", strdup(op->tableName), gprom_itoa(numTable));
+        	newAttrName = CONCAT_STRINGS("ig_", strdup(op->tableName), gprom_itoa(numTable));
         	provAttr = appendToTailOfList(provAttr, newAttrName);
 
         	List *fList = NIL;

@@ -154,44 +154,53 @@ analyzeQueryBlockStmt (Node *stmt, List *parentFroms)
     {
         case T_QueryBlock:
             analyzeQueryBlock((QueryBlock *) stmt, parentFroms);
-            DEBUG_LOG("analyzed QB");
+            INFO_LOG(" ---------------------- analyzed QB 1");
             break;
         case T_SetQuery:
             analyzeSetQuery((SetQuery *) stmt, parentFroms);
-            DEBUG_LOG("analyzed Set Query");
+            INFO_LOG(" ---------------------- analyzed Set Query 1");
             break;
         case T_ProvenanceStmt:
             analyzeProvenanceStmt((ProvenanceStmt *) stmt, parentFroms);
-            DEBUG_LOG("analyzed Provenance Stmt");
+            INFO_LOG(" ---------------------- analyzed Provenance Stmt 1");
             break;
         case T_List:
             analyzeStmtList ((List *) stmt, parentFroms);
-            DEBUG_LOG("analyzed List");
+            INFO_LOG(" ---------------------- analyzed List 1");
             break;
         case T_Insert:
             analyzeInsert((Insert *) stmt);
+            INFO_LOG(" ---------------------- analyzed Insert 1");
             break;
         case T_Delete:
             analyzeDelete((Delete *) stmt);
+            INFO_LOG(" ---------------------- analyzed Delete 1");
             break;
         case T_Update:
             analyzeUpdate((Update *) stmt);
+            INFO_LOG(" ---------------------- analyzed Update 1");
             break;
         case T_WithStmt:
             analyzeWithStmt((WithStmt *) stmt);
+            INFO_LOG(" ---------------------- analyzed With Stmt 1");
             break;
         case T_CreateTable:
             analyzeCreateTable((CreateTable *) stmt);
+            INFO_LOG(" ---------------------- analyzed create table 1");
             break;
         case T_AlterTable:
             analyzeAlterTable((AlterTable *) stmt);
+            INFO_LOG(" ---------------------- analyzed alter table 1");
             break;
         default:
+        	INFO_LOG(" ---------------------- entered default");
             break;
     }
 
-    if(isQBUpdate(stmt) || isQBQuery(stmt))
+    if(isQBUpdate(stmt) || isQBQuery(stmt)){
+    	INFO_LOG("entered isQBUpdate(stmt) || isQBQuery(stmt) and then called enumerateParameters(stmt)");
         enumerateParameters(stmt);
+    }
 
     DEBUG_NODE_BEATIFY_LOG("RESULT OF ANALYSIS IS:", stmt);
 }
@@ -209,6 +218,7 @@ enumerateParameters (Node *stmt)
 static void
 analyzeStmtList (List *l, List *parentFroms)
 {
+	INFO_LOG(" ---------------------- analyzed List");
     FOREACH(Node,n,l)
         analyzeQueryBlockStmt(n, parentFroms);
 }
@@ -245,6 +255,7 @@ adaptAttributeRefs(List* attrRefs, List* parentFroms)
 static void
 analyzeQueryBlock (QueryBlock *qb, List *parentFroms)
 {
+	INFO_LOG("  ----------------------  ANALYZED QB");
     List *attrRefs = NIL;
 
     // unfold views
@@ -318,9 +329,8 @@ analyzeQueryBlock (QueryBlock *qb, List *parentFroms)
 
         DEBUG_LOG("analyzed from item <%s>", nodeToString(f));
     }
-
     INFO_LOG("Figuring out attributes of from clause items done");
-    DEBUG_LOG("Found the following from tables: <%s>", nodeToString(qb->fromClause));
+    INFO_LOG("Found the following from tables: <%s>", nodeToString(qb->fromClause));
 
     // expand * expressions
     List *expandedSelectClause = NIL;
@@ -348,7 +358,7 @@ analyzeQueryBlock (QueryBlock *qb, List *parentFroms)
     findAttrReferences((Node *) qb->whereClause, &attrRefs);
 
     INFO_LOG("Collect attribute references done");
-    DEBUG_LOG("Have the following attribute references: <%s>", nodeToString(attrRefs));
+    INFO_LOG("Have the following attribute references: <%s>", nodeToString(attrRefs));
 
     // expand list of from clause to use
     parentFroms = appendToHeadOfList(copyList(parentFroms), qb->fromClause);
@@ -410,7 +420,7 @@ analyzeNestedSubqueries(QueryBlock *qb, List *parentFroms)
     findNestedSubqueries((Node *) qb->havingClause, &nestedSubqueries);
     findNestedSubqueries((Node *) qb->orderByClause, &nestedSubqueries);
 
-    DEBUG_LOG("Current query <%s>\nhas nested subqueries\n%s",
+    INFO_LOG("Current query <%s>\nhas nested subqueries\n%s",
             nodeToString(qb), nodeToString(nestedSubqueries));
 
     // analyze each subquery
@@ -591,7 +601,7 @@ analyzeFunctionCall(QueryBlock *qb)
     findFunctionCall((Node *) qb->havingClause, &functionCallList);
 
     INFO_LOG("Collect function call done");
-    DEBUG_LOG("Have the following function calls: <%s>", nodeToString(functionCallList));
+    INFO_LOG("Have the following function calls: <%s>", nodeToString(functionCallList));
 
     // adapt function call
     FOREACH(Node, f, functionCallList)
@@ -1336,6 +1346,7 @@ analyzeFromJsonTable(FromJsonTable *f, List **state)
 static void
 analyzeInsert(Insert * f)
 {
+	INFO_LOG(" ---------------------- analyzed Insert");
     List *attrNames = NIL;
     List *dataTypes = NIL;
     List *attrDefs = NIL;
@@ -1463,6 +1474,7 @@ analyzeInsert(Insert * f)
 static void
 analyzeDelete(Delete * f)
 {
+	INFO_LOG(" ---------------------- analyzed Delete");
 	List *attrRefs = NIL;
 	List *subqueries = NIL;
 	List *attrDefs = NIL;
@@ -1514,6 +1526,7 @@ analyzeDelete(Delete * f)
 static void
 analyzeUpdate(Update* f)
 {
+	INFO_LOG(" ---------------------- analyzed Update");
 	List *attrRefs = NIL;
 	List *attrDefs = NIL;
 	List *dataTypes = NIL;
@@ -1836,6 +1849,7 @@ splitTableName(char *tableName)
 static void
 analyzeSetQuery (SetQuery *q, List *parentFroms)
 {
+	INFO_LOG("  ----------------------  ANALYZED SQT QUERY");
     analyzeQueryBlockStmt(q->lChild, parentFroms);
     analyzeQueryBlockStmt(q->rChild, parentFroms);
 
@@ -1872,6 +1886,7 @@ analyzeSetQuery (SetQuery *q, List *parentFroms)
 static void
 analyzeProvenanceStmt (ProvenanceStmt *q, List *parentFroms)
 {
+	INFO_LOG(" ---------------------- analyzed Provenance Stmt");
     switch (q->inputType)
     {
         case PROV_INPUT_TRANSACTION:
@@ -2169,6 +2184,7 @@ analyzeProvenanceOptions (ProvenanceStmt *prov)
 static void
 analyzeWithStmt (WithStmt *w)
 {
+	INFO_LOG(" ---------------------- analyzed With Stmt");
     Set *viewNames = STRSET();
     List *analyzedViews = NIL;
 
@@ -2202,6 +2218,7 @@ analyzeWithStmt (WithStmt *w)
 static void
 analyzeCreateTable (CreateTable *c)
 {
+	INFO_LOG(" ---------------------- analyzed create table");
     /*TODO support context */
     boolean tableExists;
 
@@ -2239,6 +2256,7 @@ analyzeCreateTable (CreateTable *c)
 static void
 analyzeAlterTable (AlterTable *a)
 {
+	INFO_LOG(" ---------------------- analyzed alter table");
     List *schema;
 
     if(!catalogTableExists(a->tableName) && !schemaInfoHasTable(a->tableName))

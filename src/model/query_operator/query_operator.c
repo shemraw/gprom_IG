@@ -766,7 +766,8 @@ createProvenanceComputOp(ProvenanceType provType, List *inputs, List *parents, L
 
     p->op.parents = parents;
     p->op.inputs = inputs;
-    p->op.schema = createSchemaFromLists("PROVENANCE", attrNames, dts);
+	INFO_LOG("Changed string PROVENANCE TO IG HERE || INSIDE createProvenanceComputOp");
+    p->op.schema = createSchemaFromLists("IG", attrNames, dts);
     p->provType = provType;
     p->asOf = asOf;
 

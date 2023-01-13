@@ -497,6 +497,7 @@ igStmt:
 	IG optionalProvAsOf optionalProvWith OF '(' stmt ')' optionalTranslate
         {
             RULELOG("igStmt::stmt");
+            INFO_LOG("111111111111111 igstmt");
             Node *stmt = $6;
 	    	ProvenanceStmt *p = createProvenanceStmt(stmt);
 		    p->inputType = isQBUpdate(stmt) ? PROV_INPUT_UPDATE : PROV_INPUT_QUERY;
@@ -518,6 +519,7 @@ igStmt:
 			p->igFlag = TRUE;
 			$$ = (Node *) p;
 		}
+
 //        IG optionalIGAsOf optionalIGWith OF '(' stmt ')' optionalTranslate
 //        {
 //            RULELOG("igStmt::stmt");
