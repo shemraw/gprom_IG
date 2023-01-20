@@ -1336,7 +1336,7 @@ rewritePI_CSTableAccess(TableAccessOperator *op)
        cnt1 = 0;
        FOREACH(AttributeDef, attr, op->op.schema->attrDefs)
        {
-           newAttrName = getProvenanceAttrName(op->tableName, attr->attrName, relAccessCount);
+           newAttrName = getProvenanceAttrName1(op->tableName, attr->attrName, relAccessCount);
            provAttr = appendToTailOfList(provAttr, newAttrName);
            projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt1, 0, attr->dataType));
            cnt1++;

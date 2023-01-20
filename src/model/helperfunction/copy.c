@@ -947,6 +947,7 @@ copyProvenanceStmt(ProvenanceStmt *from, OperatorMap **opMap)
     COPY_NODE_FIELD(options);
     COPY_NODE_FIELD(sumOpts);
     COPY_SCALAR_FIELD(igFlag);
+    COPY_SCALAR_FIELD(inJoinCondt);
 
     return new;
 }

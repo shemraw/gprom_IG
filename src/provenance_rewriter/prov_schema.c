@@ -108,6 +108,18 @@ getProvenanceAttrName (char *table, char *attr, int count)
             escapeUnderscore(attr));
 }
 
+
+char *
+getProvenanceAttrName1 (char *table, char *attr, int count)
+{
+    char *countStr = CALLOC(1,128);
+    if (count > 0)
+        sprintf(countStr,"_%u", count);
+    return CONCAT_STRINGS(PROV_NEW_ATTR_PREFIX, escapeUnderscore(table), countStr, "_",
+            escapeUnderscore(attr));
+}
+
+
 static char *
 escapeUnderscore (char *str)
 {
