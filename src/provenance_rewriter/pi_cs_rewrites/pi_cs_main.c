@@ -1325,28 +1325,19 @@ rewritePI_CSTableAccess(TableAccessOperator *op)
         cnt++;
     }
 
+    cnt = 0;
+
+    FOREACH(AttributeDef, attr, op->op.schema->attrDefs)
+	   {
+		   newAttrName = getProvenanceAttrName1(op->tableName, attr->attrName, relAccessCount);
+		   provAttr = appendToTailOfList(provAttr, newAttrName);
+		   projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
+		   cnt++;
+	   }
 
 
-    // ------------------------]]
-
-
-    int cnt1 = 0;
-    // Get the povenance name for each attribute
-
-       cnt1 = 0;
-       FOREACH(AttributeDef, attr, op->op.schema->attrDefs)
-       {
-           newAttrName = getProvenanceAttrName1(op->tableName, attr->attrName, relAccessCount);
-           provAttr = appendToTailOfList(provAttr, newAttrName);
-           projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt1, 0, attr->dataType));
-           cnt1++;
-       }
-
-
-
-    // ------------------------]]
     List *newProvPosList = NIL;
-    CREATE_INT_SEQ(newProvPosList, cnt, (cnt * 2) - 1, 1);
+    CREATE_INT_SEQ(newProvPosList, cnt, (cnt * 3) - 1, 1);
 
     DEBUG_LOG("rewrite table access, \n\nattrs <%s> and \n\nprojExprs <%s> and \n\nprovAttrs <%s>",
             stringListToString(provAttr),

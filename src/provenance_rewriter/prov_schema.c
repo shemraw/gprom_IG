@@ -27,8 +27,8 @@
 #include "provenance_rewriter/uncertainty_rewrites/uncert_rewriter.h"
 
 /* consts */
-#define PROV_ATTR_PREFIX backendifyIdentifier("PROV_IG_NEW_1_")
-#define PROV_NEW_ATTR_PREFIX backendifyIdentifier("PROV_IG_NEW_")
+#define PROV_ATTR_PREFIX backendifyIdentifier("CONVERSION_IG_")
+#define PROV_NEW_ATTR_PREFIX backendifyIdentifier("BIT_IG_")
 
 /* data types */
 typedef struct ProvSchemaInfo
@@ -104,7 +104,7 @@ getProvenanceAttrName (char *table, char *attr, int count)
     char *countStr = CALLOC(1,128);
     if (count > 0)
         sprintf(countStr,"_%u", count);
-    return CONCAT_STRINGS(PROV_ATTR_PREFIX, escapeUnderscore(table), countStr, "_",
+return CONCAT_STRINGS(PROV_ATTR_PREFIX, escapeUnderscore(table), countStr, "_",
             escapeUnderscore(attr));
 }
 
