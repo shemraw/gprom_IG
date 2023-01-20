@@ -164,6 +164,9 @@ rewritePI_CSOperator (QueryOperator *op)
     if(combinerAggrOpt) {
     	INFO_OP_LOG("go SEMIRING COMBINER aggregation optimization:",op);
     }
+
+    LOG_RESULT("Inside rewritePI_CSOperator", op);
+
     switch(op->type)
     {
         case T_SelectionOperator:
@@ -666,6 +669,8 @@ rewritePI_CSProjection (ProjectionOperator *op)
     //add semiring options
     addSCOptionToChild((QueryOperator *) op,OP_LCHILD(op));
 
+    LOG_RESULT("Rewritten Operator tree before rewritePI_CSOperator", op);
+
     // rewrite child
     rewritePI_CSOperator(OP_LCHILD(op));
     LOG_RESULT("Rewritten Operator tree after rewritePI_CSOperator", op);
@@ -679,6 +684,7 @@ rewritePI_CSProjection (ProjectionOperator *op)
         op->projExprs = appendToTailOfList(op->projExprs,
                  createFullAttrReference(att->attrName, 0, a, 0, att->dataType));
     }
+
     LOG_RESULT("Rewritten Operator tree before adding ProvenanceAttrsToSchema", op);
     // adapt schema
     addProvenanceAttrsToSchema((QueryOperator *) op, OP_LCHILD(op));
@@ -1319,6 +1325,26 @@ rewritePI_CSTableAccess(TableAccessOperator *op)
         cnt++;
     }
 
+
+
+    // ------------------------]]
+
+
+    int cnt1 = 0;
+    // Get the povenance name for each attribute
+
+       cnt1 = 0;
+       FOREACH(AttributeDef, attr, op->op.schema->attrDefs)
+       {
+           newAttrName = getProvenanceAttrName(op->tableName, attr->attrName, relAccessCount);
+           provAttr = appendToTailOfList(provAttr, newAttrName);
+           projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt1, 0, attr->dataType));
+           cnt1++;
+       }
+
+
+
+    // ------------------------]]
     List *newProvPosList = NIL;
     CREATE_INT_SEQ(newProvPosList, cnt, (cnt * 2) - 1, 1);
 

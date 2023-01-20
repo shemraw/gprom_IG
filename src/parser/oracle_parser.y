@@ -503,9 +503,10 @@ igStmt:
 		    p->inputType = isQBUpdate(stmt) ? PROV_INPUT_UPDATE : PROV_INPUT_QUERY;
 		    p->provType = IG_PI_CS;
 		    p->asOf = (Node *) $2;
-//            p->options = $3;
+//          p->options = $3;
             p->options = concatLists($3,$8);
             p->igFlag = TRUE;
+            p->inJoinCondt = FALSE;
             $$ = (Node *) p;
         }
 		| IG optionalProvAsOf optionalProvWith OF '(' stmtList ')'
@@ -517,6 +518,7 @@ igStmt:
 			p->asOf = (Node *) $2;
 			p->options = concatLists(listMake($1),$3);
 			p->igFlag = TRUE;
+			p->inJoinCondt = FALSE;
 			$$ = (Node *) p;
 		}
 
