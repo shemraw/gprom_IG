@@ -103,6 +103,23 @@ typedef struct IsNullExpr {
     Node *expr;
 } IsNullExpr;
 
+typedef struct StringToArray {
+    NodeTag type;
+    Node *attr;
+    Node *delim;
+} StringToArray;
+
+typedef struct Unnest {
+    NodeTag type;
+    Node *expr;
+} Unnest;
+
+typedef struct Ascii {
+    NodeTag type;
+    Node *expr;
+    Node *delim;
+} Ascii;
+
 NEW_ENUM_WITH_TO_STRING(WindowBoundType,
     WINBOUND_UNBOUND_PREC,
     WINBOUND_CURRENT_ROW,
@@ -191,7 +208,8 @@ typedef struct QuantifiedComparison {
 	isA(_n,WindowDef) || \
 	isA(_n,WindowFunction) || \
 	isA(_n,CastExpr) || \
-	isA(_n,OrderExpr)  \
+	isA(_n,OrderExpr) || \
+	isA(_n,StringToArray) \
     )
 
 #define FUNC_LEFT_INPUT(_e) ((Node *) getNthOfListP(((FunctionCall *) _e)->args, 0))
@@ -225,6 +243,9 @@ extern SQLParameter *createSQLParameter (char *name);
 extern CaseExpr *createCaseExpr (Node *expr, List *whenClauses, Node *elseRes);
 extern CaseWhen *createCaseWhen (Node *when, Node *then);
 extern IsNullExpr *createIsNullExpr (Node *expr);
+extern StringToArray *createStringToArrayExpr (Node *attr, Node *delim);
+extern Unnest *createUnnestExpr (Node *expr);
+extern Ascii *createAsciiExpr (Node *expr);
 extern Node *createIsNotDistinctExpr (Node *lArg, Node *rArg);
 
 extern WindowBound *createWindowBound (WindowBoundType bType, Node *expr);

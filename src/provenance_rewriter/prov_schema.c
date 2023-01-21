@@ -3,7 +3,7 @@
  * prov_schema.c
  *
  *
- *		AUTHOR: lord_pretzel
+ *		AUTHOR: lord_pretzel & seokki & shemon
  *
  *
  *
@@ -27,8 +27,10 @@
 #include "provenance_rewriter/uncertainty_rewrites/uncert_rewriter.h"
 
 /* consts */
-#define PROV_ATTR_PREFIX backendifyIdentifier("CONVERSION_IG_")
-#define PROV_NEW_ATTR_PREFIX backendifyIdentifier("BIT_IG_")
+#define PROV_ATTR_PREFIX backendifyIdentifier("PROV_")
+#define IG_CONV_ATTR_PREFIX backendifyIdentifier("IG_CONV_")
+#define IG_BIT_ATTR_PREFIX backendifyIdentifier("IG_BIT")
+
 
 /* data types */
 typedef struct ProvSchemaInfo
@@ -44,7 +46,7 @@ static int getRelCount(ProvSchemaInfo *info, char *tableName);
 static boolean findTablerefVisitor (Node *node, ProvSchemaInfo *status);
 
 static boolean findTablerefVisitorForCoarse (Node *node, ProvSchemaInfo *status);
-static boolean findTablerefVisitorForCoarse_1 (Node *node, ProvSchemaInfo *status);
+//static boolean findTablerefVisitorForCoarse_1 (Node *node, ProvSchemaInfo *status);
 
 static char *escapeUnderscore (char *str);
 
@@ -104,18 +106,18 @@ getProvenanceAttrName (char *table, char *attr, int count)
     char *countStr = CALLOC(1,128);
     if (count > 0)
         sprintf(countStr,"_%u", count);
-return CONCAT_STRINGS(PROV_ATTR_PREFIX, escapeUnderscore(table), countStr, "_",
+    return CONCAT_STRINGS(PROV_ATTR_PREFIX, escapeUnderscore(table), countStr, "_",
             escapeUnderscore(attr));
 }
 
 
 char *
-getProvenanceAttrName1 (char *table, char *attr, int count)
+getIgAttrName (char *table, char *attr, int count)
 {
     char *countStr = CALLOC(1,128);
     if (count > 0)
         sprintf(countStr,"_%u", count);
-    return CONCAT_STRINGS(PROV_NEW_ATTR_PREFIX, escapeUnderscore(table), countStr, "_",
+    return CONCAT_STRINGS(IG_CONV_ATTR_PREFIX, escapeUnderscore(table), countStr, "_",
             escapeUnderscore(attr));
 }
 
@@ -336,111 +338,111 @@ getQBProvenanceAttrList (ProvenanceStmt *stmt, List **attrNames, List **dts)
     }
 }
 
-void
-getQBProvenanceAttrList_1 (ProvenanceStmt *stmt, List **attrNames, List **dts)
-{
-    if(stmt->provType == PROV_PI_CS && stmt->inputType == PROV_INPUT_QUERY)
-    {
-        ProvSchemaInfo *pSchema= NEW(ProvSchemaInfo);
-
-        pSchema->provAttrs = NIL;
-        pSchema->dts = NIL;
-        findTablerefVisitor((Node *) stmt->query, pSchema);
-
-        if (LIST_LENGTH(pSchema->dts) == 0)
-        {
-            THROW(SEVERITY_RECOVERABLE, "%s", "cannot apply semiring combiner to query that has no provenance attributes.");
-        }
-
-        //semiring combiner check
-        if(isSemiringCombinerActivatedPs(stmt)){
-            *attrNames = singleton("PROV_IG_NEW");
-            *dts = singletonInt(getSemiringCombinerDatatype(stmt,pSchema->dts));
-            return;
-        }
-
-        *attrNames = pSchema->provAttrs;
-        *dts = pSchema->dts;
-
-        return;
-    }
-    if (stmt->provType == PROV_COARSE_GRAINED || stmt->provType == USE_PROV_COARSE_GRAINED)
-    {
-        //TODO create list of prov attributes PROV_R, PROV_S, .... and their DTs
-        ProvSchemaInfo *pSchema= NEW(ProvSchemaInfo);
-
-        pSchema->provAttrs = NIL;
-        pSchema->dts = NIL;
-        findTablerefVisitorForCoarse_1((Node *) stmt->query, pSchema);
-
-        //semiring combiner check
-        if(isSemiringCombinerActivatedPs(stmt)){
-            *attrNames = singleton("PROV_IG_NEW");
-            *dts = singletonInt(getSemiringCombinerDatatype(stmt,pSchema->dts));
-            return;
-        }
-
-        *attrNames = pSchema->provAttrs;
-        *dts = pSchema->dts;
-
-
-        return;
-    }
-    if (stmt->provType == PROV_XML)
-    {
-        *attrNames = appendToTailOfList(*attrNames, "PROV_IG_NEW");
-        *dts = appendToTailOfListInt(*dts, DT_STRING);
-
-        return;
-    }
-    if (stmt->inputType == PROV_INPUT_UNCERTAIN_QUERY)
-    {
-        List *qAttrName = getQBAttrNames(stmt->query);
-
-        // add attribute uncertainty attributes
-        FOREACH(char,n,qAttrName)
-        {
-            char *uName = backendifyIdentifier(getUncertString(n));
-            *dts = appendToTailOfListInt(*dts, DT_INT);
-            *attrNames = appendToTailOfList(*attrNames, strdup(uName));
-        }
-
-        // add row uncertainty attribute
-        *dts = appendToTailOfListInt(*dts, DT_INT);
-        *attrNames = appendToTailOfList(*attrNames, getUncertString(UNCERTAIN_ROW_ATTR));
-    }
-	if (stmt->inputType == PROV_INPUT_UNCERTAIN_TUPLE_QUERY)
-	{
-        // add row uncertainty attribute
-		List *qAttrDef =  getQBAttrDefs(stmt->query);
-		AttributeDef *nd = (AttributeDef *)getTailOfListP(qAttrDef);
-        *dts = appendToTailOfListInt(*dts, nd->dataType);
-        *attrNames = appendToTailOfList(*attrNames, getUncertString(UNCERTAIN_ROW_ATTR));
-	}
-    if (stmt->inputType == PROV_INPUT_RANGE_QUERY)
-    {
-    	List *qAttrDef =  getQBAttrDefs(stmt->query);
-    	INFO_LOG("=======================%s", stringListToString(*attrNames));
-    	// add attribute range attributes
-    	FOREACH(Node,n,qAttrDef)
-    	{
-            char *ubName = backendifyIdentifier(getUBString(((AttributeDef *)n)->attrName));
-            char *lbName = backendifyIdentifier(getLBString(((AttributeDef *)n)->attrName));
-            *dts = appendToTailOfListInt(*dts, ((AttributeDef *)n)->dataType);
-            *dts = appendToTailOfListInt(*dts, ((AttributeDef *)n)->dataType);
-            *attrNames = appendToTailOfList(*attrNames, strdup(ubName));
-            *attrNames = appendToTailOfList(*attrNames, strdup(lbName));
-        }
-
-            // add row Range attribute
-        *dts = appendToTailOfListInt(*dts, DT_INT);
-        *dts = appendToTailOfListInt(*dts, DT_INT);
-        *dts = appendToTailOfListInt(*dts, DT_INT);
-        *attrNames = appendToTailOfList(*attrNames, backendifyIdentifier(ROW_CERTAIN));
-        *attrNames = appendToTailOfList(*attrNames, backendifyIdentifier(ROW_BESTGUESS));
-        *attrNames = appendToTailOfList(*attrNames, backendifyIdentifier(ROW_POSSIBLE));
-    }
-}
+//void
+//getQBProvenanceAttrList_1 (ProvenanceStmt *stmt, List **attrNames, List **dts)
+//{
+//    if(stmt->provType == PROV_PI_CS && stmt->inputType == PROV_INPUT_QUERY)
+//    {
+//        ProvSchemaInfo *pSchema= NEW(ProvSchemaInfo);
+//
+//        pSchema->provAttrs = NIL;
+//        pSchema->dts = NIL;
+//        findTablerefVisitor((Node *) stmt->query, pSchema);
+//
+//        if (LIST_LENGTH(pSchema->dts) == 0)
+//        {
+//            THROW(SEVERITY_RECOVERABLE, "%s", "cannot apply semiring combiner to query that has no provenance attributes.");
+//        }
+//
+//        //semiring combiner check
+//        if(isSemiringCombinerActivatedPs(stmt)){
+//            *attrNames = singleton("PROV_IG_NEW");
+//            *dts = singletonInt(getSemiringCombinerDatatype(stmt,pSchema->dts));
+//            return;
+//        }
+//
+//        *attrNames = pSchema->provAttrs;
+//        *dts = pSchema->dts;
+//
+//        return;
+//    }
+//    if (stmt->provType == PROV_COARSE_GRAINED || stmt->provType == USE_PROV_COARSE_GRAINED)
+//    {
+//        //TODO create list of prov attributes PROV_R, PROV_S, .... and their DTs
+//        ProvSchemaInfo *pSchema= NEW(ProvSchemaInfo);
+//
+//        pSchema->provAttrs = NIL;
+//        pSchema->dts = NIL;
+//        findTablerefVisitorForCoarse_1((Node *) stmt->query, pSchema);
+//
+//        //semiring combiner check
+//        if(isSemiringCombinerActivatedPs(stmt)){
+//            *attrNames = singleton("PROV_IG_NEW");
+//            *dts = singletonInt(getSemiringCombinerDatatype(stmt,pSchema->dts));
+//            return;
+//        }
+//
+//        *attrNames = pSchema->provAttrs;
+//        *dts = pSchema->dts;
+//
+//
+//        return;
+//    }
+//    if (stmt->provType == PROV_XML)
+//    {
+//        *attrNames = appendToTailOfList(*attrNames, "PROV_IG_NEW");
+//        *dts = appendToTailOfListInt(*dts, DT_STRING);
+//
+//        return;
+//    }
+//    if (stmt->inputType == PROV_INPUT_UNCERTAIN_QUERY)
+//    {
+//        List *qAttrName = getQBAttrNames(stmt->query);
+//
+//        // add attribute uncertainty attributes
+//        FOREACH(char,n,qAttrName)
+//        {
+//            char *uName = backendifyIdentifier(getUncertString(n));
+//            *dts = appendToTailOfListInt(*dts, DT_INT);
+//            *attrNames = appendToTailOfList(*attrNames, strdup(uName));
+//        }
+//
+//        // add row uncertainty attribute
+//        *dts = appendToTailOfListInt(*dts, DT_INT);
+//        *attrNames = appendToTailOfList(*attrNames, getUncertString(UNCERTAIN_ROW_ATTR));
+//    }
+//	if (stmt->inputType == PROV_INPUT_UNCERTAIN_TUPLE_QUERY)
+//	{
+//        // add row uncertainty attribute
+//		List *qAttrDef =  getQBAttrDefs(stmt->query);
+//		AttributeDef *nd = (AttributeDef *)getTailOfListP(qAttrDef);
+//        *dts = appendToTailOfListInt(*dts, nd->dataType);
+//        *attrNames = appendToTailOfList(*attrNames, getUncertString(UNCERTAIN_ROW_ATTR));
+//	}
+//    if (stmt->inputType == PROV_INPUT_RANGE_QUERY)
+//    {
+//    	List *qAttrDef =  getQBAttrDefs(stmt->query);
+//    	INFO_LOG("=======================%s", stringListToString(*attrNames));
+//    	// add attribute range attributes
+//    	FOREACH(Node,n,qAttrDef)
+//    	{
+//            char *ubName = backendifyIdentifier(getUBString(((AttributeDef *)n)->attrName));
+//            char *lbName = backendifyIdentifier(getLBString(((AttributeDef *)n)->attrName));
+//            *dts = appendToTailOfListInt(*dts, ((AttributeDef *)n)->dataType);
+//            *dts = appendToTailOfListInt(*dts, ((AttributeDef *)n)->dataType);
+//            *attrNames = appendToTailOfList(*attrNames, strdup(ubName));
+//            *attrNames = appendToTailOfList(*attrNames, strdup(lbName));
+//        }
+//
+//            // add row Range attribute
+//        *dts = appendToTailOfListInt(*dts, DT_INT);
+//        *dts = appendToTailOfListInt(*dts, DT_INT);
+//        *dts = appendToTailOfListInt(*dts, DT_INT);
+//        *attrNames = appendToTailOfList(*attrNames, backendifyIdentifier(ROW_CERTAIN));
+//        *attrNames = appendToTailOfList(*attrNames, backendifyIdentifier(ROW_BESTGUESS));
+//        *attrNames = appendToTailOfList(*attrNames, backendifyIdentifier(ROW_POSSIBLE));
+//    }
+//}
 
 static boolean
 findTablerefVisitor (Node *node, ProvSchemaInfo *status)
@@ -546,26 +548,26 @@ findTablerefVisitorForCoarse (Node *node, ProvSchemaInfo *status)
     return visit(node, findTablerefVisitorForCoarse, status);
 }
 
-
-static boolean
-findTablerefVisitorForCoarse_1 (Node *node, ProvSchemaInfo *status)
-{
-    if (node == NULL)
-        return TRUE;
-
-    if (isFromItem(node))
-    {
-        if (isA(node, FromTableRef))
-        {
-            FromTableRef *r = (FromTableRef *) node;
-            char *tableName = r->tableId;
-
-            status->provAttrs = appendToTailOfList(status->provAttrs,
-                		 CONCAT_STRINGS("PROV_IG_NEW_", strdup(tableName)));
-
-            status->dts = appendToTailOfListInt(status->dts, DT_STRING);
-        }
-    }
-
-    return visit(node, findTablerefVisitorForCoarse_1, status);
-}
+//
+//static boolean
+//findTablerefVisitorForCoarse_1 (Node *node, ProvSchemaInfo *status)
+//{
+//    if (node == NULL)
+//        return TRUE;
+//
+//    if (isFromItem(node))
+//    {
+//        if (isA(node, FromTableRef))
+//        {
+//            FromTableRef *r = (FromTableRef *) node;
+//            char *tableName = r->tableId;
+//
+//            status->provAttrs = appendToTailOfList(status->provAttrs,
+//                		 CONCAT_STRINGS("PROV_IG_NEW_", strdup(tableName)));
+//
+//            status->dts = appendToTailOfListInt(status->dts, DT_STRING);
+//        }
+//    }
+//
+//    return visit(node, findTablerefVisitorForCoarse_1, status);
+//}

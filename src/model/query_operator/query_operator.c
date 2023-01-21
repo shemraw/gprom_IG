@@ -760,14 +760,20 @@ createDuplicateRemovalOp(List *attrs, QueryOperator *input, List *parents,
 }
 
 ProvenanceComputation *
-createProvenanceComputOp(ProvenanceType provType, List *inputs, List *parents, List *attrNames, List *dts, Node *asOf)
+createProvenanceComputOp(ProvenanceType provType, List *inputs, List *parents, List *attrNames, List *dts, Node *asOf, boolean igFlag)
 {
     ProvenanceComputation *p = makeNode(ProvenanceComputation);
 
     p->op.parents = parents;
     p->op.inputs = inputs;
-	INFO_LOG("Changed string PROVENANCE TO IG HERE || INSIDE createProvenanceComputOp");
-    p->op.schema = createSchemaFromLists("IG", attrNames, dts);
+
+    INFO_LOG("Changed string PROVENANCE TO IG HERE || INSIDE createProvenanceComputOp");
+	// Check if it computes Provenance or IG
+	if(igFlag)
+		p->op.schema = createSchemaFromLists("IG", attrNames, dts);
+	else
+		p->op.schema = createSchemaFromLists("PROVENANCE", attrNames, dts);
+
     p->provType = provType;
     p->asOf = asOf;
 

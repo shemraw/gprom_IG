@@ -37,7 +37,7 @@ typedef struct QueryOperator
     Schema *schema; // attributes and their data types of result tables, Schema type
     List *parents; // direct parents of the operator node, QueryOperator type
     List *provAttrs; // positions of provenance attributes in the operator's schema
-    List *IGAttrs;
+    List *igAttrs;
     Node *properties; // generic node to store flexible list or map of properties (KeyValue) for query operators
 } QueryOperator; // common fields that all operators have
 
@@ -230,7 +230,7 @@ extern DuplicateRemoval *createDuplicateRemovalOp (List *attrs,
 
 
 extern ProvenanceComputation *createProvenanceComputOp(ProvenanceType provType,
-        List *inputs, List *parents, List *attrNames, List *dts, Node *asOf);
+        List *inputs, List *parents, List *attrNames, List *dts, Node *asOf, boolean igFlag);
 extern ConstRelOperator *createConstRelOp(List *values,List *parents,
         List *attrNames, List *dataTypes);
 extern NestingOperator *createNestingOp(NestingExprType nestingType, Node *cond,

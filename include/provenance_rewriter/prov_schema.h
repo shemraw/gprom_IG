@@ -28,8 +28,8 @@ extern int getRelNameCount(RelCount **relCount, char *tableName);
 extern List *getProvenanceAttributes(QueryOperator *q, ProvenanceType type);
 extern List *getProvenanceAttrNames (char *table, List *attrs, int count);
 extern char *getProvenanceAttrName (char *table, char *attr, int count);
-extern char *getProvenanceAttrName1 (char *table, char *attr, int count);
+extern char *getIgAttrName (char *table, char *attr, int count);
 
 extern void getQBProvenanceAttrList (ProvenanceStmt *stmt, List **attrNames, List **dts);
-extern void getQBProvenanceAttrList_1 (ProvenanceStmt *stmt, List **attrNames, List **dts);
+//extern void getQBProvenanceAttrList_1 (ProvenanceStmt *stmt, List **attrNames, List **dts);
 #endif /* PROV_SCHEMA_H_ */

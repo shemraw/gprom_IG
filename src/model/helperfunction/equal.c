@@ -675,6 +675,7 @@ equalQueryOperator(QueryOperator *a, QueryOperator *b, HashMap *seenOps, MemCont
     //COMPARE_NODE_FIELD(parents); //TODO implement compare one node
     COMPARE_NODE_FIELD(provAttrs);
     COMPARE_NODE_FIELD(properties);
+    COMPARE_NODE_FIELD(igAttrs);
 
     // store mapping in hashmap
     MAP_ADD_LONG_KEY(seenOps,aAddr,createConstLong(bAddr));

@@ -27,6 +27,9 @@ NEW_ENUM_WITH_TO_STRING(NodeTag,
     T_CaseExpr,
     T_CaseWhen,
     T_IsNullExpr,
+	T_StringToArray,
+	T_Unnest,
+	T_Ascii,
     T_WindowBound,
     T_WindowFrame,
     T_WindowDef,
@@ -112,12 +115,12 @@ typedef struct Node{
 
 NEW_ENUM_WITH_TO_STRING(ProvenanceType,
     PROV_PI_CS,
-	IG_PI_CS,
     PROV_TRANSFORMATION,
     PROV_XML,
 	PROV_COARSE_GRAINED,
 	USE_PROV_COARSE_GRAINED,
-    PROV_NONE /* for reenactment of bag semantics only */
+    PROV_NONE, /* for reenactment of bag semantics only */
+	IG_PI_CS
 );
 
 /* what type of database operation(s) a provenance computation is for */
@@ -132,6 +135,9 @@ NEW_ENUM_WITH_TO_STRING(ProvenanceInputType,
     PROV_INPUT_UNCERTAIN_QUERY,
 	PROV_INPUT_UNCERTAIN_TUPLE_QUERY,
 	PROV_INPUT_RANGE_QUERY
+//	IG_INPUT_QUERY,
+//	IG_INPUT_UPDATE,
+//	IG_INPUT_UPDATE_SEQUENCE
 );
 
 /* stringinfo provides the string data type*/

@@ -328,7 +328,7 @@ orExprs (Node *expr, ...)
 
     va_list args;
 
-    va_start(args, expr);
+	va_start(args, expr);
 
     while((curArg = va_arg(args,Node*)))
         argList = appendToTailOfList(argList, copyObject(curArg));
@@ -385,6 +385,37 @@ IsNullExpr *
 createIsNullExpr (Node *expr)
 {
     IsNullExpr *result = makeNode(IsNullExpr);
+
+    result->expr = expr;
+
+    return result;
+}
+
+StringToArray *
+createStringToArrayExpr (Node *attr, Node *delim)
+{
+	StringToArray *result = makeNode(StringToArray);
+
+    result->attr = attr;
+    result->delim = delim;
+
+    return result;
+}
+
+Unnest *
+createUnnestExpr (Node *expr)
+{
+	Unnest *result = makeNode(Unnest);
+
+    result->expr = expr;
+
+    return result;
+}
+
+Ascii *
+createAsciiExpr (Node *expr)
+{
+	Ascii *result = makeNode(Ascii);
 
     result->expr = expr;
 

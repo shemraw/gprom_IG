@@ -368,6 +368,8 @@ provStmt:
 		    p->asOf = (Node *) $2;
             // p->options = $3;
             p->options = concatTwoLists($3, $8);
+            p->igFlag = FALSE;
+			p->inJoinCondt = FALSE;
             $$ = (Node *) p;
         }
 		| PROVENANCE optionalProvAsOf optionalProvWith OF '(' stmtList ')'
@@ -378,6 +380,8 @@ provStmt:
 			p->provType = PROV_PI_CS;
 			p->asOf = (Node *) $2;
 			p->options = $3;
+			p->igFlag = FALSE;
+			p->inJoinCondt = FALSE;
 			$$ = (Node *) p;
 		}
 		| PROVENANCE optionalProvAsOf optionalProvWith OF TRANSACTION stringConst
@@ -497,7 +501,7 @@ igStmt:
 	IG optionalProvAsOf optionalProvWith OF '(' stmt ')' optionalTranslate
         {
             RULELOG("igStmt::stmt");
-            INFO_LOG("111111111111111 igstmt");
+//            INFO_LOG("111111111111111 igstmt");
             Node *stmt = $6;
 	    	ProvenanceStmt *p = createProvenanceStmt(stmt);
 		    p->inputType = isQBUpdate(stmt) ? PROV_INPUT_UPDATE : PROV_INPUT_QUERY;
@@ -516,7 +520,8 @@ igStmt:
 			p->inputType = PROV_INPUT_UPDATE_SEQUENCE;
 			p->provType = IG_PI_CS;
 			p->asOf = (Node *) $2;
-			p->options = concatLists(listMake($1),$3);
+//			p->options = concatLists(listMake($1),$3);
+			p->options = $3;
 			p->igFlag = TRUE;
 			p->inJoinCondt = FALSE;
 			$$ = (Node *) p;
