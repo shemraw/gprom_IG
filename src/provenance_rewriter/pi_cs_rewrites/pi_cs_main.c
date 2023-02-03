@@ -38,6 +38,9 @@
 
 static QueryOperator *rewritePI_CSOperator (QueryOperator *op);
 static QueryOperator *rewritePI_CSSelection (SelectionOperator *op);
+
+static QueryOperator *rewritePI_CSCast (CastOperator *op);
+
 static QueryOperator *rewritePI_CSProjection (ProjectionOperator *op);
 static QueryOperator *rewritePI_CSJoin (JoinOperator *op);
 static QueryOperator *rewritePI_CSAggregation (AggregationOperator *op);
@@ -174,6 +177,12 @@ rewritePI_CSOperator (QueryOperator *op)
 
     switch(op->type)
     {
+    	case T_CastOperator:
+    		DEBUG_LOG("go cast");
+			INFO_LOG("pi_cs T_CastOperator ----------------- ");
+			rewrittenOp = rewritePI_CSCast((CastOperator *) op);
+			break;
+
         case T_SelectionOperator:
             DEBUG_LOG("go selection");
             INFO_LOG("pi_cs T_SelectionOperator ----------------- ");
@@ -662,6 +671,45 @@ rewritePI_CSSelection (SelectionOperator *op)
     return (QueryOperator *) op;
 }
 
+
+
+static QueryOperator *
+rewritePI_CSCast (CastOperator *op)
+{
+    ASSERT(OP_LCHILD(op));
+
+    DEBUG_LOG("REWRITE-PICS - Selection");
+    DEBUG_LOG("Operator tree \n%s", nodeToString(op));
+
+    //add semiring options
+    addSCOptionToChild((QueryOperator *) op,OP_LCHILD(op));
+
+    // rewrite child first
+    rewritePI_CSOperator(OP_LCHILD(op));
+
+    // TODO CREATE THE CAST OPERATOR
+    QueryOperator *child = OP_LCHILD(op);
+        LOG_RESULT("Query operator child", child);
+
+        FOREACH_INT(a, child->provAttrs)
+        {
+            AttributeDef *att = getAttrDef(child,a);
+            op->projExprs = appendToTailOfList(op->projExprs,
+                     createFullAttrReference(att->attrName, 0, a, 0, att->dataType));
+        }
+
+        LOG_RESULT("Rewritten Operator tree before adding ProvenanceAttrsToSchema", op);
+
+
+
+
+    addProvenanceAttrsToSchema((QueryOperator *) op, OP_LCHILD(op));
+
+    LOG_RESULT("Rewritten Operator tree", op);
+    return (QueryOperator *) op;
+}
+
+
 static QueryOperator *
 rewritePI_CSProjection (ProjectionOperator *op)
 {
@@ -689,7 +737,16 @@ rewritePI_CSProjection (ProjectionOperator *op)
         op->projExprs = appendToTailOfList(op->projExprs,
                  createFullAttrReference(att->attrName, 0, a, 0, att->dataType));
     }
-
+/*
+    FOREACH_INT(a, child->provAttrs)
+       {
+           AttributeDef *att = getAttrDef(child,a);
+           if(att->dataType == DT_INT){
+           op->projExprs = appendToTailOfList(op->projExprs,
+                    createFullAttrReference1(att->attrName, 0, a, 0, att->dataType));
+           }
+       }
+*/
     LOG_RESULT("Rewritten Operator tree before adding ProvenanceAttrsToSchema", op);
     // adapt schema
     addProvenanceAttrsToSchema((QueryOperator *) op, OP_LCHILD(op));
@@ -1334,7 +1391,17 @@ rewritePI_CSTableAccess(TableAccessOperator *op)
         projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
         cnt++;
     }
+/*
+    cnt = 0;
 
+    FOREACH(AttributeDef, attr, op->op.schema->attrDefs)
+	   {
+		   newAttrName = getProvenanceAttrName1(op->tableName, attr->attrName, relAccessCount);
+		   provAttr = appendToTailOfList(provAttr, newAttrName);
+		   projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
+		   cnt++;
+	   }
+*/
     List *newProvPosList = NIL;
     CREATE_INT_SEQ(newProvPosList, cnt, (cnt * 2) - 1, 1);
 

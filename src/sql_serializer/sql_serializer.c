@@ -112,7 +112,7 @@ static SqlserializerPlugin *
 assemblePostgresPlugin(void)
 {
     SqlserializerPlugin *p = NEW(SqlserializerPlugin);
-
+    INFO_LOG("inside sql_serializer");
     p->type = SQLSERIALIZER_PLUGIN_POSTGRES;
     p->serializeOperatorModel = serializeOperatorModelPostgres;
     p->serializeQuery = serializeQueryPostgres;

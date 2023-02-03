@@ -55,6 +55,14 @@ typedef struct SelectionOperator
     Node *cond; // condition expression
 } SelectionOperator;
 
+typedef struct CastOperator
+{
+    QueryOperator op;
+    List *projExprs;
+    Node *cond; // condition expression
+} CastOperator;
+
+
 typedef struct ProjectionOperator
 {
     QueryOperator op;
