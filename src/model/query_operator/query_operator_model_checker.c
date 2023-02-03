@@ -228,165 +228,168 @@ checkSchemaConsistency (QueryOperator *op, void *context)
         return FALSE;
     }
 
-    switch(op->type)
-    {
-        case T_ProjectionOperator:
+    //TODO: what is the correct way to check the data types over IG computation
+    if(LIST_LENGTH(op->igAttrs) == 0) {
+        switch(op->type)
         {
-            ProjectionOperator *o = (ProjectionOperator *) op;
-
-            if (LIST_LENGTH(o->projExprs) != LIST_LENGTH(op->schema->attrDefs))
+            case T_ProjectionOperator:
             {
-                ERROR_LOG("Number of attributes should be the same as number of"
-                        " projection expressions:\n%s",
-                        operatorToOverviewString((Node *) op));
-                return FALSE;
-            }
+                ProjectionOperator *o = (ProjectionOperator *) op;
 
-            FORBOTH(Node,p,a,o->projExprs,o->op.schema->attrDefs)
-            {
-                AttributeDef *def = (AttributeDef *) a;
-
-                if (typeOf(p) != def->dataType)
+                if (LIST_LENGTH(o->projExprs) != LIST_LENGTH(op->schema->attrDefs))
                 {
-                    ERROR_LOG("schema and projection expression data types should"
-                            " be the same: %s = %s",
-                            DataTypeToString(typeOf(p)),
-                            DataTypeToString(def->dataType));
-                    DEBUG_LOG("details: %s", beatify(nodeToString(o)));
+                    ERROR_LOG("Number of attributes should be the same as number of"
+                            " projection expressions:\n%s",
+                            operatorToOverviewString((Node *) op));
                     return FALSE;
                 }
-            }
-        }
-        break;
-        case T_DuplicateRemoval:
-        {
-            if (!equal(OP_LCHILD(op)->schema->attrDefs, op->schema->attrDefs))
-            {
-                ERROR_NODE_BEATIFY_LOG("Attributes of DuplicateRemoval should match attributes"
-                        " of its child:", op);
-                return FALSE;
-            }
-        }
-        break;
-        case T_SelectionOperator:
-        {
-            SelectionOperator *o = (SelectionOperator *) op;
-            QueryOperator *child = OP_LCHILD(o);
 
-            if (LIST_LENGTH(op->schema->attrDefs) != LIST_LENGTH(child->schema->attrDefs))
-            {
-                ERROR_OP_LOG("Number of attributes of a selection operator should match the "
-                        "number of attributes of its child:", op);
-                return FALSE;
-            }
-
-//            if (!equal(op->schema->attrDefs,child->schema->attrDefs))
-//            {
-//                ERROR_LOG("Attributes of a selection operator should match the "
-//                        "attributes of its child:\n%s",
-//                        operatorToOverviewString((Node *) op));
-//                return FALSE;
-//            }
-        }
-        break;
-        case T_JoinOperator:
-        {
-            JoinOperator *o = (JoinOperator *) op;
-            QueryOperator *lChild = OP_LCHILD(o);
-            QueryOperator *rChild = OP_RCHILD(o);
-            //TODO only check names
-//            List *expectedSchema = CONCAT_LISTS(
-//                    copyObject(lChild->schema->attrDefs),
-//                    copyObject(rChild->schema->attrDefs));
-//
-            if (LIST_LENGTH(o->op.schema->attrDefs) !=
-                    LIST_LENGTH(lChild->schema->attrDefs) +
-                    LIST_LENGTH(rChild->schema->attrDefs))
-            {
-                ERROR_LOG("Number of attributes of a join operator should be the "
-                        "addition of the number of attributes of its children:\n%s\n"
-                        "expected:\n%u\nbut was\n%u",
-                        operatorToOverviewString((Node *) op),
-                        LIST_LENGTH(lChild->schema->attrDefs) +
-                                LIST_LENGTH(rChild->schema->attrDefs),
-                        LIST_LENGTH(o->op.schema->attrDefs));
-                return FALSE;
-            }
-        }
-        break;
-        case T_SetOperator:
-        {
-            SetOperator *o = (SetOperator *) op;
-            QueryOperator *lChild = OP_LCHILD(o);
-            QueryOperator *rChild = OP_RCHILD(o);
-
-            if (!equal(o->op.schema->attrDefs, lChild->schema->attrDefs))
-            {
-                ERROR_LOG("Attributes of a set operator should be the "
-                        "attributes of its left child:\n%s",
-                        operatorToOverviewString((Node *) op));
-                return FALSE;
-            }
-            // left and right child should have the same number of attributes
-            if (LIST_LENGTH(lChild->schema->attrDefs) != LIST_LENGTH(rChild->schema->attrDefs))
-            {
-                ERROR_LOG("Both children of a set operator should have the same"
-                        " number of attributes:\n%s",
-                        operatorToOverviewString((Node *) op));
-                return FALSE;
-            }
-
-        }
-        break;
-        case T_WindowOperator:
-        {
-//            WindowOperator *o = (WindowOperator *) op;
-            QueryOperator *lChild = OP_LCHILD(op);
-            List *expected = sublist(copyObject(op->schema->attrDefs), 0,
-                    LIST_LENGTH(op->schema->attrDefs) - 2);
-
-            if (!equal(expected, lChild->schema->attrDefs))
-            {
-                ERROR_LOG("Attributes of a window operator should be the "
-                        "attributes of its left child + window function:\n%s",
-                        operatorToOverviewString((Node *) op));
-                return FALSE;
-            }
-        }
-        break;
-        case T_OrderOperator:
-        {
-//            OrderOperator *o = (OrderOperator *) op;
-            QueryOperator *lChild = OP_LCHILD(op);
-            List *expected = op->schema->attrDefs;
-
-            if (!equal(expected, lChild->schema->attrDefs))
-            {
-                ERROR_LOG("Attributes of a order operator should be the "
-                        "attributes of its left child:\n%s",
-                        operatorToOverviewString((Node *) op));
-                return FALSE;
-            }
-        }
-        break;
-        // We should Check that the schema of JsonTable has the attributes of the Child plus new JsonTable Attributes
-        case T_JsonTableOperator:
-        {
-	    QueryOperator *lChild = OP_LCHILD(op);
-	    FOREACH(Node, n, lChild->schema->attrDefs)
-	    {
-		if(!searchListNode(op->schema->attrDefs, n))
+                FORBOTH(Node,p,a,o->projExprs,o->op.schema->attrDefs)
                 {
-                    ERROR_LOG("Attributes of a Json Table operator should be the "
-                              "attributes of its left child plus new JsonTable Attributes:\n%s",
-                              operatorToOverviewString((Node *) op));
-                    return FALSE;
+                    AttributeDef *def = (AttributeDef *) a;
+
+                    if (typeOf(p) != def->dataType)
+                    {
+                        ERROR_LOG("schema and projection expression data types should"
+                                " be the same: %s = %s",
+                                DataTypeToString(typeOf(p)),
+                                DataTypeToString(def->dataType));
+                        DEBUG_LOG("details: %s", beatify(nodeToString(o)));
+                        return FALSE;
+                    }
                 }
             }
-        }
-        break;
-        default:
             break;
+            case T_DuplicateRemoval:
+            {
+                if (!equal(OP_LCHILD(op)->schema->attrDefs, op->schema->attrDefs))
+                {
+                    ERROR_NODE_BEATIFY_LOG("Attributes of DuplicateRemoval should match attributes"
+                            " of its child:", op);
+                    return FALSE;
+                }
+            }
+            break;
+            case T_SelectionOperator:
+            {
+                SelectionOperator *o = (SelectionOperator *) op;
+                QueryOperator *child = OP_LCHILD(o);
+
+                if (LIST_LENGTH(op->schema->attrDefs) != LIST_LENGTH(child->schema->attrDefs))
+                {
+                    ERROR_OP_LOG("Number of attributes of a selection operator should match the "
+                            "number of attributes of its child:", op);
+                    return FALSE;
+                }
+
+    //            if (!equal(op->schema->attrDefs,child->schema->attrDefs))
+    //            {
+    //                ERROR_LOG("Attributes of a selection operator should match the "
+    //                        "attributes of its child:\n%s",
+    //                        operatorToOverviewString((Node *) op));
+    //                return FALSE;
+    //            }
+            }
+            break;
+            case T_JoinOperator:
+            {
+                JoinOperator *o = (JoinOperator *) op;
+                QueryOperator *lChild = OP_LCHILD(o);
+                QueryOperator *rChild = OP_RCHILD(o);
+                //TODO only check names
+    //            List *expectedSchema = CONCAT_LISTS(
+    //                    copyObject(lChild->schema->attrDefs),
+    //                    copyObject(rChild->schema->attrDefs));
+    //
+                if (LIST_LENGTH(o->op.schema->attrDefs) !=
+                        LIST_LENGTH(lChild->schema->attrDefs) +
+                        LIST_LENGTH(rChild->schema->attrDefs))
+                {
+                    ERROR_LOG("Number of attributes of a join operator should be the "
+                            "addition of the number of attributes of its children:\n%s\n"
+                            "expected:\n%u\nbut was\n%u",
+                            operatorToOverviewString((Node *) op),
+                            LIST_LENGTH(lChild->schema->attrDefs) +
+                                    LIST_LENGTH(rChild->schema->attrDefs),
+                            LIST_LENGTH(o->op.schema->attrDefs));
+                    return FALSE;
+                }
+            }
+            break;
+            case T_SetOperator:
+            {
+                SetOperator *o = (SetOperator *) op;
+                QueryOperator *lChild = OP_LCHILD(o);
+                QueryOperator *rChild = OP_RCHILD(o);
+
+                if (!equal(o->op.schema->attrDefs, lChild->schema->attrDefs))
+                {
+                    ERROR_LOG("Attributes of a set operator should be the "
+                            "attributes of its left child:\n%s",
+                            operatorToOverviewString((Node *) op));
+                    return FALSE;
+                }
+                // left and right child should have the same number of attributes
+                if (LIST_LENGTH(lChild->schema->attrDefs) != LIST_LENGTH(rChild->schema->attrDefs))
+                {
+                    ERROR_LOG("Both children of a set operator should have the same"
+                            " number of attributes:\n%s",
+                            operatorToOverviewString((Node *) op));
+                    return FALSE;
+                }
+
+            }
+            break;
+            case T_WindowOperator:
+            {
+    //            WindowOperator *o = (WindowOperator *) op;
+                QueryOperator *lChild = OP_LCHILD(op);
+                List *expected = sublist(copyObject(op->schema->attrDefs), 0,
+                        LIST_LENGTH(op->schema->attrDefs) - 2);
+
+                if (!equal(expected, lChild->schema->attrDefs))
+                {
+                    ERROR_LOG("Attributes of a window operator should be the "
+                            "attributes of its left child + window function:\n%s",
+                            operatorToOverviewString((Node *) op));
+                    return FALSE;
+                }
+            }
+            break;
+            case T_OrderOperator:
+            {
+    //            OrderOperator *o = (OrderOperator *) op;
+                QueryOperator *lChild = OP_LCHILD(op);
+                List *expected = op->schema->attrDefs;
+
+                if (!equal(expected, lChild->schema->attrDefs))
+                {
+                    ERROR_LOG("Attributes of a order operator should be the "
+                            "attributes of its left child:\n%s",
+                            operatorToOverviewString((Node *) op));
+                    return FALSE;
+                }
+            }
+            break;
+            // We should Check that the schema of JsonTable has the attributes of the Child plus new JsonTable Attributes
+            case T_JsonTableOperator:
+            {
+    	    QueryOperator *lChild = OP_LCHILD(op);
+    	    FOREACH(Node, n, lChild->schema->attrDefs)
+    	    {
+    		if(!searchListNode(op->schema->attrDefs, n))
+                    {
+                        ERROR_LOG("Attributes of a Json Table operator should be the "
+                                  "attributes of its left child plus new JsonTable Attributes:\n%s",
+                                  operatorToOverviewString((Node *) op));
+                        return FALSE;
+                    }
+                }
+            }
+            break;
+            default:
+                break;
+        }
     }
 
 //    FOREACH(QueryOperator,o,op->inputs)

@@ -99,22 +99,6 @@ createFullAttrReference (char *name, int fromClause, int attrPos,
 }
 
 
-AttributeReference *
-createFullAttrReference1 (char *name, int fromClause, int attrPos,
-        int outerLevelsUp, DataType attrType)
-{
-    AttributeReference *result = makeNode(AttributeReference);
-    //char *newn = 10;
-    result->name = strdup(name);
-    result->fromClauseItem = fromClause;
-    result->attrPosition = attrPos;
-    result->outerLevelsUp = outerLevelsUp;
-    result->attrType= attrType;
-
-    return result;
-}
-
-
 CastExpr *
 createCastExpr (Node *expr, DataType resultDt)
 {

@@ -223,11 +223,6 @@ extern Operator *createOpExpr (char *name, List *args);
 extern AttributeReference *createAttributeReference (char *name);
 extern AttributeReference *createFullAttrReference (char *name, int fromClause, int attrPos,
         int outerLevelsUp, DataType attrType);
-/*
-extern AttributeReference *createFullAttrReference1 (char *name, int fromClause, int attrPos,
-        int outerLevelsUp, DataType attrType);
-*/
-
 extern CastExpr *createCastExpr (Node *expr, DataType resultDt);
 extern Node *concatExprList (List *exprs);
 extern Node *andExprList (List *exprs);

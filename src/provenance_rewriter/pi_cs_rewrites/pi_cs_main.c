@@ -737,21 +737,33 @@ rewritePI_CSProjection (ProjectionOperator *op)
         op->projExprs = appendToTailOfList(op->projExprs,
                  createFullAttrReference(att->attrName, 0, a, 0, att->dataType));
     }
-/*
-    FOREACH_INT(a, child->provAttrs)
-       {
-           AttributeDef *att = getAttrDef(child,a);
-           if(att->dataType == DT_INT){
-           op->projExprs = appendToTailOfList(op->projExprs,
-                    createFullAttrReference1(att->attrName, 0, a, 0, att->dataType));
-           }
-       }
-*/
     LOG_RESULT("Rewritten Operator tree before adding ProvenanceAttrsToSchema", op);
     // adapt schema
     addProvenanceAttrsToSchema((QueryOperator *) op, OP_LCHILD(op));
-
     LOG_RESULT("Rewritten Operator tree", op);
+
+    if(provType == IG_PI_CS) {
+    	List *newProjExprs = NIL;
+
+    	FOREACH(AttributeReference,a,op->projExprs)
+	    {
+    		/* TODOs
+    		 * 1) make changes only over the ig attributes
+    		 * 2) implement the expression for string data type
+    		 */
+    		if(a->attrType == DT_FLOAT) {
+    			CastExpr *cast;
+    			cast = createCastExpr((Node *) a, DT_INT);
+
+    			newProjExprs = appendToTailOfList(newProjExprs, cast);
+    		} else {
+    			newProjExprs = appendToTailOfList(newProjExprs, a);
+    		}
+	    }
+
+    	op->projExprs = newProjExprs;
+    }
+
     return (QueryOperator *) op;
 }
 
@@ -1388,8 +1400,16 @@ rewritePI_CSTableAccess(TableAccessOperator *op)
     		newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
 
         provAttr = appendToTailOfList(provAttr, newAttrName);
-        projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
-        cnt++;
+
+//    	if(provType == PROV_PI_CS)
+   		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
+
+//    	if(provType == IG_PI_CS) {
+//    		// TODO
+//
+//    	}
+
+    	cnt++;
     }
 /*
     cnt = 0;
