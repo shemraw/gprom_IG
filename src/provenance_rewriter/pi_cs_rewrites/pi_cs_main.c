@@ -731,9 +731,11 @@ rewritePI_CSProjection (ProjectionOperator *op)
 					StringToArray *toArray;
 					Unnest *tounnest;
 					Ascii *toAscii;
-					toArray = createStringToArrayExpr((Node *) a, (Node *) '|'); // 'needs something here of type node'
+
+					toArray = createStringToArrayExpr((Node *) a, (Node *) createConstString("|")); // 'needs something here of type node'
 					tounnest = createUnnestExpr((Node *) toArray);
 					toAscii = createAsciiExpr((Node *) tounnest);
+
 					newProjExprs = appendToTailOfList(newProjExprs, toAscii);
 				} else {
 					newProjExprs = appendToTailOfList(newProjExprs, a);

@@ -416,6 +416,14 @@ dataTypeToSQL (StringInfo str, DataType dt)
     appendStringInfoString(str, backendDatatypeToSQL(dt));
 }
 
+
+////TODO: implement the function that generate the expression of StringToArray
+//static void
+//stringToArrayToSQL (StringInfo str, (StringInfo *) expr, HashMap *nestedSubqueries)
+//{
+//
+//}
+
 static void
 exprToSQLString(StringInfo str, Node *expr, HashMap *nestedSubqueries)
 {
@@ -474,6 +482,15 @@ exprToSQLString(StringInfo str, Node *expr, HashMap *nestedSubqueries)
         case T_CastExpr:
             castExprToSQL(str, (CastExpr *) expr, nestedSubqueries);
         break;
+        case T_StringToArray:
+        	// TODO: implement the function
+        break;
+        case T_Unnest:
+			// TODO: implement the function
+		break;
+        case T_Ascii:
+			// TODO: implement the function
+		break;
         default:
             FATAL_LOG("not an expression node <%s>", nodeToString(expr));
     }
