@@ -178,23 +178,16 @@ rewritePI_CSOperator (QueryOperator *op)
     switch(op->type)
     {
     	case T_CastOperator:
-    		DEBUG_LOG("go cast");
-			INFO_LOG("pi_cs T_CastOperator ----------------- ");
 			rewrittenOp = rewritePI_CSCast((CastOperator *) op);
 			break;
 
         case T_SelectionOperator:
-            DEBUG_LOG("go selection");
-            INFO_LOG("pi_cs T_SelectionOperator ----------------- ");
             rewrittenOp = rewritePI_CSSelection((SelectionOperator *) op);
             break;
         case T_ProjectionOperator:
-            DEBUG_LOG("go projection");
-            INFO_LOG("pi_cs T_ProjectionOperator ----------------- ");
             rewrittenOp = rewritePI_CSProjection((ProjectionOperator *) op);
             break;
         case T_AggregationOperator:
-        	INFO_LOG("pi_cs T_AggregationOperator ----------------- ");
         	if(combinerAggrOpt) {
         		rewrittenOp = rewriteCoarseGrainedAggregation ((AggregationOperator *) op);
         		INFO_LOG("go SEMIRING COMBINER aggregation optimization!");
@@ -209,55 +202,36 @@ rewritePI_CSOperator (QueryOperator *op)
         	}
             break;
         case T_JoinOperator:
-        	INFO_LOG("pi_cs T_JoinOperator ----------------- ");
-            DEBUG_LOG("go join");
             rewrittenOp = rewritePI_CSJoin((JoinOperator *) op);
             break;
         case T_SetOperator:
-            DEBUG_LOG("go set");
-            INFO_LOG("pi_cs T_SetOperator ----------------- ");
             rewrittenOp = rewritePI_CSSet((SetOperator *) op);
             break;
         case T_TableAccessOperator:
-            DEBUG_LOG("go table access");
-            INFO_LOG("pi_cs T_TableAccessOperator 1 ----------------- ");
             //rewrittenOp = rewritePI_CSTableAccess((TableAccessOperator *) op);
             if(HAS_STRING_PROP(op, PROP_COARSE_GRAINED_TABLEACCESS_MARK)){
             		rewrittenOp = rewriteCoarseGrainedTableAccess((TableAccessOperator *) op);
-            		INFO_LOG("pi_cs T_TableAccessOperator 2 ----------------- ");
             }
             else if(HAS_STRING_PROP(op, USE_PROP_COARSE_GRAINED_TABLEACCESS_MARK)){
             		rewrittenOp = rewriteUseCoarseGrainedTableAccess((TableAccessOperator *) op);
-            		INFO_LOG("pi_cs T_TableAccessOperator 3 ----------------- ");
             }
             else{
             		rewrittenOp = rewritePI_CSTableAccess((TableAccessOperator *) op);
-            		INFO_LOG("pi_cs T_TableAccessOperator 4 ----------------- ");
             }
             break;
         case T_ConstRelOperator:
-            DEBUG_LOG("go const rel operator");
-            INFO_LOG("pi_cs T_ConstRelOperator ----------------- ");
             rewrittenOp = rewritePI_CSConstRel((ConstRelOperator *) op);
             break;
         case T_DuplicateRemoval:
-            DEBUG_LOG("go duplicate removal operator");
-            INFO_LOG("pi_cs T_DuplicateRemoval ----------------- ");
             rewrittenOp = rewritePI_CSDuplicateRemOp((DuplicateRemoval *) op);
             break;
         case T_OrderOperator:
-            DEBUG_LOG("go order operator");
-            INFO_LOG("pi_cs T_OrderOperator ----------------- ");
             rewrittenOp = rewritePI_CSOrderOp((OrderOperator *) op);
             break;
         case T_JsonTableOperator:
-            DEBUG_LOG("go JsonTable operator");
-            INFO_LOG("pi_cs T_JsonTableOperator ----------------- ");
             rewrittenOp = rewritePI_CSJsonTableOp((JsonTableOperator *) op);
 	     break;
         case T_NestingOperator:
-            DEBUG_LOG("go nesting operator");
-            INFO_LOG("pi_cs T_NestingOperator ----------------- ");
             rewrittenOp = rewritePI_CSNestingOp((NestingOperator *) op);
             break;
         default:
@@ -722,11 +696,8 @@ rewritePI_CSProjection (ProjectionOperator *op)
     //add semiring options
     addSCOptionToChild((QueryOperator *) op,OP_LCHILD(op));
 
-    LOG_RESULT("Rewritten Operator tree before rewritePI_CSOperator", op);
-
     // rewrite child
     rewritePI_CSOperator(OP_LCHILD(op));
-    LOG_RESULT("Rewritten Operator tree after rewritePI_CSOperator", op);
     // add projection expressions for provenance attrs
     QueryOperator *child = OP_LCHILD(op);
     LOG_RESULT("Query operator child", child);
@@ -745,7 +716,7 @@ rewritePI_CSProjection (ProjectionOperator *op)
     if(provType == IG_PI_CS) {
     	List *newProjExprs = NIL;
     	INFO_LOG("inside the condition");
-    	FOREACH(AttributeReference,a,op->projExprs)
+    	FOREACH(AttributeReference, a, op->projExprs)
 	    {
     		/* TODOs
     		 * 1) make changes only over the ig attributes
@@ -755,8 +726,15 @@ rewritePI_CSProjection (ProjectionOperator *op)
 				if(a->attrType == DT_INT) {
 					CastExpr *cast;
 					cast = createCastExpr((Node *) a, DT_FLOAT);
-
 					newProjExprs = appendToTailOfList(newProjExprs, cast);
+				} else if (a->attrType == DT_STRING) {
+					StringToArray *toArray;
+					Unnest *tounnest;
+					Ascii *toAscii;
+					toArray = createStringToArrayExpr((Node *) a, (Node *) '|'); // 'needs something here of type node'
+					tounnest = createUnnestExpr((Node *) toArray);
+					toAscii = createAsciiExpr((Node *) tounnest);
+					newProjExprs = appendToTailOfList(newProjExprs, toAscii);
 				} else {
 					newProjExprs = appendToTailOfList(newProjExprs, a);
 				}

@@ -164,6 +164,7 @@ typedef struct CastExpr {
     Node *expr;
 } CastExpr;
 
+
 NEW_ENUM_WITH_TO_STRING(SortOrder,
     SORT_ASC,
     SORT_DESC
@@ -223,7 +224,10 @@ extern Operator *createOpExpr (char *name, List *args);
 extern AttributeReference *createAttributeReference (char *name);
 extern AttributeReference *createFullAttrReference (char *name, int fromClause, int attrPos,
         int outerLevelsUp, DataType attrType);
+
 extern CastExpr *createCastExpr (Node *expr, DataType resultDt);
+extern CastExpr *createstring_to_arrayExpr (Node *expr, DataType resultDt, char delim);
+
 extern Node *concatExprList (List *exprs);
 extern Node *andExprList (List *exprs);
 extern Node *orExprList (List *exprs);

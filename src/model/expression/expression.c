@@ -110,6 +110,7 @@ createCastExpr (Node *expr, DataType resultDt)
     return result;
 }
 
+
 SQLParameter *
 createSQLParameter (char *name)
 {
