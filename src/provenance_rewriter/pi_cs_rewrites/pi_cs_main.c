@@ -744,21 +744,26 @@ rewritePI_CSProjection (ProjectionOperator *op)
 
     if(provType == IG_PI_CS) {
     	List *newProjExprs = NIL;
-
+    	INFO_LOG("inside the condition");
     	FOREACH(AttributeReference,a,op->projExprs)
 	    {
     		/* TODOs
     		 * 1) make changes only over the ig attributes
     		 * 2) implement the expression for string data type
     		 */
-    		if(a->attrType == DT_FLOAT) {
-    			CastExpr *cast;
-    			cast = createCastExpr((Node *) a, DT_INT);
+    		if (strstr(a->name , "ig") != NULL) {
+				if(a->attrType == DT_INT) {
+					CastExpr *cast;
+					cast = createCastExpr((Node *) a, DT_FLOAT);
 
-    			newProjExprs = appendToTailOfList(newProjExprs, cast);
+					newProjExprs = appendToTailOfList(newProjExprs, cast);
+				} else {
+					newProjExprs = appendToTailOfList(newProjExprs, a);
+				}
     		} else {
     			newProjExprs = appendToTailOfList(newProjExprs, a);
     		}
+
 	    }
 
     	op->projExprs = newProjExprs;
