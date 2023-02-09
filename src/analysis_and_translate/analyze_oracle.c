@@ -154,51 +154,39 @@ analyzeQueryBlockStmt (Node *stmt, List *parentFroms)
     {
         case T_QueryBlock:
             analyzeQueryBlock((QueryBlock *) stmt, parentFroms);
-            INFO_LOG(" ---------------------- analyzed QB 1");
             break;
         case T_SetQuery:
             analyzeSetQuery((SetQuery *) stmt, parentFroms);
-            INFO_LOG(" ---------------------- analyzed Set Query 1");
             break;
         case T_ProvenanceStmt:
             analyzeProvenanceStmt((ProvenanceStmt *) stmt, parentFroms);
-            INFO_LOG(" ---------------------- analyzed Provenance Stmt 1");
             break;
         case T_List:
             analyzeStmtList ((List *) stmt, parentFroms);
-            INFO_LOG(" ---------------------- analyzed List 1");
             break;
         case T_Insert:
             analyzeInsert((Insert *) stmt);
-            INFO_LOG(" ---------------------- analyzed Insert 1");
             break;
         case T_Delete:
             analyzeDelete((Delete *) stmt);
-            INFO_LOG(" ---------------------- analyzed Delete 1");
             break;
         case T_Update:
             analyzeUpdate((Update *) stmt);
-            INFO_LOG(" ---------------------- analyzed Update 1");
             break;
         case T_WithStmt:
             analyzeWithStmt((WithStmt *) stmt);
-            INFO_LOG(" ---------------------- analyzed With Stmt 1");
             break;
         case T_CreateTable:
             analyzeCreateTable((CreateTable *) stmt);
-            INFO_LOG(" ---------------------- analyzed create table 1");
             break;
         case T_AlterTable:
             analyzeAlterTable((AlterTable *) stmt);
-            INFO_LOG(" ---------------------- analyzed alter table 1");
             break;
         default:
-        	INFO_LOG(" ---------------------- entered default");
             break;
     }
 
     if(isQBUpdate(stmt) || isQBQuery(stmt)){
-    	INFO_LOG("entered isQBUpdate(stmt) || isQBQuery(stmt) and then called enumerateParameters(stmt)");
         enumerateParameters(stmt);
     }
 
@@ -218,7 +206,6 @@ enumerateParameters (Node *stmt)
 static void
 analyzeStmtList (List *l, List *parentFroms)
 {
-	INFO_LOG(" ---------------------- analyzed List");
     FOREACH(Node,n,l)
         analyzeQueryBlockStmt(n, parentFroms);
 }
@@ -255,7 +242,6 @@ adaptAttributeRefs(List* attrRefs, List* parentFroms)
 static void
 analyzeQueryBlock (QueryBlock *qb, List *parentFroms)
 {
-	INFO_LOG("  ----------------------  ANALYZED QB");
     List *attrRefs = NIL;
 
     // unfold views

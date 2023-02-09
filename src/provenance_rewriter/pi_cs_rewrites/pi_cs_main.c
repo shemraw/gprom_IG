@@ -718,10 +718,7 @@ rewritePI_CSProjection (ProjectionOperator *op)
     	INFO_LOG("inside the condition");
     	FOREACH(AttributeReference, a, op->projExprs)
 	    {
-    		/* TODOs
-    		 * 1) make changes only over the ig attributes
-    		 * 2) implement the expression for string data type
-    		 */
+
     		if (strstr(a->name , "ig") != NULL) {
 				if(a->attrType == DT_INT) {
 					CastExpr *cast;
@@ -732,7 +729,7 @@ rewritePI_CSProjection (ProjectionOperator *op)
 					Unnest *tounnest;
 					Ascii *toAscii;
 
-					toArray = createStringToArrayExpr((Node *) a, (Node *) createConstString(""));
+					toArray = createStringToArrayExpr((Node *) a, NULL); // (Node *) createConstString("")
 					tounnest = createUnnestExpr((Node *) toArray);
 					toAscii = createAsciiExpr((Node *) tounnest);
 

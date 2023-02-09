@@ -554,7 +554,6 @@ exprToSQLString(StringInfo str, Node *expr, HashMap *nestedSubqueries)
             castExprToSQL(str, (CastExpr *) expr, nestedSubqueries);
         break;
         case T_StringToArray:
-        	// TODO: implement the function
         	stringToArrayToSQL (str, (CastExpr *) expr, nestedSubqueries);
         break;
         case T_Unnest:

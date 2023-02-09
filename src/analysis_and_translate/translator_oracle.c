@@ -159,40 +159,29 @@ translateParseOracle (Node *q)
 QueryOperator *
 translateQueryOracle (Node *node)
 {
-	INFO_LOG("translateQueryOracle -------------");
     return translateQueryOracleInternal (node, NULL);
 }
 
 static QueryOperator *
 translateQueryOracleInternal (Node *node, List **attrsOffsetsList)
 {
-	INFO_LOG("translateQueryOracleInternal -------------");
-    INFO_LOG("translate query <%s>", nodeToString(node));
-
     switch(node->type)
     {
         case T_QueryBlock:
-        	INFO_LOG("T_QueryBlock ------xxxxxxxxxxx-------");
             return translateQueryBlock((QueryBlock *) node, attrsOffsetsList);
         case T_SetQuery:
-        	INFO_LOG("T_SetQuery ------xxxxxxxxxxx-------");
             return translateSetQuery((SetQuery *) node, attrsOffsetsList);
         case T_ProvenanceStmt:
-        	INFO_LOG("T_ProvenanceStmt ------xxxxxxxxxxx-------");
             return translateProvenanceStmt((ProvenanceStmt *) node, attrsOffsetsList);
         case T_Insert:
         case T_Update:
         case T_Delete:
-        	INFO_LOG("T_Delete ------xxxxxxxxxxx-------");
             return translateUpdate(node);
         case T_WithStmt:
-        	INFO_LOG("T_WithStmt ------xxxxxxxxxxx-------");
             return translateWithStmt((WithStmt *) node, attrsOffsetsList);
         case T_CreateTable:
-        	INFO_LOG("T_CreateTable ------xxxxxxxxxxx-------");
             return translateCreateTable((CreateTable *) node);
         case T_AlterTable:
-        	INFO_LOG("T_AlterTable ------xxxxxxxxxxx-------");
             return translateAlterTable((AlterTable *) node);
         default:
             ASSERT(FALSE);
@@ -204,13 +193,11 @@ translateQueryOracleInternal (Node *node, List **attrsOffsetsList)
 static Node *
 translateGeneral (Node *node, List **attrsOffsetsList)
 {
-	INFO_LOG("translateGeneral 1 +++++++++++++++");
     Node *result;
     QueryOperator *r;
 
     if (isA(node, List))
     {
-    	INFO_LOG("translateGeneral 4 +++++++++++++++");
         result = (Node *) copyList((List *) node);
         FOREACH(Node,stmt,(List *) result)
         {
@@ -231,12 +218,10 @@ translateGeneral (Node *node, List **attrsOffsetsList)
                 }
 
                 if(summaryType == NULL){
-                	INFO_LOG("translateGeneral 7 +++++++++++++++");
                     stmt_his_cell->data.ptr_value = (Node *) translateQueryOracleInternal(stmt, attrsOffsetsList);
                 }
                 else
                 {
-                	INFO_LOG("translateGeneral 6 +++++++++++++++");
                     r = translateQueryOracleInternal(stmt, attrsOffsetsList);
                     r->properties = copyObject(prop);
                     stmt_his_cell->data.ptr_value = (Node *) r;
@@ -244,14 +229,12 @@ translateGeneral (Node *node, List **attrsOffsetsList)
             }
             else
             {
-            	INFO_LOG("translateGeneral 5 +++++++++++++++");
                 stmt_his_cell->data.ptr_value = (Node *) translateQueryOracleInternal(stmt, attrsOffsetsList);
             }
         }
     }
     else
     {
-    	 INFO_LOG("translateGeneral 3 +++++++++++++++");
         if (isA(node, ProvenanceStmt))
         {
             ProvenanceStmt *prov = (ProvenanceStmt *) node;
@@ -285,7 +268,6 @@ translateGeneral (Node *node, List **attrsOffsetsList)
 
     Set *done = PSET();
     disambiguiteAttrNames(result, done);
-    INFO_LOG("translateGeneral 2 +++++++++++++++");
 
     return result;
 }
@@ -602,7 +584,6 @@ translateQueryBlock(QueryBlock *qb, List **attrsOffsetsList)
 static QueryOperator *
 translateProvenanceStmt(ProvenanceStmt *prov, List **attrsOffsetsList)
 {
-	INFO_LOG("translateProvenanceStmt : this has ProvenanceComputation structure");
     QueryOperator *child;
     ProvenanceComputation *result;
 
