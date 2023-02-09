@@ -241,20 +241,15 @@ rewritePI_CSOperator (QueryOperator *op)
 
     if (showIntermediate){
         rewrittenOp = addIntermediateProvenance(rewrittenOp, userProvAttrs, ignoreProvAttrs, provRelName);
-        INFO_LOG("pi_cs if showIntermediate ----------------- ");
     }
 
     if (rewriteAddProv){
         rewrittenOp = addUserProvenanceAttributes(rewrittenOp, addProvAttrs, showIntermediate, provRelName, provAddRelName);
-        INFO_LOG("pi_cs if rewriteAddProv ----------------- ");
     }
 
     if (isRewriteOptionActivated(OPTION_AGGRESSIVE_MODEL_CHECKING)){
         ASSERT(checkModel(rewrittenOp));
-        INFO_LOG("pi_cs if isRewriteOptionActivated ----------------- ");
     }
-
-    INFO_LOG("pi_cs return rewrittenOp ----------------- ");
     return rewrittenOp;
 }
 

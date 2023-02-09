@@ -586,8 +586,6 @@ analyzeFunctionCall(QueryBlock *qb)
     findFunctionCall((Node *) qb->selectClause, &functionCallList);
     findFunctionCall((Node *) qb->havingClause, &functionCallList);
 
-    INFO_LOG("Collect function call done");
-    INFO_LOG("Have the following function calls: <%s>", nodeToString(functionCallList));
 
     // adapt function call
     FOREACH(Node, f, functionCallList)
@@ -1512,7 +1510,6 @@ analyzeDelete(Delete * f)
 static void
 analyzeUpdate(Update* f)
 {
-	INFO_LOG(" ---------------------- analyzed Update");
 	List *attrRefs = NIL;
 	List *attrDefs = NIL;
 	List *dataTypes = NIL;
@@ -1835,7 +1832,6 @@ splitTableName(char *tableName)
 static void
 analyzeSetQuery (SetQuery *q, List *parentFroms)
 {
-	INFO_LOG("  ----------------------  ANALYZED SQT QUERY");
     analyzeQueryBlockStmt(q->lChild, parentFroms);
     analyzeQueryBlockStmt(q->rChild, parentFroms);
 
@@ -1872,7 +1868,6 @@ analyzeSetQuery (SetQuery *q, List *parentFroms)
 static void
 analyzeProvenanceStmt (ProvenanceStmt *q, List *parentFroms)
 {
-	INFO_LOG(" ---------------------- analyzed Provenance Stmt");
     switch (q->inputType)
     {
         case PROV_INPUT_TRANSACTION:
