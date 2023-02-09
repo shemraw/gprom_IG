@@ -417,12 +417,83 @@ dataTypeToSQL (StringInfo str, DataType dt)
 }
 
 
-////TODO: implement the function that generate the expression of StringToArray
-//static void
-//stringToArrayToSQL (StringInfo str, (StringInfo *) expr, HashMap *nestedSubqueries)
-//{
-//
-//}
+static void
+stringToArrayToSQL(StringInfo str, CastExpr *c, HashMap *nestedSubqueries)
+{
+    switch(getBackend())
+    {
+        case BACKEND_POSTGRES:
+        {
+            appendStringInfoString(str, "string_to_array(");
+            exprToSQLString(str, c->expr, nestedSubqueries);
+            appendStringInfoString(str, ",NULL)");
+            //dataTypeToSQL(str, c->resultDT);
+        }
+        break;
+        default:
+        {
+            appendStringInfoString(str, "(string_to_array(");
+            exprToSQLString(str, c->expr, nestedSubqueries);
+            //appendStringInfoString(str, " AS ");
+            //dataTypeToSQL(str, c->resultDT);
+            appendStringInfoString(str, "), NULL)");
+        }
+    }
+
+}
+
+
+static void
+UnnestToSQL(StringInfo str, CastExpr *c, HashMap *nestedSubqueries)
+{
+    switch(getBackend())
+    {
+        case BACKEND_POSTGRES:
+        {
+            appendStringInfoString(str, "unnest(");
+            exprToSQLString(str, c->expr, nestedSubqueries);
+            appendStringInfoString(str, ")");
+            //dataTypeToSQL(str, c->resultDT);
+        }
+        break;
+        default:
+        {
+            appendStringInfoString(str, "(string_to_array(");
+            exprToSQLString(str, c->expr, nestedSubqueries);
+            //appendStringInfoString(str, " AS ");
+            //dataTypeToSQL(str, c->resultDT);
+            appendStringInfoString(str, "), NULL)");
+        }
+    }
+
+}
+
+
+static void
+AsciiToSQL(StringInfo str, CastExpr *c, HashMap *nestedSubqueries)
+{
+    switch(getBackend())
+    {
+        case BACKEND_POSTGRES:
+        {
+            appendStringInfoString(str, "ascii(");
+            exprToSQLString(str, c->expr, nestedSubqueries);
+            appendStringInfoString(str, ")");
+            //dataTypeToSQL(str, c->resultDT);
+        }
+        break;
+        default:
+        {
+            appendStringInfoString(str, "(string_to_array(");
+            exprToSQLString(str, c->expr, nestedSubqueries);
+            //appendStringInfoString(str, " AS ");
+            //dataTypeToSQL(str, c->resultDT);
+            appendStringInfoString(str, "), NULL)");
+        }
+    }
+
+}
+
 
 static void
 exprToSQLString(StringInfo str, Node *expr, HashMap *nestedSubqueries)
@@ -484,12 +555,13 @@ exprToSQLString(StringInfo str, Node *expr, HashMap *nestedSubqueries)
         break;
         case T_StringToArray:
         	// TODO: implement the function
+        	stringToArrayToSQL (str, (CastExpr *) expr, nestedSubqueries);
         break;
         case T_Unnest:
-			// TODO: implement the function
+        	UnnestToSQL (str, (CastExpr *) expr, nestedSubqueries);
 		break;
         case T_Ascii:
-			// TODO: implement the function
+        	AsciiToSQL(str, (CastExpr *) expr, nestedSubqueries);
 		break;
         default:
             FATAL_LOG("not an expression node <%s>", nodeToString(expr));
