@@ -105,8 +105,8 @@ typedef struct IsNullExpr {
 
 typedef struct StringToArray {
     NodeTag type;
-    Node *attr;
-    Node *delim;
+    Node *expr;
+    char *delim;
 } StringToArray;
 
 typedef struct Unnest {
@@ -117,7 +117,7 @@ typedef struct Unnest {
 typedef struct Ascii {
     NodeTag type;
     Node *expr;
-    Node *delim;
+//    Node *delim;
 } Ascii;
 
 NEW_ENUM_WITH_TO_STRING(WindowBoundType,
@@ -242,7 +242,7 @@ extern SQLParameter *createSQLParameter (char *name);
 extern CaseExpr *createCaseExpr (Node *expr, List *whenClauses, Node *elseRes);
 extern CaseWhen *createCaseWhen (Node *when, Node *then);
 extern IsNullExpr *createIsNullExpr (Node *expr);
-extern StringToArray *createStringToArrayExpr (Node *attr, Node *delim);
+extern StringToArray *createStringToArrayExpr (Node *attr, char *delim);
 extern Unnest *createUnnestExpr (Node *expr);
 extern Ascii *createAsciiExpr (Node *expr);
 extern Node *createIsNotDistinctExpr (Node *lArg, Node *rArg);

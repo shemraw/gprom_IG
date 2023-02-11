@@ -376,11 +376,11 @@ createIsNullExpr (Node *expr)
 }
 
 StringToArray *
-createStringToArrayExpr (Node *attr, Node *delim)
+createStringToArrayExpr (Node *expr, char *delim)
 {
 	StringToArray *result = makeNode(StringToArray);
 
-    result->attr = attr;
+    result->expr = expr;
     result->delim = delim;
 
     return result;
@@ -722,6 +722,12 @@ typeOf (Node *expr)
                 break;
             }
         }
+        case T_StringToArray:
+        	return DT_STRING; //TODO: it should be string array.
+        case T_Unnest:
+        	return DT_STRING;
+        case T_Ascii:
+        	return DT_INT;
         break;
         default:
              FATAL_LOG("unknown expression type for node: %s", nodeToString(expr));

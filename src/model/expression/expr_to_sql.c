@@ -418,7 +418,7 @@ dataTypeToSQL (StringInfo str, DataType dt)
 
 
 static void
-stringToArrayToSQL(StringInfo str, CastExpr *c, HashMap *nestedSubqueries)
+stringToArrayToSQL(StringInfo str, StringToArray *c, HashMap *nestedSubqueries)
 {
     switch(getBackend())
     {
@@ -426,7 +426,8 @@ stringToArrayToSQL(StringInfo str, CastExpr *c, HashMap *nestedSubqueries)
         {
             appendStringInfoString(str, "string_to_array(");
             exprToSQLString(str, c->expr, nestedSubqueries);
-            appendStringInfoString(str, ",NULL)");
+            char *delim = CONCAT_STRINGS(", ", c->delim, ")");
+            appendStringInfoString(str, delim);
             //dataTypeToSQL(str, c->resultDT);
         }
         break;
@@ -444,7 +445,7 @@ stringToArrayToSQL(StringInfo str, CastExpr *c, HashMap *nestedSubqueries)
 
 
 static void
-UnnestToSQL(StringInfo str, CastExpr *c, HashMap *nestedSubqueries)
+UnnestToSQL(StringInfo str, Unnest *c, HashMap *nestedSubqueries)
 {
     switch(getBackend())
     {
@@ -470,7 +471,7 @@ UnnestToSQL(StringInfo str, CastExpr *c, HashMap *nestedSubqueries)
 
 
 static void
-AsciiToSQL(StringInfo str, CastExpr *c, HashMap *nestedSubqueries)
+AsciiToSQL(StringInfo str, Ascii *c, HashMap *nestedSubqueries)
 {
     switch(getBackend())
     {
@@ -554,13 +555,13 @@ exprToSQLString(StringInfo str, Node *expr, HashMap *nestedSubqueries)
             castExprToSQL(str, (CastExpr *) expr, nestedSubqueries);
         break;
         case T_StringToArray:
-        	stringToArrayToSQL (str, (CastExpr *) expr, nestedSubqueries);
+        	stringToArrayToSQL (str, (StringToArray *) expr, nestedSubqueries);
         break;
         case T_Unnest:
-        	UnnestToSQL (str, (CastExpr *) expr, nestedSubqueries);
+        	UnnestToSQL (str, (Unnest *) expr, nestedSubqueries);
 		break;
         case T_Ascii:
-        	AsciiToSQL(str, (CastExpr *) expr, nestedSubqueries);
+        	AsciiToSQL(str, (Ascii *) expr, nestedSubqueries);
 		break;
         default:
             FATAL_LOG("not an expression node <%s>", nodeToString(expr));
