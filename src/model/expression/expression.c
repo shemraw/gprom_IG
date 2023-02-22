@@ -406,6 +406,18 @@ createAsciiExpr (Node *expr)
     return result;
 }
 
+
+Sum *
+createSumExpr (Node *expr)
+{
+	Sum *result = makeNode(Sum);
+
+    result->expr = expr;
+
+    return result;
+}
+
+
 Node *
 createIsNotDistinctExpr (Node *lArg, Node *rArg)
 {

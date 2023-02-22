@@ -46,7 +46,6 @@ static List *serializeSetOperator(QueryOperator *q, StringInfo str, SerializeCla
 char *
 serializeOperatorModelPostgres(Node *q)
 {
-	INFO_LOG("inside serializeOperatorModelPostgres");
     StringInfo str = makeStringInfo();
     char *result = NULL;
 
@@ -78,7 +77,6 @@ serializeOperatorModelPostgres(Node *q)
 
     result = str->data;
     FREE(str);
-    INFO_LOG("result",result);
     return result;
 }
 
@@ -113,7 +111,6 @@ addNullCasts(Node *n, Set *visited, void **parentPointer)
 char *
 serializeQueryPostgres(QueryOperator *q)
 {
-	INFO_LOG("inside serializeQueryPostgres");
     StringInfo str;
     StringInfo viewDef;
     char *result;

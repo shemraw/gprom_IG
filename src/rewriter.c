@@ -529,11 +529,9 @@ generatePlan(Node *oModel, boolean applyOptimizations)
 	}
 	INFO_OP_LOG("AFTER OPTIMIZATIONS:", rewrittenTree);
     /*--------------------------------------------------------------------*/
-    INFO_LOG("result -> data before appendStringInfo function result %s", result->data);
 	START_TIMER("SQLcodeGen");
 	appendStringInfo(result, "%s\n", serializeOperatorModel(rewrittenTree));
 	STOP_TIMER("SQLcodeGen");
-    INFO_LOG("result -> data before free function result %s", result->data);
 	rewrittenSQL = result->data;
 	FREE(result);
 	/*--------------------------------------------------------------------*/

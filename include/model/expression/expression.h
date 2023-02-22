@@ -117,8 +117,15 @@ typedef struct Unnest {
 typedef struct Ascii {
     NodeTag type;
     Node *expr;
-//    Node *delim;
+//  Node *delim;
 } Ascii;
+
+typedef struct SUM {
+    NodeTag type;
+    Node *expr;
+//  Node *delim;
+} Sum;
+
 
 NEW_ENUM_WITH_TO_STRING(WindowBoundType,
     WINBOUND_UNBOUND_PREC,
@@ -245,6 +252,8 @@ extern IsNullExpr *createIsNullExpr (Node *expr);
 extern StringToArray *createStringToArrayExpr (Node *attr, char *delim);
 extern Unnest *createUnnestExpr (Node *expr);
 extern Ascii *createAsciiExpr (Node *expr);
+extern Sum *createSumExpr (Node *expr);
+
 extern Node *createIsNotDistinctExpr (Node *lArg, Node *rArg);
 
 extern WindowBound *createWindowBound (WindowBoundType bType, Node *expr);

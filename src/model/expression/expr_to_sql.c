@@ -496,6 +496,32 @@ AsciiToSQL(StringInfo str, Ascii *c, HashMap *nestedSubqueries)
 }
 
 
+
+static void
+SumToSQL(StringInfo str, Ascii *c, HashMap *nestedSubqueries)
+{
+    switch(getBackend())
+    {
+        case BACKEND_POSTGRES:
+        {
+            appendStringInfoString(str, "sum(");
+            exprToSQLString(str, c->expr, nestedSubqueries);
+            appendStringInfoString(str, ")");
+            //dataTypeToSQL(str, c->resultDT);
+        }
+        break;
+        default:
+        {
+            appendStringInfoString(str, "(string_to_array(");
+            exprToSQLString(str, c->expr, nestedSubqueries);
+            //appendStringInfoString(str, " AS ");
+            //dataTypeToSQL(str, c->resultDT);
+            appendStringInfoString(str, "), NULL)");
+        }
+    }
+
+}
+
 static void
 exprToSQLString(StringInfo str, Node *expr, HashMap *nestedSubqueries)
 {
@@ -563,6 +589,9 @@ exprToSQLString(StringInfo str, Node *expr, HashMap *nestedSubqueries)
         case T_Ascii:
         	AsciiToSQL(str, (Ascii *) expr, nestedSubqueries);
 		break;
+        case T_Sum:
+               	SumToSQL(str, (Ascii *) expr, nestedSubqueries);
+       		break;
         default:
             FATAL_LOG("not an expression node <%s>", nodeToString(expr));
     }

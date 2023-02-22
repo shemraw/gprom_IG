@@ -173,8 +173,6 @@ rewritePI_CSOperator (QueryOperator *op)
     	INFO_OP_LOG("go SEMIRING COMBINER aggregation optimization:",op);
     }
 
-    LOG_RESULT("Inside rewritePI_CSOperator", op);
-
     switch(op->type)
     {
     	case T_CastOperator:
@@ -703,32 +701,35 @@ rewritePI_CSProjection (ProjectionOperator *op)
         op->projExprs = appendToTailOfList(op->projExprs,
                  createFullAttrReference(att->attrName, 0, a, 0, att->dataType));
     }
-    LOG_RESULT("Rewritten Operator tree before adding ProvenanceAttrsToSchema", op);
+
     // adapt schema
     addProvenanceAttrsToSchema((QueryOperator *) op, OP_LCHILD(op));
     LOG_RESULT("Rewritten Operator tree", op);
 
+
+
     if(provType == IG_PI_CS) {
     	List *newProjExprs = NIL;
-    	INFO_LOG("inside the condition");
     	FOREACH(AttributeReference, a, op->projExprs)
 	    {
 
     		if (strstr(a->name , "ig") != NULL) {
-				if(a->attrType == DT_INT) {
+				if(a->attrType == DT_INT || a->attrType == DT_FLOAT) {
 					CastExpr *cast;
-					cast = createCastExpr((Node *) a, DT_FLOAT);
+					cast = createCastExpr((Node *) a, DT_FLOAT);  // change to bit10
 					newProjExprs = appendToTailOfList(newProjExprs, cast);
 				} else if (a->attrType == DT_STRING) {
 					StringToArray *toArray;
 					Unnest *tounnest;
 					Ascii *toAscii;
+					Sum *toSum;
 
-					toArray = createStringToArrayExpr((Node *) a, "NULL"); // (Node *) createConstString("")
+					toArray = createStringToArrayExpr((Node *) a, "NULL");
 					tounnest = createUnnestExpr((Node *) toArray);
 					toAscii = createAsciiExpr((Node *) tounnest);
+					toSum = createSumExpr((Node *) toAscii);
+					newProjExprs = appendToTailOfList(newProjExprs, toSum);
 
-					newProjExprs = appendToTailOfList(newProjExprs, toAscii);
 				} else {
 					newProjExprs = appendToTailOfList(newProjExprs, a);
 				}
@@ -738,8 +739,145 @@ rewritePI_CSProjection (ProjectionOperator *op)
 
 	    }
 
+
+
+        //-----------------------------------------
+/*
+        QueryBlock *qb = OP_LCHILD(op);
+
+        List *attrsOffsets = NIL;
+        List **attrsOffsetsList = NIL;
+        boolean hasAggOrGroupBy = FALSE;
+        boolean hasWindowFuncs = FALSE;
+
+        DEBUG_NODE_BEATIFY_LOG("translate a QB:", qb);
+        QueryOperator *joinTreeRoot = translateFromClause(qb->fromClause, attrsOffsetsList);
+        LOG_TRANSLATED_OP("translatedFrom is", joinTreeRoot);
+        attrsOffsets = getAttrsOffsets(qb->fromClause);
+        *attrsOffsetsList = appendToHeadOfList(*attrsOffsetsList, attrsOffsets);
+
+        // adapt attribute references to match new from clause root's schema
+        visitAttrRefToSetNewAttrPos((Node *) qb->selectClause, attrsOffsets);
+        visitAttrRefToSetNewAttrPos((Node *) qb->havingClause, attrsOffsets);
+        visitAttrRefToSetNewAttrPos((Node *) qb->groupByClause, attrsOffsets);
+
+        QueryOperator *nestingOp = translateNestedSubquery(qb, joinTreeRoot,
+                attrsOffsets, attrsOffsetsList);
+        if (nestingOp != joinTreeRoot)
+            LOG_TRANSLATED_OP("translatedNesting is", nestingOp);
+
+        QueryOperator *select = translateWhereClause(qb->whereClause, nestingOp,
+                *attrsOffsetsList);
+        if (select != nestingOp)
+            LOG_TRANSLATED_OP("translatedWhere is", select);
+
+        //remove for nesting
+        *attrsOffsetsList = removeFromHead(*attrsOffsetsList);
+
+        QueryOperator *aggr = translateAggregation(qb, select, attrsOffsets);
+           hasAggOrGroupBy = (aggr != select);
+           if (hasAggOrGroupBy)
+               LOG_TRANSLATED_OP("translatedAggregation is", aggr);
+
+        QueryOperator *wind = translateWindowFuncs(qb, aggr, attrsOffsets);
+            hasWindowFuncs = (wind != aggr);
+            if (hasWindowFuncs)
+                LOG_TRANSLATED_OP("translatedWindowFuncs is", wind);
+
+        QueryOperator *having = translateHavingClause(qb->havingClause, wind,
+                    attrsOffsets);
+            if (having != aggr)
+                LOG_TRANSLATED_OP("translatedHaving is", having);
+        QueryOperator *project = translateSelectClause(qb->selectClause, having,
+                    attrsOffsets, hasAggOrGroupBy);
+
+        LOG_TRANSLATED_OP("translatedSelect is", project);
+*/
+        //--------------------------------------
+
+
+    	//ao = createAggregationOp(aggrs, groupByClause, in, NIL, attrNames);
+
+    	FOREACH(AttributeReference, a, newProjExprs)
+    	{
+    		if (strstr(a->name , "ig") == NULL)
+    		{
+    			if(a->attrType == DT_STRING)
+    			{
+
+
+    			char *test = a->name;
+    			// this should have county variable or all the string variable
+    			test[1] = '1';
+    			/*
+
+				FOREACH_INT(a, child->provAttrs)
+					{
+						AttributeDef *att = getAttrDef(child,a);
+						op->projExprs = appendToTailOfList(op->projExprs,
+								 createFullAttrReference(att->attrName, 0, a, 0, att->dataType));
+					}
+
+				addProvenanceAttrsToSchema((QueryOperator *) op, OP_LCHILD(op));
+				*/
+
+					AggregationOperator *ao;
+					QueryBlock *qb;
+					QueryOperator *in;
+					List *selectClause = qb->selectClause;
+					//List *selectClause = appendToTailOfList((QueryBlock *) b)
+					Node *havingClause = qb->havingClause;
+					List *groupByClause = qb->groupByClause;
+					List *attrNames = NIL;
+					int i;
+					List *aggrs = getListOfAggregFunctionCalls(selectClause, havingClause);
+
+					List *aggPlusGroup;
+					int numAgg = LIST_LENGTH(aggrs);
+					int numGroupBy = LIST_LENGTH(groupByClause);
+				//    List *newGroupBy;
+					ReplaceGroupByState *state;
+
+					DEBUG_NODE_BEATIFY_LOG("aggregation and group-by expressions and select clause:",
+							aggrs,
+							groupByClause,
+							qb->selectClause);
+
+					// does query use aggregation or group by at all?
+					if (numAgg == 0 && numGroupBy == 0)
+						return input;
+
+					// if necessary create projection for aggregation inputs that are not simple
+					// attribute references
+					in = createProjectionOverNonAttrRefExprs(&selectClause,
+								&havingClause, &groupByClause, input, attrsOffsets);
+
+					// create fake attribute names for aggregation output schema
+					for (i = 0; i < LIST_LENGTH(aggrs); i++)
+						attrNames = appendToTailOfList(attrNames,
+								CONCAT_STRINGS("AGGR_", gprom_itoa(i)));
+					for (i = 0; i < LIST_LENGTH(groupByClause); i++)
+						attrNames = appendToTailOfList(attrNames,
+								CONCAT_STRINGS("GROUP_", gprom_itoa(i)));
+
+
+					List *aggrs = getListOfAggregFunctionCalls(selectClause, havingClause);
+
+					//createAggregationOp(List *aggrs, List *groupBy, QueryOperator *input,
+			        //List *parents, List *attrNames)
+					ao = createAggregationOp(aggrs, a->name, in, NIL, a->name);
+					newProjExprs = appendToTailOfList(newProjExprs, ao);
+
+    			}
+    		}
+
+    	}
+
     	op->projExprs = newProjExprs;
+
+
     }
+
 
     return (QueryOperator *) op;
 }
