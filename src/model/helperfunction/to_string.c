@@ -55,6 +55,9 @@ static void outWindowFunction (StringInfo str, WindowFunction *node);
 static void outRowNumExpr (StringInfo str, RowNumExpr *node);
 static void outOrderExpr (StringInfo str, OrderExpr *node);
 static void outCastExpr (StringInfo str, CastExpr *node);
+static void outStringToArray (StringInfo str, StringToArray *node);
+static void outUnnest (StringInfo str, Unnest *node);
+static void outAscii (StringInfo str, Ascii *node);
 
 // query block model
 static void outQueryBlock (StringInfo str, QueryBlock *node);
@@ -781,6 +784,31 @@ outCastExpr (StringInfo str, CastExpr *node)
 }
 
 static void
+outStringToArray (StringInfo str, StringToArray *node)
+{
+    WRITE_NODE_TYPE(StringToArray);
+
+    WRITE_NODE_FIELD(expr);
+    WRITE_STRING_FIELD(delim);
+}
+
+static void
+outUnnest (StringInfo str, Unnest *node)
+{
+    WRITE_NODE_TYPE(Unnest);
+
+    WRITE_NODE_FIELD(expr);
+}
+
+static void
+outAscii (StringInfo str, Ascii *node)
+{
+    WRITE_NODE_TYPE(Ascii);
+
+    WRITE_NODE_FIELD(expr);
+}
+
+static void
 outSelectItem (StringInfo str, SelectItem *node)
 {
     WRITE_NODE_TYPE(SELECT_ITEM);
@@ -1188,6 +1216,15 @@ outNode(StringInfo str, void *obj)
             case T_CastExpr:
                 outCastExpr(str, (CastExpr *) obj);
                 break;
+            case T_StringToArray:
+				outStringToArray(str, (StringToArray *) obj);
+				break;
+            case T_Unnest:
+				outUnnest(str, (Unnest *) obj);
+				break;
+            case T_Ascii:
+				outAscii(str, (Ascii *) obj);
+				break;
             case T_SetQuery:
                 outSetQuery (str, (SetQuery *) obj);
                 break;

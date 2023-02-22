@@ -76,6 +76,9 @@ static RowNumExpr *copyRowNumExpr(RowNumExpr *from, OperatorMap **opMap);
 static OrderExpr *copyOrderExpr(OrderExpr *from, OperatorMap **opMap);
 static QuantifiedComparison *copyQuantifiedComparison(QuantifiedComparison *from, OperatorMap **opMap);
 static CastExpr *copyCastExpr(CastExpr *from, OperatorMap **opMap);
+static StringToArray *copyStringToArray(StringToArray *from, OperatorMap **opMap);
+static Unnest *copyUnnest(Unnest *from, OperatorMap **opMap);
+static Ascii *copyAscii(Ascii *from, OperatorMap **opMap);
 
 /*schema helper functions*/
 static AttributeDef *copyAttributeDef(AttributeDef *from, OperatorMap **opMap);
@@ -539,6 +542,34 @@ copyCastExpr(CastExpr *from, OperatorMap **opMap)
     COPY_INIT(CastExpr);
 
     COPY_SCALAR_FIELD(resultDT);
+    COPY_NODE_FIELD(expr);
+
+    return new;
+}
+
+static StringToArray *
+copyStringToArray(StringToArray *from, OperatorMap **opMap)
+{
+    COPY_INIT(StringToArray);
+    COPY_NODE_FIELD(expr);
+    COPY_STRING_FIELD(delim);
+
+    return new;
+}
+
+static Unnest *
+copyUnnest(Unnest *from, OperatorMap **opMap)
+{
+    COPY_INIT(Unnest);
+    COPY_NODE_FIELD(expr);
+
+    return new;
+}
+
+static Ascii *
+copyAscii(Ascii *from, OperatorMap **opMap)
+{
+    COPY_INIT(Ascii);
     COPY_NODE_FIELD(expr);
 
     return new;
@@ -1174,6 +1205,15 @@ copyInternal(void *from, OperatorMap **opMap)
         case T_CastExpr:
             retval = copyCastExpr(from, opMap);
             break;
+        case T_StringToArray:
+			retval = copyStringToArray(from, opMap);
+			break;
+        case T_Unnest:
+			retval = copyUnnest(from, opMap);
+			break;
+        case T_Ascii:
+			retval = copyAscii(from, opMap);
+			break;
             /* query block model nodes */
 //        case T_SetOp:
 //            retval = copySetOp(from, opMap);

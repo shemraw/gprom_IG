@@ -54,6 +54,9 @@ static boolean equalWindowDef (WindowDef *a, WindowDef *b, HashMap *seenOps, Mem
 static boolean equalWindowFunction (WindowFunction *a, WindowFunction *b, HashMap *seenOps, MemContext *c);
 static boolean equalRowNumExpr (RowNumExpr *a, RowNumExpr *b, HashMap *seenOps, MemContext *c);
 static boolean equalOrderExpr (OrderExpr *a, OrderExpr *b, HashMap *seenOps, MemContext *c);
+static boolean equalStringToArray (StringToArray *a, StringToArray *b, HashMap *seenOps, MemContext *c);
+static boolean equalUnnest (Unnest *a, Unnest *b, HashMap *seenOps, MemContext *c);
+static boolean equalAscii (Ascii *a, Ascii *b, HashMap *seenOps, MemContext *c);
 
 // equal functions for query_operator
 static boolean equalSchema(Schema *a, Schema *b, HashMap *seenOps, MemContext *c);
@@ -341,6 +344,31 @@ equalCastExpr (CastExpr *a, CastExpr *b, HashMap *seenOps, MemContext *c)
 
 static boolean
 equalIsNullExpr (IsNullExpr *a, IsNullExpr *b, HashMap *seenOps, MemContext *c)
+{
+    COMPARE_NODE_FIELD(expr);
+
+    return TRUE;
+}
+
+static boolean
+equalStringToArray (StringToArray *a, StringToArray *b, HashMap *seenOps, MemContext *c)
+{
+    COMPARE_NODE_FIELD(expr);
+    COMPARE_STRING_FIELD(delim);
+
+    return TRUE;
+}
+
+static boolean
+equalUnnest (Unnest *a, Unnest *b, HashMap *seenOps, MemContext *c)
+{
+    COMPARE_NODE_FIELD(expr);
+
+    return TRUE;
+}
+
+static boolean
+equalAscii (Ascii *a, Ascii *b, HashMap *seenOps, MemContext *c)
 {
     COMPARE_NODE_FIELD(expr);
 
@@ -1201,6 +1229,15 @@ equalInternal(void *a, void *b, HashMap *seenOps, MemContext *c)
         case T_OrderExpr:
             retval = equalOrderExpr(a,b, seenOps, c);
             break;
+        case T_StringToArray:
+			retval = equalStringToArray(a,b, seenOps, c);
+			break;
+        case T_Unnest:
+			retval = equalUnnest(a,b, seenOps, c);
+			break;
+        case T_Ascii:
+			retval = equalAscii(a,b, seenOps, c);
+			break;
         case T_QuantifiedComparison:
             retval = equalQuantifiedComparison(a,b, seenOps, c);
             break;

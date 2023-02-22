@@ -14,6 +14,7 @@
 #include "instrumentation/timing_instrumentation.h"
 #include "provenance_rewriter/pi_cs_rewrites/pi_cs_main.h"
 #include "provenance_rewriter/prov_utility.h"
+#include "utility/string_utils.h"
 #include "model/query_operator/query_operator.h"
 #include "model/query_operator/query_operator_model_checker.h"
 #include "model/query_operator/operator_property.h"
@@ -707,13 +708,16 @@ rewritePI_CSProjection (ProjectionOperator *op)
     LOG_RESULT("Rewritten Operator tree", op);
 
 
-
     if(provType == IG_PI_CS) {
+
     	List *newProjExprs = NIL;
+
     	FOREACH(AttributeReference, a, op->projExprs)
 	    {
 
-    		if (strstr(a->name , "ig") != NULL) {
+//    		if (strstr(a->name , "ig") != NULL)
+    		if(isPrefix(a->name,"ig"))
+    		{
 				if(a->attrType == DT_INT || a->attrType == DT_FLOAT) {
 					CastExpr *cast;
 					cast = createCastExpr((Node *) a, DT_FLOAT);  // change to bit10
@@ -722,13 +726,14 @@ rewritePI_CSProjection (ProjectionOperator *op)
 					StringToArray *toArray;
 					Unnest *tounnest;
 					Ascii *toAscii;
-					Sum *toSum;
+//					Sum *toSum;
 
 					toArray = createStringToArrayExpr((Node *) a, "NULL");
 					tounnest = createUnnestExpr((Node *) toArray);
 					toAscii = createAsciiExpr((Node *) tounnest);
-					toSum = createSumExpr((Node *) toAscii);
-					newProjExprs = appendToTailOfList(newProjExprs, toSum);
+//					toSum = createSumExpr((Node *) toAscii);
+
+					newProjExprs = appendToTailOfList(newProjExprs, toAscii);
 
 				} else {
 					newProjExprs = appendToTailOfList(newProjExprs, a);
@@ -739,148 +744,51 @@ rewritePI_CSProjection (ProjectionOperator *op)
 
 	    }
 
+    	op->projExprs = newProjExprs;
 
 
-        //-----------------------------------------
-/*
-        QueryBlock *qb = OP_LCHILD(op);
+    	// Creating aggregate operation
+    	AggregationOperator *ao;
+    	List *aggrs = NIL;
+    	List *groupBy = NIL;
+//    	List *attrNames = NIL;
+//    	int i = 0;
+//    	List *projExprs = NIL;
 
-        List *attrsOffsets = NIL;
-        List **attrsOffsetsList = NIL;
-        boolean hasAggOrGroupBy = FALSE;
-        boolean hasWindowFuncs = FALSE;
-
-        DEBUG_NODE_BEATIFY_LOG("translate a QB:", qb);
-        QueryOperator *joinTreeRoot = translateFromClause(qb->fromClause, attrsOffsetsList);
-        LOG_TRANSLATED_OP("translatedFrom is", joinTreeRoot);
-        attrsOffsets = getAttrsOffsets(qb->fromClause);
-        *attrsOffsetsList = appendToHeadOfList(*attrsOffsetsList, attrsOffsets);
-
-        // adapt attribute references to match new from clause root's schema
-        visitAttrRefToSetNewAttrPos((Node *) qb->selectClause, attrsOffsets);
-        visitAttrRefToSetNewAttrPos((Node *) qb->havingClause, attrsOffsets);
-        visitAttrRefToSetNewAttrPos((Node *) qb->groupByClause, attrsOffsets);
-
-        QueryOperator *nestingOp = translateNestedSubquery(qb, joinTreeRoot,
-                attrsOffsets, attrsOffsetsList);
-        if (nestingOp != joinTreeRoot)
-            LOG_TRANSLATED_OP("translatedNesting is", nestingOp);
-
-        QueryOperator *select = translateWhereClause(qb->whereClause, nestingOp,
-                *attrsOffsetsList);
-        if (select != nestingOp)
-            LOG_TRANSLATED_OP("translatedWhere is", select);
-
-        //remove for nesting
-        *attrsOffsetsList = removeFromHead(*attrsOffsetsList);
-
-        QueryOperator *aggr = translateAggregation(qb, select, attrsOffsets);
-           hasAggOrGroupBy = (aggr != select);
-           if (hasAggOrGroupBy)
-               LOG_TRANSLATED_OP("translatedAggregation is", aggr);
-
-        QueryOperator *wind = translateWindowFuncs(qb, aggr, attrsOffsets);
-            hasWindowFuncs = (wind != aggr);
-            if (hasWindowFuncs)
-                LOG_TRANSLATED_OP("translatedWindowFuncs is", wind);
-
-        QueryOperator *having = translateHavingClause(qb->havingClause, wind,
-                    attrsOffsets);
-            if (having != aggr)
-                LOG_TRANSLATED_OP("translatedHaving is", having);
-        QueryOperator *project = translateSelectClause(qb->selectClause, having,
-                    attrsOffsets, hasAggOrGroupBy);
-
-        LOG_TRANSLATED_OP("translatedSelect is", project);
-*/
-        //--------------------------------------
-
-
-    	//ao = createAggregationOp(aggrs, groupByClause, in, NIL, attrNames);
-
-    	FOREACH(AttributeReference, a, newProjExprs)
+    	FOREACH(Node,n,newProjExprs)
     	{
-    		if (strstr(a->name , "ig") == NULL)
+    		if(isA(n,Ascii))
     		{
-    			if(a->attrType == DT_STRING)
-    			{
+    			FunctionCall *sum = createFunctionCall("SUM", singleton(n));
+				aggrs = appendToTailOfList(aggrs,sum);
 
+				// collecting attribute names
+//				attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS("AGGR_", gprom_itoa(i)));
+    		}
+    		else
+    		{
+    			groupBy = appendToTailOfList(groupBy,n);
 
-    			char *test = a->name;
-    			// this should have county variable or all the string variable
-    			test[1] = '1';
-    			/*
-
-				FOREACH_INT(a, child->provAttrs)
-					{
-						AttributeDef *att = getAttrDef(child,a);
-						op->projExprs = appendToTailOfList(op->projExprs,
-								 createFullAttrReference(att->attrName, 0, a, 0, att->dataType));
-					}
-
-				addProvenanceAttrsToSchema((QueryOperator *) op, OP_LCHILD(op));
-				*/
-
-					AggregationOperator *ao;
-					QueryBlock *qb;
-					QueryOperator *in;
-					List *selectClause = qb->selectClause;
-					//List *selectClause = appendToTailOfList((QueryBlock *) b)
-					Node *havingClause = qb->havingClause;
-					List *groupByClause = qb->groupByClause;
-					List *attrNames = NIL;
-					int i;
-					List *aggrs = getListOfAggregFunctionCalls(selectClause, havingClause);
-
-					List *aggPlusGroup;
-					int numAgg = LIST_LENGTH(aggrs);
-					int numGroupBy = LIST_LENGTH(groupByClause);
-				//    List *newGroupBy;
-					ReplaceGroupByState *state;
-
-					DEBUG_NODE_BEATIFY_LOG("aggregation and group-by expressions and select clause:",
-							aggrs,
-							groupByClause,
-							qb->selectClause);
-
-					// does query use aggregation or group by at all?
-					if (numAgg == 0 && numGroupBy == 0)
-						return input;
-
-					// if necessary create projection for aggregation inputs that are not simple
-					// attribute references
-					in = createProjectionOverNonAttrRefExprs(&selectClause,
-								&havingClause, &groupByClause, input, attrsOffsets);
-
-					// create fake attribute names for aggregation output schema
-					for (i = 0; i < LIST_LENGTH(aggrs); i++)
-						attrNames = appendToTailOfList(attrNames,
-								CONCAT_STRINGS("AGGR_", gprom_itoa(i)));
-					for (i = 0; i < LIST_LENGTH(groupByClause); i++)
-						attrNames = appendToTailOfList(attrNames,
-								CONCAT_STRINGS("GROUP_", gprom_itoa(i)));
-
-
-					List *aggrs = getListOfAggregFunctionCalls(selectClause, havingClause);
-
-					//createAggregationOp(List *aggrs, List *groupBy, QueryOperator *input,
-			        //List *parents, List *attrNames)
-					ao = createAggregationOp(aggrs, a->name, in, NIL, a->name);
-					newProjExprs = appendToTailOfList(newProjExprs, ao);
-
-    			}
+//    			AttributeReference *ar = (AttributeReference *) n;
+//    			projExprs = appendToTailOfList(projExprs,
+//    			                 createFullAttrReference(ar->name, 0, ar->attrPosition, 0, ar->attrType));
     		}
 
     	}
 
-    	op->projExprs = newProjExprs;
+		ao = createAggregationOp(aggrs, groupBy, (QueryOperator *) op, NIL, getAttrNames(((QueryOperator *) op)->schema));
+		((QueryOperator *) op)->parents = singleton(ao);
 
+//		// add a project operator
+//		op = createProjectionOp(groupBy, (QueryOperator *) ao, NIL, getAttrNames(((QueryOperator *) op)->schema));
 
+	    LOG_RESULT("Rewritten Operator tree", ao);
+	    return (QueryOperator *) ao;
     }
-
 
     return (QueryOperator *) op;
 }
+
 
 static QueryOperator *
 rewritePI_CSJoin (JoinOperator *op)
