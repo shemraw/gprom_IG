@@ -683,7 +683,6 @@ rewritePI_CSProjection (ProjectionOperator *op)
 {
 
     ASSERT(OP_LCHILD(op));
-
     DEBUG_LOG("REWRITE-PICS - Projection");
     DEBUG_LOG("Operator tree \n%s", nodeToString(op));
 
@@ -718,11 +717,14 @@ rewritePI_CSProjection (ProjectionOperator *op)
 //    		if (strstr(a->name , "ig") != NULL)
     		if(isPrefix(a->name,"ig"))
     		{
-				if(a->attrType == DT_INT || a->attrType == DT_FLOAT) {
+				if(a->attrType == DT_INT || a->attrType == DT_FLOAT)
+				{
 					CastExpr *cast;
 					cast = createCastExpr((Node *) a, DT_FLOAT);  // change to bit10
 					newProjExprs = appendToTailOfList(newProjExprs, cast);
-				} else if (a->attrType == DT_STRING) {
+				}
+				else if (a->attrType == DT_STRING)
+				{
 					StringToArray *toArray;
 					Unnest *tounnest;
 					Ascii *toAscii;
@@ -735,10 +737,14 @@ rewritePI_CSProjection (ProjectionOperator *op)
 
 					newProjExprs = appendToTailOfList(newProjExprs, toAscii);
 
-				} else {
+				}
+				else
+				{
 					newProjExprs = appendToTailOfList(newProjExprs, a);
 				}
-    		} else {
+    		}
+    		else
+    		{
     			newProjExprs = appendToTailOfList(newProjExprs, a);
     		}
 
@@ -746,14 +752,14 @@ rewritePI_CSProjection (ProjectionOperator *op)
 
     	op->projExprs = newProjExprs;
 
-
     	// Creating aggregate operation
     	AggregationOperator *ao;
     	List *aggrs = NIL;
     	List *groupBy = NIL;
-//    	List *attrNames = NIL;
-//    	int i = 0;
-//    	List *projExprs = NIL;
+    	List *attrNames = NIL;
+    	List *projExprs = NIL;
+
+    	int i;
 
     	FOREACH(Node,n,newProjExprs)
     	{
@@ -762,31 +768,51 @@ rewritePI_CSProjection (ProjectionOperator *op)
     			FunctionCall *sum = createFunctionCall("SUM", singleton(n));
 				aggrs = appendToTailOfList(aggrs,sum);
 
-				// collecting attribute names
-//				attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS("AGGR_", gprom_itoa(i)));
     		}
     		else
     		{
     			groupBy = appendToTailOfList(groupBy,n);
-
-//    			AttributeReference *ar = (AttributeReference *) n;
-//    			projExprs = appendToTailOfList(projExprs,
-//    			                 createFullAttrReference(ar->name, 0, ar->attrPosition, 0, ar->attrType));
     		}
-
     	}
 
-		ao = createAggregationOp(aggrs, groupBy, (QueryOperator *) op, NIL, getAttrNames(((QueryOperator *) op)->schema));
+    	//attrNames = getAttrNames(((QueryOperator *) op)->schema);
+
+	    //create fake attribute names for aggregation output schema
+		for (i = 0; i < LIST_LENGTH(aggrs); i++)
+			attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS("AGGR_", gprom_itoa(i)));
+		for (i = 0; i < LIST_LENGTH(groupBy); i++)
+			attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS("GROUP_", gprom_itoa(i)));
+
+    	//ao = createAggregationOp(aggrs, groupByClause, in, NIL, attrNames);
+    	ao = createAggregationOp(aggrs, groupBy, (QueryOperator *) op, NIL, attrNames);
+		//ao = createAggregationOp(aggrs, groupBy, (QueryOperator *) op, NIL, getAttrNames(((QueryOperator *) op)->schema));
 		((QueryOperator *) op)->parents = singleton(ao);
+		//OP_LCHILD(ao)->parents = singleton(ao);
 
-//		// add a project operator
-//		op = createProjectionOp(groupBy, (QueryOperator *) ao, NIL, getAttrNames(((QueryOperator *) op)->schema));
+	    LOG_RESULT("Rewritten Aggregation Operator tree", ao);
+	    //return (QueryOperator *) ao;
 
-	    LOG_RESULT("Rewritten Operator tree", ao);
-	    return (QueryOperator *) ao;
+
+	    // CREATING THE NEW PROJECTION OPERATOR
+	    projExprs = concatTwoLists(ao->aggrs, ao->groupBy);
+
+	    //create projection operator upon selection operator from select clause
+	    //createProjectionOp(List *projExprs, QueryOperator *input, List *parents, List *attrNames)
+	    //ProjectionOperator *po = createProjectionOp(aggrs, (QueryOperator *) ao, NIL, attrNames);
+	    ProjectionOperator *po = createProjectionOp(projExprs, (QueryOperator *) ao, NIL, attrNames);
+
+	    // set the parent of the operator's children
+	    //OP_LCHILD(ao)->parents = singleton(po);
+	    ((QueryOperator *) ao)->parents = singleton(po);
+	    LOG_RESULT("Rewritten Projection Operator tree ", po);
+	    //return ((QueryOperator *) po);
+
+	    LOG_RESULT("Rewritten Operator tree 111", op);
+		//return (QueryOperator *) op;
+	    op->projExprs = po->projExprs;
     }
+		return (QueryOperator *) op;
 
-    return (QueryOperator *) op;
 }
 
 

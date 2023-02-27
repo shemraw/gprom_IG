@@ -1997,6 +1997,7 @@ translateAggregation(QueryBlock *qb, QueryOperator *input, List *attrsOffsets)
     List *attrNames = NIL;
     int i;
     List *aggrs = getListOfAggregFunctionCalls(selectClause, havingClause);
+
     List *aggPlusGroup;
     int numAgg = LIST_LENGTH(aggrs);
     int numGroupBy = LIST_LENGTH(groupByClause);
