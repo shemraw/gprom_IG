@@ -808,7 +808,7 @@ rewritePI_CSProjection (ProjectionOperator *op)
 
 
 	    FOREACH(AttributeDef, attr, ao->op.schema->attrDefs)
-	    	if(!isPrefix(attr->attrName,"ig"))
+//	    	if(!isPrefix(attr->attrName,"ig"))
 	    		attrs = appendToTailOfList(attrs, attr);
 
 		FOREACH(AttributeDef, attr, attrs)
