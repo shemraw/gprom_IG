@@ -109,6 +109,7 @@ rewritePI_CS (ProvenanceComputation  *op)
 
     // rewrite subquery under provenance computation
     rewritePI_CSOperator(rewRoot);
+    DEBUG_NODE_BEATIFY_LOG("before rewritten query root is switched:", rewRoot);
 
     // update root of rewritten subquery
     rewRoot = OP_LCHILD(op);
@@ -249,6 +250,7 @@ rewritePI_CSOperator (QueryOperator *op)
     if (isRewriteOptionActivated(OPTION_AGGRESSIVE_MODEL_CHECKING)){
         ASSERT(checkModel(rewrittenOp));
     }
+    DEBUG_NODE_BEATIFY_LOG("rewritten query operators:", rewrittenOp);
     return rewrittenOp;
 }
 
@@ -706,10 +708,13 @@ rewritePI_CSProjection (ProjectionOperator *op)
     addProvenanceAttrsToSchema((QueryOperator *) op, OP_LCHILD(op));
     LOG_RESULT("Rewritten Operator tree", op);
 
+//    ProjectionOperator *po = copyObject(op);
 
     if(provType == IG_PI_CS) {
 
     	List *newProjExprs = NIL;
+		List *projExprs = NIL;
+
 
     	FOREACH(AttributeReference, a, op->projExprs)
 	    {
@@ -757,7 +762,6 @@ rewritePI_CSProjection (ProjectionOperator *op)
     	List *aggrs = NIL;
     	List *groupBy = NIL;
     	List *attrNames = NIL;
-    	List *projExprs = NIL;
 
     	int i;
 
@@ -771,7 +775,10 @@ rewritePI_CSProjection (ProjectionOperator *op)
     		}
     		else
     		{
-    			groupBy = appendToTailOfList(groupBy,n);
+    			if(isA(n,AttributeReference))
+    			{
+        			groupBy = appendToTailOfList(groupBy,n);
+    			}
     		}
     	}
 
@@ -789,12 +796,27 @@ rewritePI_CSProjection (ProjectionOperator *op)
 		((QueryOperator *) op)->parents = singleton(ao);
 		//OP_LCHILD(ao)->parents = singleton(ao);
 
+		addProvenanceAttrsToSchema((QueryOperator *) ao, OP_LCHILD(op));
 	    LOG_RESULT("Rewritten Aggregation Operator tree", ao);
-	    //return (QueryOperator *) ao;
 
 
 	    // CREATING THE NEW PROJECTION OPERATOR
-	    projExprs = concatTwoLists(ao->aggrs, ao->groupBy);
+//	    projExprs = concatTwoLists(ao->aggrs, ao->groupBy);
+
+	    int cnt = 0;
+	    List *attrs = NIL;
+
+
+	    FOREACH(AttributeDef, attr, ao->op.schema->attrDefs)
+	    	if(!isPrefix(attr->attrName,"ig"))
+	    		attrs = appendToTailOfList(attrs, attr);
+
+		FOREACH(AttributeDef, attr, attrs)
+		{
+			projExprs = appendToTailOfList(projExprs,
+					createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
+			cnt++;
+		}
 
 	    //create projection operator upon selection operator from select clause
 	    //createProjectionOp(List *projExprs, QueryOperator *input, List *parents, List *attrNames)
@@ -806,12 +828,16 @@ rewritePI_CSProjection (ProjectionOperator *op)
 	    ((QueryOperator *) ao)->parents = singleton(po);
 	    LOG_RESULT("Rewritten Projection Operator tree ", po);
 	    //return ((QueryOperator *) po);
+	    addProvenanceAttrsToSchema((QueryOperator *) po, OP_LCHILD(po));
 
-	    LOG_RESULT("Rewritten Operator tree 111", op);
-		//return (QueryOperator *) op;
-	    op->projExprs = po->projExprs;
+//		return (QueryOperator *) op;
+//	    op->projExprs = po->projExprs;
+	    op = copyObject(po);
+	    LOG_RESULT("Rewritten Projection Operator tree 11", op);
     }
-		return (QueryOperator *) op;
+
+    LOG_RESULT("Fianl Rewritten Projection Operator tree", op);
+	return (QueryOperator *) op;
 
 }
 
