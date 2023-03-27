@@ -27,6 +27,7 @@
 #include "provenance_rewriter/summarization_rewrites/summarize_main.h"
 #include "provenance_rewriter/xml_rewrites/xml_prov_main.h"
 #include "temporal_queries/temporal_rewriter.h"
+#include "provenance_rewriter/ig_rewrites/ig_main.h"
 
 #include "model/query_operator/query_operator.h"
 #include "model/query_operator/query_operator_model_checker.h"
@@ -222,25 +223,27 @@ rewriteProvenanceComputation (ProvenanceComputation *op)
             result = OP_LCHILD(op);
             break;
         case IG_PI_CS: //TODO implement
-			if (isRewriteOptionActivated(OPTION_PI_CS_USE_COMPOSABLE))
-				result =  rewritePI_CSComposable(op);
-			else
-				result = rewritePI_CS(op);
-			removeParent(result, (QueryOperator *) op);
+        	result = rewriteIG(op);
 
-			//semiring comb operations
-			if(isCombinerActivated)
-			{
-				Node *addExpr;
-				Node *multExpr;
-
-				addExpr = getSemiringCombinerAddExpr((QueryOperator *) op);
-				multExpr = getSemiringCombinerMultExpr((QueryOperator *) op);
-
-				INFO_LOG("user has provied a semiring combiner: %s:\n\n%s", beatify(nodeToString(addExpr)), beatify(nodeToString(multExpr)));
-				result = addSemiringCombiner(result,addExpr,multExpr);
-				INFO_OP_LOG("Add semiring combiner:", result);
-			}
+//			if (isRewriteOptionActivated(OPTION_PI_CS_USE_COMPOSABLE))
+//				result =  rewritePI_CSComposable(op);
+//			else
+//				result = rewritePI_CS(op);
+//			removeParent(result, (QueryOperator *) op);
+//
+//			//semiring comb operations
+//			if(isCombinerActivated)
+//			{
+//				Node *addExpr;
+//				Node *multExpr;
+//
+//				addExpr = getSemiringCombinerAddExpr((QueryOperator *) op);
+//				multExpr = getSemiringCombinerMultExpr((QueryOperator *) op);
+//
+//				INFO_LOG("user has provied a semiring combiner: %s:\n\n%s", beatify(nodeToString(addExpr)), beatify(nodeToString(multExpr)));
+//				result = addSemiringCombiner(result,addExpr,multExpr);
+//				INFO_OP_LOG("Add semiring combiner:", result);
+//			}
 
 			break;
     }

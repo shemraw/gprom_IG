@@ -709,134 +709,6 @@ rewritePI_CSProjection (ProjectionOperator *op)
     LOG_RESULT("Rewritten Operator tree", op);
 
 //    ProjectionOperator *po = copyObject(op);
-
-    if(provType == IG_PI_CS) {
-
-    	List *newProjExprs = NIL;
-		List *projExprs = NIL;
-
-
-    	FOREACH(AttributeReference, a, op->projExprs)
-	    {
-
-//    		if (strstr(a->name , "ig") != NULL)
-    		if(isPrefix(a->name,"ig"))
-    		{
-				if(a->attrType == DT_INT || a->attrType == DT_FLOAT)
-				{
-					CastExpr *cast;
-					cast = createCastExpr((Node *) a, DT_FLOAT);  // change to bit10
-					newProjExprs = appendToTailOfList(newProjExprs, cast);
-				}
-				else if (a->attrType == DT_STRING)
-				{
-					StringToArray *toArray;
-					Unnest *tounnest;
-					Ascii *toAscii;
-//					Sum *toSum;
-
-					toArray = createStringToArrayExpr((Node *) a, "NULL");
-					tounnest = createUnnestExpr((Node *) toArray);
-					toAscii = createAsciiExpr((Node *) tounnest);
-//					toSum = createSumExpr((Node *) toAscii);
-
-					newProjExprs = appendToTailOfList(newProjExprs, toAscii);
-
-				}
-				else
-				{
-					newProjExprs = appendToTailOfList(newProjExprs, a);
-				}
-    		}
-    		else
-    		{
-    			newProjExprs = appendToTailOfList(newProjExprs, a);
-    		}
-
-	    }
-
-    	op->projExprs = newProjExprs;
-
-    	// Creating aggregate operation
-    	AggregationOperator *ao;
-    	List *aggrs = NIL;
-    	List *groupBy = NIL;
-    	List *attrNames = NIL;
-
-    	int i;
-
-    	FOREACH(Node,n,newProjExprs)
-    	{
-    		if(isA(n,Ascii))
-    		{
-    			FunctionCall *sum = createFunctionCall("SUM", singleton(n));
-				aggrs = appendToTailOfList(aggrs,sum);
-
-    		}
-    		else
-    		{
-    			if(isA(n,AttributeReference))
-    			{
-        			groupBy = appendToTailOfList(groupBy,n);
-    			}
-    		}
-    	}
-
-    	//attrNames = getAttrNames(((QueryOperator *) op)->schema);
-
-	    //create fake attribute names for aggregation output schema
-		for (i = 0; i < LIST_LENGTH(aggrs); i++)
-			attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS("AGGR_", gprom_itoa(i)));
-		for (i = 0; i < LIST_LENGTH(groupBy); i++)
-			attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS("GROUP_", gprom_itoa(i)));
-
-    	//ao = createAggregationOp(aggrs, groupByClause, in, NIL, attrNames);
-    	ao = createAggregationOp(aggrs, groupBy, (QueryOperator *) op, NIL, attrNames);
-		//ao = createAggregationOp(aggrs, groupBy, (QueryOperator *) op, NIL, getAttrNames(((QueryOperator *) op)->schema));
-		((QueryOperator *) op)->parents = singleton(ao);
-		//OP_LCHILD(ao)->parents = singleton(ao);
-
-		addProvenanceAttrsToSchema((QueryOperator *) ao, OP_LCHILD(op));
-	    LOG_RESULT("Rewritten Aggregation Operator tree", ao);
-
-
-	    // CREATING THE NEW PROJECTION OPERATOR
-//	    projExprs = concatTwoLists(ao->aggrs, ao->groupBy);
-
-	    int cnt = 0;
-	    List *attrs = NIL;
-
-
-	    FOREACH(AttributeDef, attr, ao->op.schema->attrDefs)
-//	    	if(!isPrefix(attr->attrName,"ig"))
-	    		attrs = appendToTailOfList(attrs, attr);
-
-		FOREACH(AttributeDef, attr, attrs)
-		{
-			projExprs = appendToTailOfList(projExprs,
-					createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
-			cnt++;
-		}
-
-	    //create projection operator upon selection operator from select clause
-	    //createProjectionOp(List *projExprs, QueryOperator *input, List *parents, List *attrNames)
-	    //ProjectionOperator *po = createProjectionOp(aggrs, (QueryOperator *) ao, NIL, attrNames);
-	    ProjectionOperator *po = createProjectionOp(projExprs, (QueryOperator *) ao, NIL, attrNames);
-
-	    // set the parent of the operator's children
-	    //OP_LCHILD(ao)->parents = singleton(po);
-	    ((QueryOperator *) ao)->parents = singleton(po);
-	    LOG_RESULT("Rewritten Projection Operator tree ", po);
-	    //return ((QueryOperator *) po);
-	    addProvenanceAttrsToSchema((QueryOperator *) po, OP_LCHILD(po));
-
-//		return (QueryOperator *) op;
-//	    op->projExprs = po->projExprs;
-	    op = copyObject(po);
-	    LOG_RESULT("Rewritten Projection Operator tree 11", op);
-    }
-
-    LOG_RESULT("Fianl Rewritten Projection Operator tree", op);
 	return (QueryOperator *) op;
 
 }
@@ -1457,7 +1329,7 @@ rewritePI_CSTableAccess(TableAccessOperator *op)
     if (asOf)
         op->asOf = copyObject(asOf);
 
-    // Get the povenance name for each attribute
+    // Get the provenance name for each attribute
     FOREACH(AttributeDef, attr, op->op.schema->attrDefs)
     {
         provAttr = appendToTailOfList(provAttr, strdup(attr->attrName));
@@ -1471,18 +1343,13 @@ rewritePI_CSTableAccess(TableAccessOperator *op)
     	if(provType == PROV_PI_CS)
     		newAttrName = getProvenanceAttrName(op->tableName, attr->attrName, relAccessCount);
 
-    	if(provType == IG_PI_CS)
-    		newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
+//    	if(provType == IG_PI_CS)
+//    		newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
 
         provAttr = appendToTailOfList(provAttr, newAttrName);
 
 //    	if(provType == PROV_PI_CS)
    		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
-
-//    	if(provType == IG_PI_CS) {
-//    		// TODO
-//
-//    	}
 
     	cnt++;
     }

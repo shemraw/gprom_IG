@@ -1032,6 +1032,58 @@ getNumProvAttrs(QueryOperator *op)
     return LIST_LENGTH(op->provAttrs);
 }
 
+
+List *
+getIGAttrs(QueryOperator *op)
+{
+    return op ? op->igAttrs : NIL;
+}
+
+List *
+getIGAttrDefs(QueryOperator *op)
+{
+    List *result = NIL;
+
+    FOREACH_INT(i,op->igAttrs)
+    {
+        //DEBUG_LOG("prov attr at <%u> is <%s>", i, nodeToString(getNthOfListP(op->schema->attrDefs, i)));
+        result = appendToTailOfList(result, getNthOfListP(op->schema->attrDefs, i));
+    }
+
+    return result;
+}
+
+List *
+getIGAttrReferences(ProjectionOperator *op, QueryOperator *op1)
+{
+    List *result = NIL;
+
+    FOREACH_INT(i,op1->igAttrs)
+    {
+        //DEBUG_LOG("prov attr at <%u> is <%s>", i, nodeToString(getNthOfListP(op->projExprs, i)));
+        result = appendToTailOfList(result, getNthOfListP(op->projExprs, i));
+    }
+    return result;
+}
+
+List *
+getOpIGAttrNames(QueryOperator *op)
+{
+    List *igDefs = getIGAttrDefs(op);
+    List *result = NIL;
+
+    FOREACH(AttributeDef,a,igDefs)
+    result = appendToTailOfList(result, strdup(a->attrName));
+
+    return result;
+}
+
+int
+getNumIGAttrs(QueryOperator *op)
+{
+    return LIST_LENGTH(op->igAttrs);
+}
+
 List *
 getNormalAttrs(QueryOperator *op)
 {

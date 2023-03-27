@@ -50,6 +50,23 @@ addProvenanceAttrsToSchema(QueryOperator *target, QueryOperator *source)
 }
 
 void
+addIGAttrsToSchema(QueryOperator *target, QueryOperator *source)
+{
+    List *newIGAttrs = (List *) copyObject(getIGAttrDefs(source));
+    int curAttrLen = LIST_LENGTH(target->schema->attrDefs);
+    int numIGAttrs = LIST_LENGTH(newIGAttrs);
+    List *newIGPos;
+
+    DEBUG_LOG("add ig attributes\n%s", nodeToString(newIGAttrs));
+
+    CREATE_INT_SEQ(newIGPos, curAttrLen, curAttrLen + numIGAttrs - 1, 1);
+    target->schema->attrDefs = concatTwoLists(target->schema->attrDefs, newIGAttrs);
+    target->igAttrs = concatTwoLists(target->igAttrs, newIGPos);
+
+    DEBUG_LOG("new ig attr list is \n%s\n\nig attr pos %s", nodeToString(target->schema->attrDefs), nodeToString(target->igAttrs));
+}
+
+void
 addProvenanceAttrsToSchemabasedOnList(QueryOperator *target, List *provList)
 {
     List *newProvAttrs = (List *) copyObject(provList);

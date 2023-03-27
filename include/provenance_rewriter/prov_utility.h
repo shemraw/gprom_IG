@@ -21,7 +21,7 @@ extern void addNormalAttrsToSchema(QueryOperator *target, QueryOperator *source)
 extern void addProvenanceAttrsToSchema(QueryOperator *target, QueryOperator *source);
 extern void addProvenanceAttrsToSchemabasedOnList(QueryOperator *target, List *provList);
 extern void makeNamesUnique (List *names, Set *allNames);
-
+extern void addIGAttrsToSchema(QueryOperator *target, QueryOperator *source);
 
 // create projection expressions
 extern List *getProvAttrProjectionExprs(QueryOperator *op);
