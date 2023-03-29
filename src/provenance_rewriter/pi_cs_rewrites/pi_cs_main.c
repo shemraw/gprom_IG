@@ -708,7 +708,7 @@ rewritePI_CSProjection (ProjectionOperator *op)
     addProvenanceAttrsToSchema((QueryOperator *) op, OP_LCHILD(op));
     LOG_RESULT("Rewritten Operator tree", op);
 
-//    ProjectionOperator *po = copyObject(op);
+    // ProjectionOperator *po = copyObject(op);
 	return (QueryOperator *) op;
 
 }
@@ -797,7 +797,7 @@ rewritePI_CSNestingOp (NestingOperator *op)
     // if (!HAS_STRING_PROP(PROP...))
     rChild = rewritePI_CSOperator(rChild);
 
-    // adapt schema for join op
+// 	  adapt schema for join op
 //    clearAttrsFromSchema((QueryOperator *) op);
 //    addNormalAttrsToSchema(o, lChild);
     addProvenanceAttrsToSchema(o, lChild);
@@ -831,6 +831,7 @@ rewritePI_CSNestingOp (NestingOperator *op)
  *      - replace aggregation with projection over join between the aggregation
  *       and the aggregation rewritten input
  */
+
 static QueryOperator *
 rewritePI_CSAggregation (AggregationOperator *op)
 {
