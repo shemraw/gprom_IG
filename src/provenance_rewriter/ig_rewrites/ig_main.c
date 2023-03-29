@@ -343,7 +343,12 @@ rewriteIG_Projection (ProjectionOperator *op)
     LOG_RESULT("Query operator child", op);
     // rewrite child
     rewriteIG_Operator(OP_LCHILD(op));
+
+    QueryOperator *child = OP_LCHILD(op);
+ 	switchSubtrees((QueryOperator *) op, (QueryOperator *) child);
+
     LOG_RESULT("Query operator child", op);
+
     return (QueryOperator *) op;
 
 }
@@ -375,26 +380,24 @@ rewriteIG_Join (JoinOperator *op)
 
     List *projExpr = getNormalAttrProjectionExprs(o);
 
+    List *lprojExpr = getNormalAttrProjectionExprs(lChild);
+    List *rprojExpr = getNormalAttrProjectionExprs(rChild);
+
+    List *newprojExpr = concatTwoLists(lprojExpr, rprojExpr);
+
+    ProjectionOperator *newproj = createProjectionOp(newprojExpr, NULL, NIL, NIL);
     ProjectionOperator *proj = createProjectionOp(projExpr, NULL, NIL, NIL);
 
+    //ProjectionOperator *rproj = createProjectionOp(rprojExpr, NULL, NIL, NIL);
+    LOG_RESULT("LPROJEXPR INSIDE IG JOIN", newproj);
     LOG_RESULT("AFTER PROVENANCE OPERATOR INSIDE IG JOIN O", o);
     LOG_RESULT("AFTER PROVENANCE OPERATOR INSIDE IG JOIN PROJ", proj);
 
-    addNormalAttrsToSchema((QueryOperator *) proj, o);
-
-    LOG_RESULT("AFTER ATTRS INSIDE IG JOIN O", o);
-    LOG_RESULT("AFTER ATTRS INSIDE IG JOIN PROJ", proj);
+    addNormalAttrsToSchema((QueryOperator *) newproj, o);
     //addProvenanceAttrsToSchema((QueryOperator *) proj, o);
-    switchSubtrees(o, (QueryOperator *) proj);
-
-    LOG_RESULT("AFTER SWITCH INSIDE IG JOIN O", o);
-    LOG_RESULT("AFTER SWITCH INSIDE IG JOIN PROJ", proj);
-
-    addChildOperator((QueryOperator *) proj, o);
-
-    LOG_RESULT("Rewritten Operator tree OP", o);
-    LOG_RESULT("Rewritten Operator tree RETURN PROJ", proj);
-    return (QueryOperator *) proj;
+    switchSubtrees(o, (QueryOperator *) newproj);
+    addChildOperator((QueryOperator *) newproj, o);
+    return (QueryOperator *) newproj;
 }
 
 
