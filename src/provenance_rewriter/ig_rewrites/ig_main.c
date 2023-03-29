@@ -157,15 +157,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	{
 		if(isPrefix(a->name,"ig"))
 		{
-//			AttributeReference *ar = getAttrRefByName((QueryOperator *) op, a->attrName);
-
-//			if(a->attrType == DT_INT || a->attrType == DT_FLOAT)
-//			{
-//				CastExpr *cast;
-//				cast = createCastExpr((Node *) a, DT_FLOAT);  // change to bit10
-//				newProjExprs = appendToTailOfList(newProjExprs, cast);
-//			}
-//			else
 			if (a->attrType == DT_STRING)
 			{
 				StringToArray *toArray;
@@ -185,14 +176,12 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		}
 		else
 		{
-//			AttributeReference *ar = getAttrRefByName((QueryOperator *) op, a->attrName);
 			newProjExprs = appendToTailOfList(newProjExprs, a);
 		}
 
 	}
 
 	op->projExprs = newProjExprs;
-
 
 	// CREATING a projection to not feed ascii expression into aggregation
 	int cnt = 0;
@@ -255,16 +244,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		i++;
 	}
 
-//	char *temp = NULL;
-//			temp = a->name;
-//			FOREACH(AttributeReference, b, op->projExprs)
-//				{
-//				if(isPrefix(b->name,"ig") && isSubstr(b->name, temp))
-//					{
-//					newNames = appendToTailOfList(newNames, b->name);
-//					temp = NULL;
-//					}
-//				}
 
 	// CREATING NEW NAMES HERE FOR AGGREGATE OPERATOR
 	FOREACH(AttributeReference, a, po->projExprs)
@@ -286,7 +265,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 			newNames = appendToTailOfList(newNames, b->name);
 			}
 		}
-
 
 
 	// Create fake attribute names for aggregation output schema
@@ -311,10 +289,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	cnt = 0;
 	FOREACH(AttributeDef,a,ao->op.schema->attrDefs)
 	{
-	// projExprs = appendToTailOfList(projExprs,
-	// getAttrRefByPos(child, cnt));
-
-	//		AttributeDef *att = getAttrDef(child, cnt);
 		projExprs = appendToTailOfList(projExprs,
 				createFullAttrReference(a->attrName, 0, cnt, 0, a->dataType));
 		cnt++;
@@ -353,37 +327,25 @@ static QueryOperator *
 rewriteIG_Projection (ProjectionOperator *op)
 {
 
-    ASSERT(OP_LCHILD(op));
-    DEBUG_LOG("IG - Projection");
-    DEBUG_LOG("Operator tree \n%s", nodeToString(op));
-
-    // rewrite child
-    rewriteIG_Operator(OP_LCHILD(op));
-
-//    // add projection expressions for ig attrs
-//    QueryOperator *child = OP_LCHILD(op);
-//    LOG_RESULT("Query operator child", child);
-//
-//    FOREACH_INT(a, child->igAttrs)
-//    {
-//        AttributeDef *att = getAttrDef(child,a);
-//        op->projExprs = appendToTailOfList(op->projExprs,
-//                 createFullAttrReference(att->attrName, 0, a, 0, att->dataType));
-//    }
-//
-//    // adapt schema
-//    addIGAttrsToSchema((QueryOperator *) op, OP_LCHILD(op));
+// NEW INPUT QUERY
+// IG OF(Select * from owned o JOIN shared s ON(o.county = s.county));
 
 //TODO: Implement queryIntegration
-
+// Trying to FIX JOIN FIRST
 //TODO: temporary test to return aggregate result. remove while implementing queryIntegration
-    QueryOperator *child = OP_LCHILD(op);
-//    if(isA(child,AggregationOperator)) {
-	switchSubtrees((QueryOperator *) op, (QueryOperator *) child);
-//    }
 
-    LOG_RESULT("Rewritten Projection Operator tree", op);
+    ASSERT(OP_LCHILD(op));
+    DEBUG_LOG("REWRITE-PICS - Projection");
+    DEBUG_LOG("Operator tree \n%s", nodeToString(op));
+
+    //add semiring options
+    addSCOptionToChild((QueryOperator *) op,OP_LCHILD(op));
+    LOG_RESULT("Query operator child", op);
+    // rewrite child
+    rewriteIG_Operator(OP_LCHILD(op));
+    LOG_RESULT("Query operator child", op);
     return (QueryOperator *) op;
+
 }
 
 static QueryOperator *
@@ -398,15 +360,40 @@ rewriteIG_Join (JoinOperator *op)
     lChild = rewriteIG_Operator(lChild);
     rChild = rewriteIG_Operator(rChild);
 
-    addChildOperator(o, lChild);
-    addChildOperator(o, rChild);
+	LOG_RESULT("AFTER IG OPERATOR INSIDE IG JOIN RCHILD", rChild);
+	LOG_RESULT("AFTER IG OPERATOR INSIDE IG JOIN LCHILD", lChild);
 
-    // add projection to put attributes into order on top of join op
-    List *projExpr = getNormalAttrProjectionExprs((QueryOperator *) o);
+    addProvenanceAttrsToSchema(o, lChild);
+    addProvenanceAttrsToSchema(o, rChild);
+
+//	addChildOperator(o, lChild);
+//	addChildOperator(o, rChild);
+
+    LOG_RESULT("AFTER PROVENANCE OPERATOR INSIDE IG JOIN O", o);
+
+// TODO: NEED TO RECREATE PROJEXPR TO MATCH :
+
+    List *projExpr = getNormalAttrProjectionExprs(o);
+
     ProjectionOperator *proj = createProjectionOp(projExpr, NULL, NIL, NIL);
-    addChildOperator((QueryOperator *) proj, (QueryOperator *) op);
 
-    LOG_RESULT("Rewritten IG Operator tree", proj);
+    LOG_RESULT("AFTER PROVENANCE OPERATOR INSIDE IG JOIN O", o);
+    LOG_RESULT("AFTER PROVENANCE OPERATOR INSIDE IG JOIN PROJ", proj);
+
+    addNormalAttrsToSchema((QueryOperator *) proj, o);
+
+    LOG_RESULT("AFTER ATTRS INSIDE IG JOIN O", o);
+    LOG_RESULT("AFTER ATTRS INSIDE IG JOIN PROJ", proj);
+    //addProvenanceAttrsToSchema((QueryOperator *) proj, o);
+    switchSubtrees(o, (QueryOperator *) proj);
+
+    LOG_RESULT("AFTER SWITCH INSIDE IG JOIN O", o);
+    LOG_RESULT("AFTER SWITCH INSIDE IG JOIN PROJ", proj);
+
+    addChildOperator((QueryOperator *) proj, o);
+
+    LOG_RESULT("Rewritten Operator tree OP", o);
+    LOG_RESULT("Rewritten Operator tree RETURN PROJ", proj);
     return (QueryOperator *) proj;
 }
 
@@ -482,4 +469,5 @@ rewriteIG_TableAccess(TableAccessOperator *op)
     DEBUG_LOG("table access after adding ig attributes to the schema: %s", operatorToOverviewString((Node *) newPo));
     LOG_RESULT("Rewritten TableAccess Operator tree", newPo);
     return rewriteIG_Conversion(newPo);
+    //return (QueryOperator *) newPo;
 }
