@@ -142,6 +142,7 @@ rewriteIG_Operator (QueryOperator *op)
         ASSERT(checkModel(rewrittenOp));
     }
     DEBUG_NODE_BEATIFY_LOG("rewritten query operators:", rewrittenOp);
+    LOG_RESULT("rewritten query operators:", rewrittenOp);
     return rewrittenOp;
 }
 
@@ -247,34 +248,35 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 	// CREATING NEW NAMES HERE FOR AGGREGATE OPERATOR
 	FOREACH(AttributeReference, a, po->projExprs)
-		{
+	{
 		if(isPrefix(a->name, "ig") && a->attrType == DT_STRING)
-			{
-				newNames = appendToTailOfList(newNames, a->name);
-			}
+		{
+//			char *nn = CONCAT_STRINGS(a->name,"_agg");
+			newNames = appendToTailOfList(newNames, a->name);
 		}
+	}
 
 	FOREACH(AttributeReference, b, po->projExprs)
-		{
+	{
 		if(!isPrefix(b->name, "ig"))
-			{
+		{
 			newNames = appendToTailOfList(newNames, b->name);
-			}
-		else if(isPrefix(b->name, "ig") && b->attrType != DT_STRING)
-			{
-			newNames = appendToTailOfList(newNames, b->name);
-			}
 		}
-
-
-	// Create fake attribute names for aggregation output schema
-	for (i = 0; i < LIST_LENGTH(aggrs); i++){
-		attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS("AGGR_", gprom_itoa(i)));
-	}
-	for (i = 0; i < LIST_LENGTH(groupBy); i++){
-		attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS("GROUP_", gprom_itoa(i)));
+		else if(isPrefix(b->name, "ig") && b->attrType != DT_STRING)
+		{
+			newNames = appendToTailOfList(newNames, b->name);
+		}
 	}
 
+//	// Create fake attribute names for aggregation output schema
+//	for (i = 0; i < LIST_LENGTH(aggrs); i++)
+//	{
+//		attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS("AGGR_", gprom_itoa(i)));
+//	}
+//	for (i = 0; i < LIST_LENGTH(groupBy); i++)
+//	{
+//		attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS("GROUP_", gprom_itoa(i)));
+//	}
 
 	AggregationOperator *ao = createAggregationOp(aggrs, groupBy, NULL, NIL, newNames);
 	addChildOperator((QueryOperator *) ao, (QueryOperator *) po);
@@ -287,10 +289,12 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	// CREATING THE NEW PROJECTION OPERATOR
 	projExprs = NIL;
 	cnt = 0;
+
 	FOREACH(AttributeDef,a,ao->op.schema->attrDefs)
 	{
 		projExprs = appendToTailOfList(projExprs,
 				createFullAttrReference(a->attrName, 0, cnt, 0, a->dataType));
+
 		cnt++;
 	}
 
@@ -301,6 +305,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	// Switch the subtree with this newly created projection operator.
 	switchSubtrees((QueryOperator *) ao, (QueryOperator *) newPo);
 	LOG_RESULT("Rewritten Projection Operator tree", newPo);
+
 	// CAST_EXPR
 	newProjExprs = NIL;
 
@@ -309,7 +314,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		if(a->attrType == DT_INT || a->attrType == DT_FLOAT)
 		{
 			CastExpr *cast;
-			cast = createCastExpr((Node *) a, DT_FLOAT);  // change to bit10
+			cast = createCastExpr((Node *) a, DT_FLOAT);  // TODO: change to bit10
 			newProjExprs = appendToTailOfList(newProjExprs, cast);
 		}
 		else
@@ -317,9 +322,30 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	}
 
 	newPo->projExprs = newProjExprs;
+	LOG_RESULT("Rewritten Projection Operator tree with CAST", newPo);
 
-    LOG_RESULT("Converted Operator tree", newPo);
-	return (QueryOperator *) newPo;
+	// retrieve the original order of the projection attributes
+	projExprs = NIL;
+	newNames = NIL;
+
+	FOREACH(AttributeDef,a,po->op.schema->attrDefs)
+	{
+		projExprs = appendToTailOfList(projExprs,
+				createFullAttrReference(a->attrName, 0,
+						getAttrPos((QueryOperator *) newPo, a->attrName), 0, a->dataType));
+
+		newNames = appendToTailOfList(newNames, a->attrName);
+	}
+
+	ProjectionOperator *addPo = createProjectionOp(projExprs, NULL, NIL, newNames);
+	addChildOperator((QueryOperator *) addPo, (QueryOperator *) newPo);
+
+	// Switch the subtree with this newly created projection operator.
+	switchSubtrees((QueryOperator *) newPo, (QueryOperator *) addPo);
+
+
+    LOG_RESULT("Converted Operator tree", addPo);
+	return (QueryOperator *) addPo;
 }
 
 
@@ -335,69 +361,64 @@ rewriteIG_Projection (ProjectionOperator *op)
 //TODO: temporary test to return aggregate result. remove while implementing queryIntegration
 
     ASSERT(OP_LCHILD(op));
-    DEBUG_LOG("REWRITE-PICS - Projection");
+    DEBUG_LOG("REWRITE-IG - Projection");
     DEBUG_LOG("Operator tree \n%s", nodeToString(op));
 
-    //add semiring options
-    addSCOptionToChild((QueryOperator *) op,OP_LCHILD(op));
-    LOG_RESULT("Query operator child", op);
     // rewrite child
     rewriteIG_Operator(OP_LCHILD(op));
 
     QueryOperator *child = OP_LCHILD(op);
- 	switchSubtrees((QueryOperator *) op, (QueryOperator *) child);
+ 	switchSubtrees((QueryOperator *) op, child);
+//    child->parents = NIL;
 
-    LOG_RESULT("Query operator child", op);
+	List *newProjExpr = NIL;
+	List *newAttrNames = NIL;
+	int pos = 0;
 
-    return (QueryOperator *) op;
+	FOREACH(AttributeDef, a, child->schema->attrDefs)
+	{
+		newProjExpr = appendToTailOfList(newProjExpr,
+				 createFullAttrReference(a->attrName, 0, pos, 0, a->dataType));
+
+		newAttrNames = appendToTailOfList(newAttrNames, a->attrName);
+		pos++;
+	}
+
+	ProjectionOperator *newProj = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
+
+	addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
+	switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
+
+ 	LOG_RESULT("Rewritten Projection Operator tree", newProj);
+    return (QueryOperator *) newProj;
 
 }
 
 static QueryOperator *
 rewriteIG_Join (JoinOperator *op)
 {
-    DEBUG_LOG("IG - Join");
+    DEBUG_LOG("REWRITE-IG - Join");
 
-    QueryOperator *o = (QueryOperator *) op;
+//    QueryOperator *o = (QueryOperator *) op;
     QueryOperator *lChild = OP_LCHILD(op);
     QueryOperator *rChild = OP_RCHILD(op);
 
     lChild = rewriteIG_Operator(lChild);
     rChild = rewriteIG_Operator(rChild);
 
-	LOG_RESULT("AFTER IG OPERATOR INSIDE IG JOIN RCHILD", rChild);
 	LOG_RESULT("AFTER IG OPERATOR INSIDE IG JOIN LCHILD", lChild);
+	LOG_RESULT("AFTER IG OPERATOR INSIDE IG JOIN RCHILD", rChild);
 
-    addProvenanceAttrsToSchema(o, lChild);
-    addProvenanceAttrsToSchema(o, rChild);
+	// update the attribute def for join operator
+    List *lAttrDefs = copyObject(getNormalAttrs(lChild));
+    List *rAttrDefs = copyObject(getNormalAttrs(rChild));
 
-//	addChildOperator(o, lChild);
-//	addChildOperator(o, rChild);
+    List *newAttrDefs = CONCAT_LISTS(lAttrDefs,rAttrDefs);
+    op->op.schema->attrDefs = copyObject(newAttrDefs);
+    makeAttrNamesUnique((QueryOperator *) op);
 
-    LOG_RESULT("AFTER PROVENANCE OPERATOR INSIDE IG JOIN O", o);
-
-// TODO: NEED TO RECREATE PROJEXPR TO MATCH :
-
-    List *projExpr = getNormalAttrProjectionExprs(o);
-
-    List *lprojExpr = getNormalAttrProjectionExprs(lChild);
-    List *rprojExpr = getNormalAttrProjectionExprs(rChild);
-
-    List *newprojExpr = concatTwoLists(lprojExpr, rprojExpr);
-
-    ProjectionOperator *newproj = createProjectionOp(newprojExpr, NULL, NIL, NIL);
-    ProjectionOperator *proj = createProjectionOp(projExpr, NULL, NIL, NIL);
-
-    //ProjectionOperator *rproj = createProjectionOp(rprojExpr, NULL, NIL, NIL);
-    LOG_RESULT("LPROJEXPR INSIDE IG JOIN", newproj);
-    LOG_RESULT("AFTER PROVENANCE OPERATOR INSIDE IG JOIN O", o);
-    LOG_RESULT("AFTER PROVENANCE OPERATOR INSIDE IG JOIN PROJ", proj);
-
-    addNormalAttrsToSchema((QueryOperator *) newproj, o);
-    //addProvenanceAttrsToSchema((QueryOperator *) proj, o);
-    switchSubtrees(o, (QueryOperator *) newproj);
-    addChildOperator((QueryOperator *) newproj, o);
-    return (QueryOperator *) newproj;
+	LOG_RESULT("Rewritten Join Operator tree",op);
+    return (QueryOperator *) op;
 }
 
 
@@ -472,5 +493,4 @@ rewriteIG_TableAccess(TableAccessOperator *op)
     DEBUG_LOG("table access after adding ig attributes to the schema: %s", operatorToOverviewString((Node *) newPo));
     LOG_RESULT("Rewritten TableAccess Operator tree", newPo);
     return rewriteIG_Conversion(newPo);
-    //return (QueryOperator *) newPo;
 }
