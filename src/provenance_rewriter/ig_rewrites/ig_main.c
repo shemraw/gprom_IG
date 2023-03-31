@@ -47,14 +47,16 @@ static QueryOperator *rewriteIG_TableAccess(TableAccessOperator *op);
 static Node *asOf;
 static RelCount *nameState;
 //static QueryOperator *provComputation;
-static ProvenanceType provType;
+//static ProvenanceType provType;
+List *attrL = NIL;
+List *attrR = NIL;
 
 
 QueryOperator *
 rewriteIG (ProvenanceComputation  *op)
 {
-	// IG
-	provType = op->provType;
+//	// IG
+//	provType = op->provType;
 
     START_TIMER("rewrite - IG rewrite");
 
@@ -379,10 +381,9 @@ rewriteIG_Projection (ProjectionOperator *op)
 	ProjectionOperator *newProj = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
 
 	// Creating The Case When expression with Else
-    List *caseExprs = NIL;
-    List *attrs = NIL;
+//    List *caseExprs = NIL;
     List *attrNames = NIL;
-    List *newList = NIL;
+    newProjExpr = NIL;
 
 // Testing how to split one list into two and access each member of list separately
 //    List *lNames = NIL;
@@ -435,26 +436,53 @@ rewriteIG_Projection (ProjectionOperator *op)
 //    LOG_RESULT("RIGHT PROJECTION", rop);
 
 // TESTING CASE WHEN HERE
-    FOREACH(AttributeReference, n, op->projExprs)
+    int i = 0; // position of the attribute
+    int checkPoint = LIST_LENGTH(attrL) - 1; // point where the attributes belong to shared data
+    AttributeDef *a = NULL;
+
+    FOREACH(AttributeReference, n, newProj->projExprs)
     {
+    	if (isPrefix(n->name, "ig"))
+    	{
     		Node *cond = (Node *) createIsNullExpr((Node *) n);
     		//Node *then = (Node *) createConstInt(0);
     		//Node *els = (Node *) createConstInt(1);
-    		Node *then = (Node *) createAttributeReference(n->name);
     		Node *els = (Node *) createAttributeReference(n->name);
+
+    		if (i <= checkPoint)
+    		{
+    			a = (AttributeDef *) getNthOfListP(attrR, i);
+    		}
+    		else
+    		{
+    			int j = i - checkPoint - 1; // index for retrieving the correspond attribute from shared (owned) table
+    			a = (AttributeDef *) getNthOfListP(attrL, j);
+    		}
+
+    		Node *then = (Node *) createAttributeReference(a->attrName);
 
     		CaseWhen *caseWhen = createCaseWhen(cond, then);
     		CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
 
-    		caseExprs = appendToTailOfList(caseExprs, (List *) caseExpr);
-    		attrs = appendToTailOfList(attrs, CONCAT_STRINGS("use_",n->name));
+//    		caseExprs = appendToTailOfList(caseExprs, (List *) caseExpr);
+//    		attrs = appendToTailOfList(attrs, CONCAT_STRINGS("use_",n->name));
 
+    		newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
+    	}
+    	else
+    	{
+    		newProjExpr = appendToTailOfList(newProjExpr, n);
+    	}
+
+		attrNames = appendToTailOfList(attrNames, n->name);
+
+		i++;
     }
 
-    attrNames = concatTwoLists(attrNames, attrs);
-    newList = concatTwoLists(op->projExprs, caseExprs);
+//    attrNames = concatTwoLists(attrNames, attrs);
+//    newList = concatTwoLists(op->projExprs, caseExprs);
 
-    ProjectionOperator *op1 = createProjectionOp(newList, NULL, NIL, attrNames);
+    ProjectionOperator *op1 = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
     LOG_RESULT("TESTING CASE EXPRESSIONS", op1);
 
 	addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
@@ -480,6 +508,9 @@ rewriteIG_Join (JoinOperator *op)
 	// update the attribute def for join operator
     List *lAttrDefs = copyObject(getNormalAttrs(lChild));
     List *rAttrDefs = copyObject(getNormalAttrs(rChild));
+
+    attrL = copyObject(lAttrDefs);
+    attrR = copyObject(rAttrDefs);
 
     List *newAttrDefs = CONCAT_LISTS(lAttrDefs,rAttrDefs);
     op->op.schema->attrDefs = copyObject(newAttrDefs);
