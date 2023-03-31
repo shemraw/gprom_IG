@@ -352,14 +352,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 static QueryOperator *
 rewriteIG_Projection (ProjectionOperator *op)
 {
-
-// NEW INPUT QUERY
-// IG OF(Select * from owned o JOIN shared s ON(o.county = s.county));
-
-//TODO: Implement queryIntegration
-// Trying to FIX JOIN FIRST
-//TODO: temporary test to return aggregate result. remove while implementing queryIntegration
-
     ASSERT(OP_LCHILD(op));
     DEBUG_LOG("REWRITE-IG - Projection");
     DEBUG_LOG("Operator tree \n%s", nodeToString(op));
@@ -386,6 +378,85 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	ProjectionOperator *newProj = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
 
+	// Creating The Case When expression with Else
+    List *caseExprs = NIL;
+    List *attrs = NIL;
+    List *attrNames = NIL;
+    List *newList = NIL;
+
+// Testing how to split one list into two and access each member of list separately
+//    List *lNames = NIL;
+//    List *rNames = NIL;
+//    List *lattrNames = NIL;
+//    List *rattrNames = NIL;
+//
+//
+//    int len = LIST_LENGTH(op->projExprs);
+//    int i = 0;
+//
+//    FOREACH(AttributeReference, n, op->projExprs)
+//    {
+//    	if(i < len/2)
+//    	{
+//    		lNames = appendToTailOfList(lNames, op->projExprs);
+//    		lattrNames = appendToTailOfList(lattrNames, n->name);
+//    		i = i + 1;
+//    	}
+//    	else if(i == len/2)
+//    	{
+//    		break;
+//    	}
+//    }
+//
+//    FOREACH(AttributeReference, n, op->projExprs)
+//    {
+//    	if(i < len/2)
+//    	{
+//    		i = i + 1;
+//    		continue;
+//    	}
+//
+//    	else if(i >= len/2)
+//    	{
+//    		rNames = appendToTailOfList(rNames, op->projExprs);
+//    		rattrNames = appendToTailOfList(rattrNames, n->name);
+//    		i = i + 1;
+//    	}
+//
+//    	else if (i == len)
+//    	{
+//    		break;
+//    	}
+//    }
+//
+//    ProjectionOperator *lop = createProjectionOp(lNames, NULL, NIL, lattrNames);
+//    ProjectionOperator *rop = createProjectionOp(rNames, NULL, NIL, rattrNames);
+//    LOG_RESULT("LEFT PROJECTION", lop);
+//    LOG_RESULT("RIGHT PROJECTION", rop);
+
+// TESTING CASE WHEN HERE
+    FOREACH(AttributeReference, n, op->projExprs)
+    {
+    		Node *cond = (Node *) createIsNullExpr((Node *) n);
+    		//Node *then = (Node *) createConstInt(0);
+    		//Node *els = (Node *) createConstInt(1);
+    		Node *then = (Node *) createAttributeReference(n->name);
+    		Node *els = (Node *) createAttributeReference(n->name);
+
+    		CaseWhen *caseWhen = createCaseWhen(cond, then);
+    		CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
+
+    		caseExprs = appendToTailOfList(caseExprs, (List *) caseExpr);
+    		attrs = appendToTailOfList(attrs, CONCAT_STRINGS("use_",n->name));
+
+    }
+
+    attrNames = concatTwoLists(attrNames, attrs);
+    newList = concatTwoLists(op->projExprs, caseExprs);
+
+    ProjectionOperator *op1 = createProjectionOp(newList, NULL, NIL, attrNames);
+    LOG_RESULT("TESTING CASE EXPRESSIONS", op1);
+
 	addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
 	switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
 
@@ -405,9 +476,6 @@ rewriteIG_Join (JoinOperator *op)
 
     lChild = rewriteIG_Operator(lChild);
     rChild = rewriteIG_Operator(rChild);
-
-	LOG_RESULT("AFTER IG OPERATOR INSIDE IG JOIN LCHILD", lChild);
-	LOG_RESULT("AFTER IG OPERATOR INSIDE IG JOIN RCHILD", rChild);
 
 	// update the attribute def for join operator
     List *lAttrDefs = copyObject(getNormalAttrs(lChild));
