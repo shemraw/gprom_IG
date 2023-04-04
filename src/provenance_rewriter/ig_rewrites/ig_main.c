@@ -385,6 +385,9 @@ rewriteIG_Projection (ProjectionOperator *op)
     newProjExpr = NIL;
 
 //TESTING CONCAT
+//GOAL :
+//SELECT CONCAT('-o-', county, '-c-', year , '-y-', dayswaqi , '-d-', maqi, '-m-') as anno from owned
+
 	    FOREACH(AttributeReference, n, newProj->projExprs)
 	    {
 	    	if (isPrefix(n->name, "ig"))
