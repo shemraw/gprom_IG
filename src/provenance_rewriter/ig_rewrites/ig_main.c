@@ -383,17 +383,46 @@ rewriteIG_Projection (ProjectionOperator *op)
 
     List *attrNames = NIL;
     newProjExpr = NIL;
-
+    pos = 0;
+    int temp = 0;
 //TESTING CONCAT
 //GOAL :
 //SELECT CONCAT('-o-', county, '-c-', year , '-y-', dayswaqi , '-d-', maqi, '-m-') as anno from owned
 
 	    FOREACH(AttributeReference, n, newProj->projExprs)
 	    {
-	    	if (isPrefix(n->name, "ig"))
+
+	    	if(temp == 0)
 	    	{
+	    		//ADDING DATASET NAME
+				newProjExpr = appendToTailOfList(newProjExpr,
+						createFullAttrReference("-owned-", n->fromClauseItem, pos, 0, n->attrType));
+				temp++;
+	    	}
+
+	    	else if (isPrefix(n->name, "ig"))
+	    	{
+//	    		n->name = substr(n->name, 3, 4);
+//	    		n->name = "test";
 	    		newProjExpr = appendToTailOfList(newProjExpr, n);
+//	    		newProjExpr = appendToTailOfList(newProjExpr,
+//	    				createFullAttrReference(substr(n->name, 3, 4), n->fromClauseItem, pos, 0, n->attrType));
+
+	    		//POS HERE MIGHT BE WRONG
+	    		newProjExpr = appendToTailOfList(newProjExpr,
+	    			    				createFullAttrReference(substr(n->name, 14, 16), n->fromClauseItem, pos, 0, n->attrType));
+	    		pos++;
 	    		newProjExpr = LIST_MAKE(concatExprList(newProjExpr));
+//	    		newProjExpr = LIST_MAKE(concatExprs((Node *)"-test-"));
+//	    		n->name = substr(n->name, 2,5);
+//	    		newProjExpr = appendToTailOfList(newProjExpr, n);
+//	    		newProjExpr = appendToTailOfList(newProjExpr, "-O-");
+//	    		newProjExpr = appendToTailOfList(newProjExpr, substr(n->name, 2,5));
+
+//	    		newProjExpr = LIST_MAKE(concatExprList(newProjExpr));
+//	    		makeNode()
+//	    		createnodeKeyValue
+
 	    	}
 //	    	else
 //	    	{
@@ -403,7 +432,8 @@ rewriteIG_Projection (ProjectionOperator *op)
 			attrNames = appendToTailOfList(attrNames, n->name);
 	    }
 
-
+//	    newProjExpr = LIST_MAKE(concatExprList(newProjExpr));
+//	    newProjExpr = LIST_MAKE(concatExprs(newProjExpr));
 	    ProjectionOperator *concat = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
 	    LOG_RESULT("TESTING CONCAT EXPRESSION LIST", concat);
 
@@ -411,28 +441,33 @@ rewriteIG_Projection (ProjectionOperator *op)
 	    newProjExpr = NIL;
 //TESTING CONCAT
 
-////TESTING CONCAT
-//		FOREACH(AttributeReference, n, newProj->projExprs)
-//		{
-//			if (isPrefix(n->name, "ig"))
-//			{
-//				newProjExpr = appendToTailOfList(newProjExpr, n);
-//				newProjExpr = LIST_MAKE(concatExprs((Node *)newProjExpr));
-//			}
+////TESTING CONCAT 1
+//
+//	    FOREACH(AttributeReference, n, newProj->projExprs)
+//	    {
+//	    	if (isPrefix(n->name, "ig"))
+//	    	{
+//	    		newProjExpr = appendToTailOfList(newProjExpr, n);
+//	    		newProjExpr = appendToTailOfList(newProjExpr, "test");
+//	    		newProjExpr = LIST_MAKE(concatExprList(newProjExpr));
+////	    		newProjExpr = appendToTailOfList(LIST_MAKE(concatExprList(newProjExpr)), "test");
+////	    				substr(n->name, 2,5));
+//
+//	    	}
 ////	    	else
 ////	    	{
 ////	    		newProjExpr = appendToTailOfList(newProjExpr, n);
 ////	    	}
 //
 //			attrNames = appendToTailOfList(attrNames, n->name);
-//		}
+//	    }
 //
 //
-//		ProjectionOperator *concat1 = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
-//		LOG_RESULT("TESTING CONCAT EXPRESSIONS", concat1);
+//	    ProjectionOperator *concat1 = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
+//	    LOG_RESULT("TESTING CONCAT EXPRESSION LIST - 1", concat1);
 //
-//		attrNames = NIL;
-//		newProjExpr = NIL;
+//	    attrNames = NIL;
+//	    newProjExpr = NIL;
 ////TESTING CONCAT
 
 
