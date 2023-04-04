@@ -330,6 +330,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	projExprs = NIL;
 	newNames = NIL;
 
+
 	FOREACH(AttributeDef,a,po->op.schema->attrDefs)
 	{
 		projExprs = appendToTailOfList(projExprs,
@@ -380,62 +381,64 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	ProjectionOperator *newProj = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
 
-	// Creating The Case When expression with Else
-//    List *caseExprs = NIL;
     List *attrNames = NIL;
     newProjExpr = NIL;
 
-// Testing how to split one list into two and access each member of list separately
-//    List *lNames = NIL;
-//    List *rNames = NIL;
-//    List *lattrNames = NIL;
-//    List *rattrNames = NIL;
+//TESTING CONCAT
+	    FOREACH(AttributeReference, n, newProj->projExprs)
+	    {
+	    	if (isPrefix(n->name, "ig"))
+	    	{
+	    		newProjExpr = appendToTailOfList(newProjExpr, n);
+	    		newProjExpr = LIST_MAKE(concatExprList(newProjExpr));
+	    	}
+//	    	else
+//	    	{
+//	    		newProjExpr = appendToTailOfList(newProjExpr, n);
+//	    	}
+
+			attrNames = appendToTailOfList(attrNames, n->name);
+	    }
+
+
+	    ProjectionOperator *concat = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
+	    LOG_RESULT("TESTING CONCAT EXPRESSION LIST", concat);
+
+	    attrNames = NIL;
+	    newProjExpr = NIL;
+//TESTING CONCAT
+
+////TESTING CONCAT
+//		FOREACH(AttributeReference, n, newProj->projExprs)
+//		{
+//			if (isPrefix(n->name, "ig"))
+//			{
+//				newProjExpr = appendToTailOfList(newProjExpr, n);
+//				newProjExpr = LIST_MAKE(concatExprs((Node *)newProjExpr));
+//			}
+////	    	else
+////	    	{
+////	    		newProjExpr = appendToTailOfList(newProjExpr, n);
+////	    	}
+//
+//			attrNames = appendToTailOfList(attrNames, n->name);
+//		}
 //
 //
-//    int len = LIST_LENGTH(op->projExprs);
-//    int i = 0;
+//		ProjectionOperator *concat1 = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
+//		LOG_RESULT("TESTING CONCAT EXPRESSIONS", concat1);
 //
-//    FOREACH(AttributeReference, n, op->projExprs)
-//    {
-//    	if(i < len/2)
-//    	{
-//    		lNames = appendToTailOfList(lNames, op->projExprs);
-//    		lattrNames = appendToTailOfList(lattrNames, n->name);
-//    		i = i + 1;
-//    	}
-//    	else if(i == len/2)
-//    	{
-//    		break;
-//    	}
-//    }
-//
-//    FOREACH(AttributeReference, n, op->projExprs)
-//    {
-//    	if(i < len/2)
-//    	{
-//    		i = i + 1;
-//    		continue;
-//    	}
-//
-//    	else if(i >= len/2)
-//    	{
-//    		rNames = appendToTailOfList(rNames, op->projExprs);
-//    		rattrNames = appendToTailOfList(rattrNames, n->name);
-//    		i = i + 1;
-//    	}
-//
-//    	else if (i == len)
-//    	{
-//    		break;
-//    	}
-//    }
-//
-//    ProjectionOperator *lop = createProjectionOp(lNames, NULL, NIL, lattrNames);
-//    ProjectionOperator *rop = createProjectionOp(rNames, NULL, NIL, rattrNames);
-//    LOG_RESULT("LEFT PROJECTION", lop);
-//    LOG_RESULT("RIGHT PROJECTION", rop);
+//		attrNames = NIL;
+//		newProjExpr = NIL;
+////TESTING CONCAT
+
 
 // TESTING CASE WHEN HERE
+// Conditions :
+// 1. If owned is NULL then shared and vice versa - DONE
+// 2. If owned exists and shared does not exist then use owned and vice versa
+// 3. If owned esists use shared ?
+
     int i = 0; // position of the attribute
     int checkPoint = LIST_LENGTH(attrL) - 1; // point where the attributes belong to shared data
     AttributeDef *a = NULL;
