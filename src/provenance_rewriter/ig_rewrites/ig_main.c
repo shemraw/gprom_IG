@@ -481,8 +481,24 @@ rewriteIG_Projection (ProjectionOperator *op)
     List *RprojExprs = NIL;
     List *LattrNames = NIL;
     List *RattrNames = NIL;
+    HashMap *nameToIgAttrName = NEW_MAP(Constant, Constant);
     int lenL = LIST_LENGTH(attrL) - 1;
     int l = 0;
+    int posOfIgL = LIST_LENGTH(attrL) / 2;
+
+    FOREACH(AttributeDef,a,attrL)
+    {
+    	if(!isPrefix(a->attrName,"ig"))
+    	{
+        	char *key = a->attrName;
+        	AttributeDef *igA = (AttributeDef *) getNthOfListP(attrL,posOfIgL);
+        	char *value = igA->attrName;
+
+        	ADD_TO_MAP(nameToIgAttrName,createStringKeyValue(key,value));
+        	posOfIgL++;
+    	}
+    }
+
 
     FOREACH(AttributeReference, n, newProj->projExprs)
     {
@@ -595,6 +611,7 @@ rewriteIG_Projection (ProjectionOperator *op)
         		if(isPrefix(n1->name, "ig"))
         		{
         			if(strcmp(strrchr(n->name, '_'), strrchr(n1->name, '_')) == 0)
+//					if(strCompare(strEndTok(n->name, "_"), strEndTok(n1->name, "_")) == 0)
 					{
         				Node *cond = (Node *) createIsNullExpr((Node *) n);
 						Node *els  = (Node *) createAttributeReference(n->name);
@@ -654,7 +671,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 //				CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
 //
 //	//    		caseExprs = appendToTailOfList(caseExprs, (List *) caseExpr);
-//	//    		attrs = appendToTailOfList(attrs, CONCAT_STRINGS("use_",n->name));
+	//    		attrs = appendToTailOfList(attrs, CONCAT_STRINGS("use_",n->name));
 //
 //				newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
 //
