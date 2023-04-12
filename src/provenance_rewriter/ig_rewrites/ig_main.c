@@ -471,54 +471,207 @@ rewriteIG_Projection (ProjectionOperator *op)
 ////TESTING CONCAT
 
 
-// TESTING CASE WHEN HERE
-// Conditions :
-// 1. If owned is NULL then shared and vice versa - DONE
-// 2. If owned exists and shared does not exist then use owned and vice versa
-// 3. If owned esists use shared ?
+
 
     int i = 0; // position of the attribute
     int checkPoint = LIST_LENGTH(attrL) - 1; // point where the attributes belong to shared data
     AttributeDef *a = NULL;
 
+    List *LprojExprs = NIL;
+    List *RprojExprs = NIL;
+    List *LattrNames = NIL;
+    List *RattrNames = NIL;
+    int lenL = LIST_LENGTH(attrL) - 1;
+    int l = 0;
+
     FOREACH(AttributeReference, n, newProj->projExprs)
     {
-    	if (isPrefix(n->name, "ig"))
+    	if(l <= lenL)
     	{
-    		Node *cond = (Node *) createIsNullExpr((Node *) n);
-    		//Node *then = (Node *) createConstInt(0);
-    		//Node *els = (Node *) createConstInt(1);
-    		Node *els = (Node *) createAttributeReference(n->name);
+    		LprojExprs = appendToTailOfList(LprojExprs, n);
+			LattrNames = appendToTailOfList(LattrNames, n->name);
+			l++;
+    	}
+    }
 
-    		if (i <= checkPoint)
-    		{
-    			a = (AttributeDef *) getNthOfListP(attrR, i);
-    		}
-    		else
-    		{
-    			int j = i - checkPoint - 1; // index for retrieving the correspond attribute from shared (owned) table
-    			a = (AttributeDef *) getNthOfListP(attrL, j);
-    		}
-
-    		Node *then = (Node *) createAttributeReference(a->attrName);
-
-    		CaseWhen *caseWhen = createCaseWhen(cond, then);
-    		CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
-
-//    		caseExprs = appendToTailOfList(caseExprs, (List *) caseExpr);
-//    		attrs = appendToTailOfList(attrs, CONCAT_STRINGS("use_",n->name));
-
-    		newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
+    ProjectionOperator *Lop = createProjectionOp(LprojExprs, NULL, NIL, LattrNames);
+    LOG_RESULT("TESTING LEFT LIST", Lop);
+    l = 0;
+    FOREACH(AttributeReference, n, newProj->projExprs)
+       {
+    	if(l > lenL)
+    	{
+			RprojExprs = appendToTailOfList(RprojExprs, n);
+			RattrNames = appendToTailOfList(RattrNames, n->name);
+			l++;
     	}
     	else
     	{
-    		newProjExpr = appendToTailOfList(newProjExpr, n);
+    		l++;
     	}
+       }
 
-		attrNames = appendToTailOfList(attrNames, n->name);
+
+    ProjectionOperator *Rop = createProjectionOp(RprojExprs, NULL, NIL, RattrNames);
+    LOG_RESULT("TESTING RIGHT LIST", Rop);
+
+    //HashMap *nameToAttrDef = NEW_MAP(List* , List*);
+
+    //TESTING CONCAT
+    //GOAL :
+    //SELECT CONCAT('-o-', county, '-c-', year , '-y-', dayswaqi , '-d-', maqi, '-m-') as anno from owned
+
+    	temp = 0;
+		FOREACH(AttributeReference, n, Lop->projExprs)
+		{
+
+			if(temp == 0)
+			{
+				newProjExpr = appendToTailOfList(newProjExpr,
+						createFullAttrReference("-owned-", n->fromClauseItem, pos, 0, n->attrType));
+				temp++;
+			}
+
+			else if (isPrefix(n->name, "ig"))
+			{
+				newProjExpr = appendToTailOfList(newProjExpr, n);
+				newProjExpr = appendToTailOfList(newProjExpr,
+						createFullAttrReference((substr(n->name, 14, 16)), n->fromClauseItem, pos, 0, n->attrType));
+						//(createConstString(substr(n->name, 14, 16))
+
+						pos++;
+				newProjExpr = LIST_MAKE(concatExprList(newProjExpr));
+
+			}
+			attrNames = appendToTailOfList(attrNames, n->name);
+		}
+
+		ProjectionOperator *Lconcat = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
+		LOG_RESULT("TESTING LEFT EXPRESSION LIST", Lconcat);
+
+		attrNames = NIL;
+		newProjExpr = NIL;
+		temp = 0;
+
+		FOREACH(AttributeReference, n, Rop->projExprs)
+		{
+
+			if(temp == 0)
+			{
+				newProjExpr = appendToTailOfList(newProjExpr,
+						createFullAttrReference("-shared-", n->fromClauseItem, pos, 0, n->attrType));
+				temp++;
+			}
+
+			else if (isPrefix(n->name, "ig"))
+			{
+				newProjExpr = appendToTailOfList(newProjExpr, n);
+				newProjExpr = appendToTailOfList(newProjExpr,
+						createFullAttrReference((substr(n->name, 14, 16)), n->fromClauseItem, pos, 0, n->attrType));
+						//(createConstString(substr(n->name, 14, 16)),
+						pos++;
+				newProjExpr = LIST_MAKE(concatExprList(newProjExpr));
+
+			}
+			attrNames = appendToTailOfList(attrNames, n->name);
+		}
+		ProjectionOperator *Rconcat = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
+		LOG_RESULT("TESTING RIGHT EXPRESSION LIST", Rconcat);
+
+		attrNames = NIL;
+		newProjExpr = NIL;
+
+int llist = 1;
+int rlist = 1;
+
+//// METHOD 2 To add expressions
+
+    FOREACH(AttributeReference, n, Lop->projExprs)
+    {
+    	if(isPrefix(n->name, "ig"))
+		{
+        	FOREACH(AttributeReference, n1, Rop->projExprs) // right list
+    		{
+        		if(isPrefix(n1->name, "ig"))
+        		{
+        			if(strcmp(strrchr(n->name, '_'), strrchr(n1->name, '_')) == 0)
+					{
+        				Node *cond = (Node *) createIsNullExpr((Node *) n);
+						Node *els  = (Node *) createAttributeReference(n->name);
+						Node *then = (Node *) createAttributeReference(n1->name);
+						CaseWhen *caseWhen = createCaseWhen(cond, then);
+						CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
+						newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
+						attrNames = appendToTailOfList(attrNames, n->name);
+
+						Node *cond1 = (Node *) createIsNullExpr((Node *) n1);
+						Node *els1  = (Node *) createAttributeReference(n1->name);
+						Node *then1 = (Node *) createAttributeReference(n->name);
+						CaseWhen *caseWhen1 = createCaseWhen(cond1, then1);
+						CaseExpr *caseExpr1 = createCaseExpr(NULL, singleton(caseWhen1), els1);
+						newProjExpr = appendToTailOfList(newProjExpr, caseExpr1);
+						attrNames = appendToTailOfList(attrNames, n->name);
+					}
+        		}
+    		}
+		}
+		else if(!isPrefix(n->name, "ig"))
+		{
+			newProjExpr = appendToTailOfList(newProjExpr, n);
+			attrNames = appendToTailOfList(attrNames, n->name);
+		}
 
 		i++;
+
     }
+
+//
+//
+//
+//    FOREACH(AttributeReference, n, newProj->projExprs)
+//    {
+//    		if (isPrefix(n->name, "ig"))
+//			{
+//
+//				Node *cond = (Node *) createIsNullExpr((Node *) n);
+//				//Node *then = (Node *) createConstInt(0);
+//				//Node *els = (Node *) createConstInt(1);
+//				Node *els = (Node *) createAttributeReference(n->name);
+//
+//				if (i <= checkPoint)
+//				{
+//					a = (AttributeDef *) getNthOfListP(attrR, i);
+//				}
+//				else
+//				{
+//					int j = i - checkPoint - 1; // index for retrieving the correspond attribute from shared (owned) table
+//					a = (AttributeDef *) getNthOfListP(attrL, j);
+//				}
+//
+//				Node *then = (Node *) createAttributeReference(a->attrName);
+//
+//				CaseWhen *caseWhen = createCaseWhen(cond, then);
+//				CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
+//
+//	//    		caseExprs = appendToTailOfList(caseExprs, (List *) caseExpr);
+//	//    		attrs = appendToTailOfList(attrs, CONCAT_STRINGS("use_",n->name));
+//
+//				newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
+//
+//
+//			}
+//			else
+//			{
+//				newProjExpr = appendToTailOfList(newProjExpr, n);
+//			}
+//
+//			attrNames = appendToTailOfList(attrNames, n->name);
+//
+//			i++;
+//
+//
+//    }
+
 
 //    attrNames = concatTwoLists(attrNames, attrs);
 //    newList = concatTwoLists(op->projExprs, caseExprs);
@@ -526,10 +679,16 @@ rewriteIG_Projection (ProjectionOperator *op)
     ProjectionOperator *op1 = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
     LOG_RESULT("TESTING CASE EXPRESSIONS", op1);
 
+//    addChildOperator((QueryOperator *) newProjExpr, (QueryOperator *) child);
+//    switchSubtrees((QueryOperator *) child, (QueryOperator *) newProjExpr);
+//
+// 	  LOG_RESULT("Rewritten Projection Operator tree", newProjExpr);
+//    return (QueryOperator *) newProjExpr;
+
 	addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
 	switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
 
- 	LOG_RESULT("Rewritten Projection Operator tree", newProj);
+	LOG_RESULT("Rewritten Projection Operator tree", newProj);
     return (QueryOperator *) newProj;
 
 }
