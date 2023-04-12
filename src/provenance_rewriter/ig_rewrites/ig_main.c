@@ -474,8 +474,8 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 
     int i = 0; // position of the attribute
-    int checkPoint = LIST_LENGTH(attrL) - 1; // point where the attributes belong to shared data
-    AttributeDef *a = NULL;
+//    int checkPoint = LIST_LENGTH(attrL) - 1; // point where the attributes belong to shared data
+//    AttributeDef *a = NULL;
 
     List *LprojExprs = NIL;
     List *RprojExprs = NIL;
@@ -581,8 +581,8 @@ rewriteIG_Projection (ProjectionOperator *op)
 		attrNames = NIL;
 		newProjExpr = NIL;
 
-int llist = 1;
-int rlist = 1;
+//int llist = 1;
+//int rlist = 1;
 
 //// METHOD 2 To add expressions
 
