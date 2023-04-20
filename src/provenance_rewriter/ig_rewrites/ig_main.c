@@ -465,6 +465,13 @@ rewriteIG_Projection (ProjectionOperator *op)
         	ADD_TO_MAP(nameToIgAttrNameL,createStringKeyValue(key,value));
         	posOfIgL++;
     	}
+    	else if(isSuffix(a->attrName,"anno"))
+    	{
+        	char *kv = a->attrName;
+        	ADD_TO_MAP(nameToIgAttrNameL,createStringKeyValue(kv,kv));
+        	posOfIgL++;
+    	}
+
     }
 
     FOREACH(AttributeDef,a,attrR)
@@ -478,6 +485,13 @@ rewriteIG_Projection (ProjectionOperator *op)
 			ADD_TO_MAP(nameToIgAttrNameR,createStringKeyValue(key,value));
 			posOfIgR++;
 		}
+    	else if(isSuffix(a->attrName,"anno"))
+    	{
+        	char *kv = a->attrName;
+        	ADD_TO_MAP(nameToIgAttrNameL,createStringKeyValue(kv,kv));
+        	posOfIgL++;
+    	}
+
 	}
 
     FOREACH(AttributeReference, n, newProj->projExprs)
@@ -491,7 +505,7 @@ rewriteIG_Projection (ProjectionOperator *op)
     }
 
     ProjectionOperator *Lop = createProjectionOp(LprojExprs, NULL, NIL, LattrNames);
-    //LOG_RESULT("TESTING LEFT LIST", Lop);
+    LOG_RESULT("TESTING LEFT LIST", Lop);
 
     l = 0;
     FOREACH(AttributeReference, n, newProj->projExprs)
@@ -509,7 +523,7 @@ rewriteIG_Projection (ProjectionOperator *op)
     }
 
     ProjectionOperator *Rop = createProjectionOp(RprojExprs, NULL, NIL, RattrNames);
-    //LOG_RESULT("TESTING RIGHT LIST", Rop);
+    LOG_RESULT("TESTING RIGHT LIST", Rop);
 
 
 	FOREACH(AttributeReference, n, Lop->projExprs)
@@ -541,12 +555,15 @@ rewriteIG_Projection (ProjectionOperator *op)
 				newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
 				attrNames = appendToTailOfList(attrNames, n->name);
 			}
+			else if(isSuffix(n->name, "anno"))
+			{
+				continue;
+			}
 			else if(!hasMapStringKey(nameToIgAttrNameR, n->name))
 			{
 				newProjExpr = appendToTailOfList(newProjExpr, n);
 				attrNames = appendToTailOfList(attrNames, n->name);
 			}
-
 		}
 	}
 
@@ -583,6 +600,10 @@ rewriteIG_Projection (ProjectionOperator *op)
 				newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
 				attrNames = appendToTailOfList(attrNames, n->name);
 			}
+			else if(isSuffix(n->name, "anno"))
+			{
+				continue;
+			}
 			else if(!hasMapStringKey(nameToIgAttrNameL, n->name))
 			{
 				newProjExpr = appendToTailOfList(newProjExpr, n);
@@ -596,17 +617,17 @@ rewriteIG_Projection (ProjectionOperator *op)
     ProjectionOperator *op1 = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
     LOG_RESULT("TESTING CASE EXPRESSIONS", op1);
 
-//    addChildOperator((QueryOperator *) op1, (QueryOperator *) child);
-//    switchSubtrees((QueryOperator *) child, (QueryOperator *) op1);
+    addChildOperator((QueryOperator *) op1, (QueryOperator *) child);
+    switchSubtrees((QueryOperator *) child, (QueryOperator *) op1);
+
+ 	LOG_RESULT("Rewritten Projection Operator tree", op1);
+    return (QueryOperator *) op1;
+
+//    addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
+//    switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
 //
-// 	LOG_RESULT("Rewritten Projection Operator tree", op1);
-//    return (QueryOperator *) op1;
-
-    addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
-    switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
-
- 	LOG_RESULT("Rewritten Projection Operator tree", newProj);
-    return (QueryOperator *) newProj;
+// 	LOG_RESULT("Rewritten Projection Operator tree", newProj);
+//    return (QueryOperator *) newProj;
 }
 
 static QueryOperator *
