@@ -348,9 +348,10 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		}
 
 	}
+
+
 	// ADD CASE HERE
 	int temp = 0;
-	//int pos = 0;
 	int tblLen = strlen(tblName);
 
 	List *newProjExpr = NIL;
@@ -363,7 +364,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	{
 		newProjExpr1 = appendToTailOfList(newProjExpr1, n);
 		attrNames = appendToTailOfList(attrNames, n->name);
-		//pos++ ;
 	}
 
 
@@ -374,21 +374,17 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		if(temp == 0)
 		{
 			newProjExpr = appendToTailOfList(newProjExpr, createConstString(tblName));
-					//createFullAttrReference(tblName, n->fromClauseItem, pos, 0, n->attrType));
 			temp++;
 		}
 		else if (isPrefix(n->name, "ig"))
 		{
 			newProjExpr = appendToTailOfList(newProjExpr, n);
 			//this adds first 3 letter for the variable in concat
-			newProjExpr = appendToTailOfList(newProjExpr,createConstString((substr(n->name, 9 + tblLen, 9 + tblLen + 2))));
-			//createFullAttrReference((substr(n->name, 9 + tblLen, 9 + tblLen + 2)),n->fromClauseItem, pos, 0, n->attrType));
-			//(createConstString(substr(n->name, 14, 16))
-
-			//pos++;
+			newProjExpr = appendToTailOfList(newProjExpr,
+					createConstString((substr(n->name, 9 + tblLen, 9 + tblLen + 2))));
 		}
 	}
-	attrNames = appendToTailOfList(attrNames, "anno");
+	attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS(tblName, "_anno"));
 	newProjExpr = LIST_MAKE(createOpExpr("||", newProjExpr));
 
 	newProjExpr2 = concatTwoLists(newProjExpr1, newProjExpr);
@@ -407,23 +403,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
     LOG_RESULT("Converted Operator tree", concat);
 	return (QueryOperator *) concat;
-
-//	addChildOperator((QueryOperator *) concat, (QueryOperator *) addPo);
-//
-//	// Switch the subtree with this newly created projection operator.
-//	switchSubtrees((QueryOperator *) addPo, (QueryOperator *) concat);
-//
-//    LOG_RESULT("Converted Operator tree", concat);
-//	return (QueryOperator *) concat;
-
-
-//	addChildOperator((QueryOperator *) addPo, (QueryOperator *) newPo);
-//
-//	// Switch the subtree with this newly created projection operator.
-//	switchSubtrees((QueryOperator *) newPo, (QueryOperator *) addPo);
-//
-//    LOG_RESULT("Converted Operator tree", addPo);
-//	return (QueryOperator *) addPo;
 
 }
 
