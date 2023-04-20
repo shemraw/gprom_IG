@@ -331,10 +331,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	}
 
 	ProjectionOperator *addPo = createProjectionOp(projExprs, NULL, NIL, newNames);
-	addChildOperator((QueryOperator *) addPo, (QueryOperator *) newPo);
-
-	// Switch the subtree with this newly created projection operator.
-	switchSubtrees((QueryOperator *) newPo, (QueryOperator *) addPo);
 
 
 	char *tblName = "";
@@ -403,18 +399,32 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	ProjectionOperator *concat = createProjectionOp(newProjExpr2, NULL, NIL, attrNames);
 	LOG_RESULT("TESTING EXPRESSION LIST -------------", concat);
 
-//
+
+	addChildOperator((QueryOperator *) concat, (QueryOperator *) newPo);
+
+	// Switch the subtree with this newly created projection operator.
+	switchSubtrees((QueryOperator *) newPo, (QueryOperator *) concat);
+
+    LOG_RESULT("Converted Operator tree", concat);
+	return (QueryOperator *) concat;
+
 //	addChildOperator((QueryOperator *) concat, (QueryOperator *) addPo);
 //
 //	// Switch the subtree with this newly created projection operator.
 //	switchSubtrees((QueryOperator *) addPo, (QueryOperator *) concat);
-
+//
 //    LOG_RESULT("Converted Operator tree", concat);
 //	return (QueryOperator *) concat;
 
 
-    LOG_RESULT("Converted Operator tree", addPo);
-	return (QueryOperator *) addPo;
+//	addChildOperator((QueryOperator *) addPo, (QueryOperator *) newPo);
+//
+//	// Switch the subtree with this newly created projection operator.
+//	switchSubtrees((QueryOperator *) newPo, (QueryOperator *) addPo);
+//
+//    LOG_RESULT("Converted Operator tree", addPo);
+//	return (QueryOperator *) addPo;
+
 }
 
 
@@ -603,39 +613,18 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	}
 
-//	 List *Lkeys = getKeys(nameToIgAttrNameL);
-//	 List *Rkeys = getKeys(nameToIgAttrNameR);
-//
-//	 FOREACH(List, l, Rkeys)
-//	 {
-//		 char *ch = l;
-//		 if(hasMapStringKey(nameToIgAttrNameL, ch))
-//		 {
-//
-//
-//
-//		 }
-//
-//	 }
-//
-//	 FOREACH_HASH(Constant, kv, nameToIgAttrNameL)
-//	 {
-//		 char *ch = kv->value;
-//		 if(hasMapStringKey(nameToIgAttrNameR, ch))
-//		 {
-//
-//		 }
-//	 }
-
 
     ProjectionOperator *op1 = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
     LOG_RESULT("TESTING CASE EXPRESSIONS", op1);
 
 //    addChildOperator((QueryOperator *) op1, (QueryOperator *) child);
 //    switchSubtrees((QueryOperator *) child, (QueryOperator *) op1);
-
+//
 // 	LOG_RESULT("Rewritten Projection Operator tree", op1);
 //    return (QueryOperator *) op1;
+
+    addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
+    switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
 
  	LOG_RESULT("Rewritten Projection Operator tree", newProj);
     return (QueryOperator *) newProj;
