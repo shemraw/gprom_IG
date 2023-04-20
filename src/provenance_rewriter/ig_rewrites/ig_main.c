@@ -337,71 +337,71 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	switchSubtrees((QueryOperator *) newPo, (QueryOperator *) addPo);
 
 
-//	char *tblName = "";
-//	FOREACH(AttributeReference, n, addPo->projExprs)
-//	{
-//		if(isPrefix(n->name, "ig"))
-//		{
-//			//char *found = strstr(strstr(strstr(n->name, "_"),"_"),"_");
-//			//char *found = strrchr(n->name, '_');
-//			int len1 = strlen(n->name);
-//			int len2 = strlen(strrchr(n->name, '_'));
-//			int len = len1 - len2 - 1;
-//			tblName = substr(n->name, 8, len);
-//			break;
-//		}
-//
-//	}
-//	// ADD CASE HERE
-//	int temp = 0;
-//	//int pos = 0;
-//	int tblLen = strlen(tblName);
-//
-//	List *newProjExpr = NIL;
-//	List *newProjExpr1 = NIL;
-//	List *newProjExpr2 = NIL;
-//
-//
-//
-//	FOREACH(AttributeReference, n, addPo->projExprs)
-//	{
-//		newProjExpr1 = appendToTailOfList(newProjExpr1, n);
-//		attrNames = appendToTailOfList(attrNames, n->name);
-//		//pos++ ;
-//	}
-//
-//
-//
-//	FOREACH(AttributeReference, n, addPo->projExprs)
-//	{
-//
-//		if(temp == 0)
-//		{
-//			newProjExpr = appendToTailOfList(newProjExpr, createConstString(tblName));
-//					//createFullAttrReference(tblName, n->fromClauseItem, pos, 0, n->attrType));
-//			temp++;
-//		}
-//		else if (isPrefix(n->name, "ig"))
-//		{
-//			newProjExpr = appendToTailOfList(newProjExpr, n);
-//			//this adds first 3 letter for the variable in concat
-//			newProjExpr = appendToTailOfList(newProjExpr,createConstString((substr(n->name, 9 + tblLen, 9 + tblLen + 2))));
-//			//createFullAttrReference((substr(n->name, 9 + tblLen, 9 + tblLen + 2)),n->fromClauseItem, pos, 0, n->attrType));
-//			//(createConstString(substr(n->name, 14, 16))
-//
-//			//pos++;
-//		}
-//	}
-//	attrNames = appendToTailOfList(attrNames, "anno");
-//	newProjExpr = LIST_MAKE(createOpExpr("||", newProjExpr));
-//
-//	newProjExpr2 = concatTwoLists(newProjExpr1, newProjExpr);
-//
-//
-//
-//
-//	ProjectionOperator *concat = createProjectionOp(newProjExpr2, NULL, NIL, attrNames);
-//	//LOG_RESULT("TESTING EXPRESSION LIST -------------", Lconcat);
+	char *tblName = "";
+	FOREACH(AttributeReference, n, addPo->projExprs)
+	{
+		if(isPrefix(n->name, "ig"))
+		{
+			//char *found = strstr(strstr(strstr(n->name, "_"),"_"),"_");
+			//char *found = strrchr(n->name, '_');
+			int len1 = strlen(n->name);
+			int len2 = strlen(strrchr(n->name, '_'));
+			int len = len1 - len2 - 1;
+			tblName = substr(n->name, 8, len);
+			break;
+		}
+
+	}
+	// ADD CASE HERE
+	int temp = 0;
+	//int pos = 0;
+	int tblLen = strlen(tblName);
+
+	List *newProjExpr = NIL;
+	List *newProjExpr1 = NIL;
+	List *newProjExpr2 = NIL;
+
+
+
+	FOREACH(AttributeReference, n, addPo->projExprs)
+	{
+		newProjExpr1 = appendToTailOfList(newProjExpr1, n);
+		attrNames = appendToTailOfList(attrNames, n->name);
+		//pos++ ;
+	}
+
+
+
+	FOREACH(AttributeReference, n, addPo->projExprs)
+	{
+
+		if(temp == 0)
+		{
+			newProjExpr = appendToTailOfList(newProjExpr, createConstString(tblName));
+					//createFullAttrReference(tblName, n->fromClauseItem, pos, 0, n->attrType));
+			temp++;
+		}
+		else if (isPrefix(n->name, "ig"))
+		{
+			newProjExpr = appendToTailOfList(newProjExpr, n);
+			//this adds first 3 letter for the variable in concat
+			newProjExpr = appendToTailOfList(newProjExpr,createConstString((substr(n->name, 9 + tblLen, 9 + tblLen + 2))));
+			//createFullAttrReference((substr(n->name, 9 + tblLen, 9 + tblLen + 2)),n->fromClauseItem, pos, 0, n->attrType));
+			//(createConstString(substr(n->name, 14, 16))
+
+			//pos++;
+		}
+	}
+	attrNames = appendToTailOfList(attrNames, "anno");
+	newProjExpr = LIST_MAKE(createOpExpr("||", newProjExpr));
+
+	newProjExpr2 = concatTwoLists(newProjExpr1, newProjExpr);
+
+
+
+
+	ProjectionOperator *concat = createProjectionOp(newProjExpr2, NULL, NIL, attrNames);
+	LOG_RESULT("TESTING EXPRESSION LIST -------------", concat);
 
 //
 //	addChildOperator((QueryOperator *) concat, (QueryOperator *) addPo);
