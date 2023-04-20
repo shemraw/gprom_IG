@@ -205,7 +205,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	addChildOperator((QueryOperator *) po, (QueryOperator *) op);
 	// Switch the subtree with this newly created projection operator.
 	switchSubtrees((QueryOperator *) op, (QueryOperator *) po);
-	LOG_RESULT("Rewritten Projection Operator tree", po);
+	//LOG_RESULT("Rewritten Projection Operator tree", po);
 
 	// Creating aggregate operation
 	// QueryOperator *o = copyObject((QueryOperator *) op);
@@ -270,23 +270,13 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		}
 	}
 
-//	// Create fake attribute names for aggregation output schema
-//	for (i = 0; i < LIST_LENGTH(aggrs); i++)
-//	{
-//		attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS("AGGR_", gprom_itoa(i)));
-//	}
-//	for (i = 0; i < LIST_LENGTH(groupBy); i++)
-//	{
-//		attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS("GROUP_", gprom_itoa(i)));
-//	}
-
 	AggregationOperator *ao = createAggregationOp(aggrs, groupBy, NULL, NIL, newNames);
 	addChildOperator((QueryOperator *) ao, (QueryOperator *) po);
 
 	// Switch the subtree with this newly created projection operator.
 	switchSubtrees((QueryOperator *) po, (QueryOperator *) ao);
 
-	LOG_RESULT("Rewritten Aggregation Operator tree", ao);
+	//LOG_RESULT("Rewritten Aggregation Operator tree", ao);
 
 	// CREATING THE NEW PROJECTION OPERATOR
 	projExprs = NIL;
@@ -306,7 +296,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 	// Switch the subtree with this newly created projection operator.
 	switchSubtrees((QueryOperator *) ao, (QueryOperator *) newPo);
-	LOG_RESULT("Rewritten Projection Operator tree", newPo);
+	//LOG_RESULT("Rewritten Projection Operator tree", newPo);
 
 	// CAST_EXPR
 	newProjExprs = NIL;
@@ -324,7 +314,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	}
 
 	newPo->projExprs = newProjExprs;
-	LOG_RESULT("Rewritten Projection Operator tree with CAST", newPo);
+	//LOG_RESULT("Rewritten Projection Operator tree with CAST", newPo);
 
 	// retrieve the original order of the projection attributes
 	projExprs = NIL;
@@ -346,9 +336,83 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	// Switch the subtree with this newly created projection operator.
 	switchSubtrees((QueryOperator *) newPo, (QueryOperator *) addPo);
 
+	char *tblName = "";
+	FOREACH(AttributeReference, n, addPo->projExprs)
+	{
+		if(isPrefix(n->name, "ig"))
+		{
+			//char *found = strstr(strstr(strstr(n->name, "_"),"_"),"_");
+			//char *found = strrchr(n->name, '_');
+			int len1 = strlen(n->name);
+			int len2 = strlen(strrchr(n->name, '_'));
+			int len = len1 - len2 - 1;
+			tblName = substr(n->name, 8, len);
+			break;
+		}
 
-    LOG_RESULT("Converted Operator tree", addPo);
-	return (QueryOperator *) addPo;
+	}
+	// ADD CASE HERE
+	int temp = 0;
+	int pos = 0;
+	int tblLen = strlen(tblName);
+
+	List *newProjExpr = NIL;
+	List *newProjExpr1 = NIL;
+	List *newProjExpr2 = NIL;
+
+
+
+	FOREACH(AttributeReference, n, addPo->projExprs)
+	{
+		newProjExpr1 = appendToTailOfList(newProjExpr1, n);
+		attrNames = appendToTailOfList(attrNames, n->name);
+		pos++ ;
+	}
+
+
+
+	FOREACH(AttributeReference, n, addPo->projExprs)
+	{
+
+		if(temp == 0)
+		{
+			newProjExpr = appendToTailOfList(newProjExpr,
+					createFullAttrReference(tblName, n->fromClauseItem, pos, 0, n->attrType));
+			temp++;
+		}
+		else if (isPrefix(n->name, "ig"))
+		{
+			newProjExpr = appendToTailOfList(newProjExpr, n);
+			//this adds first 3 letter for the variable in concat
+			newProjExpr = appendToTailOfList(newProjExpr,
+					createFullAttrReference((substr(n->name, 9 + tblLen, 9 + tblLen + 2)),n->fromClauseItem, pos, 0, n->attrType));
+					//(createConstString(substr(n->name, 14, 16))
+
+			pos++;
+		}
+	}
+	attrNames = appendToTailOfList(attrNames, "anno");
+	newProjExpr = LIST_MAKE(createOpExpr("||",newProjExpr));
+	newProjExpr2 = concatTwoLists(newProjExpr1, newProjExpr);
+
+
+
+
+	ProjectionOperator *Lconcat = createProjectionOp(newProjExpr2, NULL, NIL, attrNames);
+	//LOG_RESULT("TESTING EXPRESSION LIST -------------", Lconcat);
+
+
+	addChildOperator((QueryOperator *) Lconcat, (QueryOperator *) addPo);
+
+	// Switch the subtree with this newly created projection operator.
+	switchSubtrees((QueryOperator *) addPo, (QueryOperator *) Lconcat);
+
+    LOG_RESULT("Converted Operator tree", Lconcat);
+	return (QueryOperator *) Lconcat;
+
+
+//    LOG_RESULT("Converted Operator tree", addPo);
+//	return (QueryOperator *) addPo;
 }
 
 
@@ -381,110 +445,23 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	ProjectionOperator *newProj = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
 
-    List *attrNames = NIL;
     newProjExpr = NIL;
     pos = 0;
-    int temp = 0;
-//TESTING CONCAT
-//GOAL :
-//SELECT CONCAT('-o-', county, '-c-', year , '-y-', dayswaqi , '-d-', maqi, '-m-') as anno from owned
-
-	    FOREACH(AttributeReference, n, newProj->projExprs)
-	    {
-
-	    	if(temp == 0)
-	    	{
-	    		//ADDING DATASET NAME
-				newProjExpr = appendToTailOfList(newProjExpr,
-						createFullAttrReference("-owned-", n->fromClauseItem, pos, 0, n->attrType));
-				temp++;
-	    	}
-
-	    	else if (isPrefix(n->name, "ig"))
-	    	{
-//	    		n->name = substr(n->name, 3, 4);
-//	    		n->name = "test";
-	    		newProjExpr = appendToTailOfList(newProjExpr, n);
-//	    		newProjExpr = appendToTailOfList(newProjExpr,
-//	    				createFullAttrReference(substr(n->name, 3, 4), n->fromClauseItem, pos, 0, n->attrType));
-
-	    		//POS HERE MIGHT BE WRONG
-	    		newProjExpr = appendToTailOfList(newProjExpr,
-	    			    				createFullAttrReference(substr(n->name, 14, 16), n->fromClauseItem, pos, 0, n->attrType));
-	    		pos++;
-	    		newProjExpr = LIST_MAKE(concatExprList(newProjExpr));
-//	    		newProjExpr = LIST_MAKE(concatExprs((Node *)"-test-"));
-//	    		n->name = substr(n->name, 2,5);
-//	    		newProjExpr = appendToTailOfList(newProjExpr, n);
-//	    		newProjExpr = appendToTailOfList(newProjExpr, "-O-");
-//	    		newProjExpr = appendToTailOfList(newProjExpr, substr(n->name, 2,5));
-
-//	    		newProjExpr = LIST_MAKE(concatExprList(newProjExpr));
-//	    		makeNode()
-//	    		createnodeKeyValue
-
-	    	}
-//	    	else
-//	    	{
-//	    		newProjExpr = appendToTailOfList(newProjExpr, n);
-//	    	}
-
-			attrNames = appendToTailOfList(attrNames, n->name);
-	    }
-
-//	    newProjExpr = LIST_MAKE(concatExprList(newProjExpr));
-//	    newProjExpr = LIST_MAKE(concatExprs(newProjExpr));
-	    ProjectionOperator *concat = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
-	    LOG_RESULT("TESTING CONCAT EXPRESSION LIST", concat);
-
-	    attrNames = NIL;
-	    newProjExpr = NIL;
-//TESTING CONCAT
-
-////TESTING CONCAT 1
-//
-//	    FOREACH(AttributeReference, n, newProj->projExprs)
-//	    {
-//	    	if (isPrefix(n->name, "ig"))
-//	    	{
-//	    		newProjExpr = appendToTailOfList(newProjExpr, n);
-//	    		newProjExpr = appendToTailOfList(newProjExpr, "test");
-//	    		newProjExpr = LIST_MAKE(concatExprList(newProjExpr));
-////	    		newProjExpr = appendToTailOfList(LIST_MAKE(concatExprList(newProjExpr)), "test");
-////	    				substr(n->name, 2,5));
-//
-//	    	}
-////	    	else
-////	    	{
-////	    		newProjExpr = appendToTailOfList(newProjExpr, n);
-////	    	}
-//
-//			attrNames = appendToTailOfList(attrNames, n->name);
-//	    }
-//
-//
-//	    ProjectionOperator *concat1 = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
-//	    LOG_RESULT("TESTING CONCAT EXPRESSION LIST - 1", concat1);
-//
-//	    attrNames = NIL;
-//	    newProjExpr = NIL;
-////TESTING CONCAT
-
-
-
-
-    int i = 0; // position of the attribute
-//    int checkPoint = LIST_LENGTH(attrL) - 1; // point where the attributes belong to shared data
-//    AttributeDef *a = NULL;
+    int lenL = LIST_LENGTH(attrL) - 1;
+    //int lenR = LIST_LENGTH(attrR) - 1;
+    int l = 0;
+    int posOfIgL = LIST_LENGTH(attrL) / 2;
+    int posOfIgR = LIST_LENGTH(attrR) / 2;
 
     List *LprojExprs = NIL;
     List *RprojExprs = NIL;
     List *LattrNames = NIL;
     List *RattrNames = NIL;
-    HashMap *nameToIgAttrName = NEW_MAP(Constant, Constant);
-    int lenL = LIST_LENGTH(attrL) - 1;
-    int l = 0;
-    int posOfIgL = LIST_LENGTH(attrL) / 2;
+    List *attrNames = NIL;
+
+    HashMap *nameToIgAttrNameL = NEW_MAP(Constant, Constant);
+    HashMap *nameToIgAttrNameR = NEW_MAP(Constant, Constant);
+
 
     FOREACH(AttributeDef,a,attrL)
     {
@@ -494,11 +471,23 @@ rewriteIG_Projection (ProjectionOperator *op)
         	AttributeDef *igA = (AttributeDef *) getNthOfListP(attrL,posOfIgL);
         	char *value = igA->attrName;
 
-        	ADD_TO_MAP(nameToIgAttrName,createStringKeyValue(key,value));
+        	ADD_TO_MAP(nameToIgAttrNameL,createStringKeyValue(key,value));
         	posOfIgL++;
     	}
     }
 
+    FOREACH(AttributeDef,a,attrR)
+	{
+		if(!isPrefix(a->attrName,"ig"))
+		{
+			char *key = a->attrName;
+			AttributeDef *igA = (AttributeDef *) getNthOfListP(attrR,posOfIgR);
+			char *value = igA->attrName;
+
+			ADD_TO_MAP(nameToIgAttrNameR,createStringKeyValue(key,value));
+			posOfIgR++;
+		}
+	}
 
     FOREACH(AttributeReference, n, newProj->projExprs)
     {
@@ -511,203 +500,140 @@ rewriteIG_Projection (ProjectionOperator *op)
     }
 
     ProjectionOperator *Lop = createProjectionOp(LprojExprs, NULL, NIL, LattrNames);
-    LOG_RESULT("TESTING LEFT LIST", Lop);
+    //LOG_RESULT("TESTING LEFT LIST", Lop);
+
     l = 0;
     FOREACH(AttributeReference, n, newProj->projExprs)
-       {
-    	if(l > lenL)
-    	{
+    {
+		if(l > lenL)
+		{
 			RprojExprs = appendToTailOfList(RprojExprs, n);
 			RattrNames = appendToTailOfList(RattrNames, n->name);
 			l++;
-    	}
-    	else
-    	{
-    		l++;
-    	}
-       }
-
+		}
+		else
+		{
+			l++;
+		}
+    }
 
     ProjectionOperator *Rop = createProjectionOp(RprojExprs, NULL, NIL, RattrNames);
-    LOG_RESULT("TESTING RIGHT LIST", Rop);
+    //LOG_RESULT("TESTING RIGHT LIST", Rop);
 
-    //HashMap *nameToAttrDef = NEW_MAP(List* , List*);
 
-    //TESTING CONCAT
-    //GOAL :
-    //SELECT CONCAT('-o-', county, '-c-', year , '-y-', dayswaqi , '-d-', maqi, '-m-') as anno from owned
-
-    	temp = 0;
-		FOREACH(AttributeReference, n, Lop->projExprs)
-		{
-
-			if(temp == 0)
-			{
-				newProjExpr = appendToTailOfList(newProjExpr,
-						createFullAttrReference("-owned-", n->fromClauseItem, pos, 0, n->attrType));
-				temp++;
-			}
-
-			else if (isPrefix(n->name, "ig"))
-			{
-				newProjExpr = appendToTailOfList(newProjExpr, n);
-				newProjExpr = appendToTailOfList(newProjExpr,
-						createFullAttrReference((substr(n->name, 14, 16)), n->fromClauseItem, pos, 0, n->attrType));
-						//(createConstString(substr(n->name, 14, 16))
-
-						pos++;
-				newProjExpr = LIST_MAKE(concatExprList(newProjExpr));
-
-			}
-			attrNames = appendToTailOfList(attrNames, n->name);
-		}
-
-		ProjectionOperator *Lconcat = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
-		LOG_RESULT("TESTING LEFT EXPRESSION LIST", Lconcat);
-
-		attrNames = NIL;
-		newProjExpr = NIL;
-		temp = 0;
-
-		FOREACH(AttributeReference, n, Rop->projExprs)
-		{
-
-			if(temp == 0)
-			{
-				newProjExpr = appendToTailOfList(newProjExpr,
-						createFullAttrReference("-shared-", n->fromClauseItem, pos, 0, n->attrType));
-				temp++;
-			}
-
-			else if (isPrefix(n->name, "ig"))
-			{
-				newProjExpr = appendToTailOfList(newProjExpr, n);
-				newProjExpr = appendToTailOfList(newProjExpr,
-						createFullAttrReference((substr(n->name, 14, 16)), n->fromClauseItem, pos, 0, n->attrType));
-						//(createConstString(substr(n->name, 14, 16)),
-						pos++;
-				newProjExpr = LIST_MAKE(concatExprList(newProjExpr));
-
-			}
-			attrNames = appendToTailOfList(attrNames, n->name);
-		}
-		ProjectionOperator *Rconcat = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
-		LOG_RESULT("TESTING RIGHT EXPRESSION LIST", Rconcat);
-
-		attrNames = NIL;
-		newProjExpr = NIL;
-
-//int llist = 1;
-//int rlist = 1;
-
-//// METHOD 2 To add expressions
-
-    FOREACH(AttributeReference, n, Lop->projExprs)
-    {
-    	if(isPrefix(n->name, "ig"))
-		{
-        	FOREACH(AttributeReference, n1, Rop->projExprs) // right list
-    		{
-        		if(isPrefix(n1->name, "ig"))
-        		{
-        			if(strcmp(strrchr(n->name, '_'), strrchr(n1->name, '_')) == 0)
-//					if(strCompare(strEndTok(n->name, "_"), strEndTok(n1->name, "_")) == 0)
-					{
-        				Node *cond = (Node *) createIsNullExpr((Node *) n);
-						Node *els  = (Node *) createAttributeReference(n->name);
-						Node *then = (Node *) createAttributeReference(n1->name);
-						CaseWhen *caseWhen = createCaseWhen(cond, then);
-						CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
-						newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
-						attrNames = appendToTailOfList(attrNames, n->name);
-
-						Node *cond1 = (Node *) createIsNullExpr((Node *) n1);
-						Node *els1  = (Node *) createAttributeReference(n1->name);
-						Node *then1 = (Node *) createAttributeReference(n->name);
-						CaseWhen *caseWhen1 = createCaseWhen(cond1, then1);
-						CaseExpr *caseExpr1 = createCaseExpr(NULL, singleton(caseWhen1), els1);
-						newProjExpr = appendToTailOfList(newProjExpr, caseExpr1);
-						attrNames = appendToTailOfList(attrNames, n->name);
-					}
-        		}
-    		}
-		}
-		else if(!isPrefix(n->name, "ig"))
+	FOREACH(AttributeReference, n, Lop->projExprs)
+	{
+		if(!isPrefix(n->name, "ig"))
 		{
 			newProjExpr = appendToTailOfList(newProjExpr, n);
 			attrNames = appendToTailOfList(attrNames, n->name);
 		}
 
-		i++;
+	}
 
-    }
+	FOREACH(AttributeReference, n, Lop->projExprs)
+	{
+		if(!isPrefix(n->name, "ig"))
+		{
+			if(hasMapStringKey(nameToIgAttrNameR, n->name))
+			{
+				//AttributeDef *a = (AttributeDef *) getNthOfListP(attrL, lenL1);
+				//Node *cond = (Node *) createIsNullExpr((Node *) createAttributeReference(a->attrName));
+				Node *cond = (Node *) createIsNullExpr(getMapString(nameToIgAttrNameL, n->name));
+				//AttributeDef *a1 = (AttributeDef *) getNthOfListP(attrR, lenR1);
+				//Node *then = (Node *) createAttributeReference(a1->attrName);
+				Node *then = (Node *) getMapString(nameToIgAttrNameR, n->name);
+				//Node *els  = (Node *) createAttributeReference(a->attrName);
+				Node *els  = (Node *) getMapString(nameToIgAttrNameL, n->name);
+				CaseWhen *caseWhen = createCaseWhen(cond, then);
+				CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
+				newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
+				attrNames = appendToTailOfList(attrNames, n->name);
+			}
+			else if(!hasMapStringKey(nameToIgAttrNameR, n->name))
+			{
+				newProjExpr = appendToTailOfList(newProjExpr, n);
+				attrNames = appendToTailOfList(attrNames, n->name);
+			}
 
-//
-//
-//
-//    FOREACH(AttributeReference, n, newProj->projExprs)
-//    {
-//    		if (isPrefix(n->name, "ig"))
-//			{
-//
-//				Node *cond = (Node *) createIsNullExpr((Node *) n);
-//				//Node *then = (Node *) createConstInt(0);
-//				//Node *els = (Node *) createConstInt(1);
-//				Node *els = (Node *) createAttributeReference(n->name);
-//
-//				if (i <= checkPoint)
-//				{
-//					a = (AttributeDef *) getNthOfListP(attrR, i);
-//				}
-//				else
-//				{
-//					int j = i - checkPoint - 1; // index for retrieving the correspond attribute from shared (owned) table
-//					a = (AttributeDef *) getNthOfListP(attrL, j);
-//				}
-//
-//				Node *then = (Node *) createAttributeReference(a->attrName);
-//
-//				CaseWhen *caseWhen = createCaseWhen(cond, then);
-//				CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
-//
-//	//    		caseExprs = appendToTailOfList(caseExprs, (List *) caseExpr);
-	//    		attrs = appendToTailOfList(attrs, CONCAT_STRINGS("use_",n->name));
-//
-//				newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
-//
-//
-//			}
-//			else
-//			{
-//				newProjExpr = appendToTailOfList(newProjExpr, n);
-//			}
-//
-//			attrNames = appendToTailOfList(attrNames, n->name);
-//
-//			i++;
-//
-//
-//    }
+		}
+	}
 
 
-//    attrNames = concatTwoLists(attrNames, attrs);
-//    newList = concatTwoLists(op->projExprs, caseExprs);
+	FOREACH(AttributeReference, n, Rop->projExprs)
+	{
+		if(!isPrefix(n->name, "ig"))
+		{
+			newProjExpr = appendToTailOfList(newProjExpr, n);
+			attrNames = appendToTailOfList(attrNames, n->name);
+		}
+
+	}
+
+
+	FOREACH(AttributeReference, n, Rop->projExprs)
+	{
+		if(!isPrefix(n->name, "ig"))
+		{
+			//char *ch = strrchr(n->name, '_');
+			char *ch = replaceSubstr(n->name, "1", "");
+			if(hasMapStringKey(nameToIgAttrNameL, ch))
+			{
+				//AttributeDef *a = (AttributeDef *) getNthOfListP(attrL, lenL1);
+				//Node *cond = (Node *) createIsNullExpr((Node *) createAttributeReference(a->attrName));
+				Node *cond = (Node *) createIsNullExpr(getMapString(nameToIgAttrNameR, ch));
+				//AttributeDef *a1 = (AttributeDef *) getNthOfListP(attrR, lenR1);
+				//Node *then = (Node *) createAttributeReference(a1->attrName);
+				Node *then = (Node *) getMapString(nameToIgAttrNameL, ch);
+				//Node *els  = (Node *) createAttributeReference(a->attrName);
+				Node *els  = (Node *) getMapString(nameToIgAttrNameR, ch);
+				CaseWhen *caseWhen = createCaseWhen(cond, then);
+				CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
+				newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
+				attrNames = appendToTailOfList(attrNames, n->name);
+			}
+			else if(!hasMapStringKey(nameToIgAttrNameL, n->name))
+			{
+				newProjExpr = appendToTailOfList(newProjExpr, n);
+				attrNames = appendToTailOfList(attrNames, n->name);
+			}
+		}
+
+	}
+
+//	 List *Lkeys = getKeys(nameToIgAttrNameL);
+//	 List *Rkeys = getKeys(nameToIgAttrNameR);
+//
+//	 FOREACH(List, l, Rkeys)
+//	 {
+//		 char *ch = l;
+//		 if(hasMapStringKey(nameToIgAttrNameL, ch))
+//		 {
+//
+//
+//
+//		 }
+//
+//	 }
+//
+//	 FOREACH_HASH(Constant, kv, nameToIgAttrNameL)
+//	 {
+//		 char *ch = kv->value;
+//		 if(hasMapStringKey(nameToIgAttrNameR, ch))
+//		 {
+//
+//		 }
+//	 }
+
 
     ProjectionOperator *op1 = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
     LOG_RESULT("TESTING CASE EXPRESSIONS", op1);
 
-//    addChildOperator((QueryOperator *) newProjExpr, (QueryOperator *) child);
-//    switchSubtrees((QueryOperator *) child, (QueryOperator *) newProjExpr);
-//
-// 	  LOG_RESULT("Rewritten Projection Operator tree", newProjExpr);
-//    return (QueryOperator *) newProjExpr;
+    addChildOperator((QueryOperator *) op1, (QueryOperator *) child);
+    switchSubtrees((QueryOperator *) child, (QueryOperator *) op1);
 
-	addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
-	switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
-
-	LOG_RESULT("Rewritten Projection Operator tree", newProj);
-    return (QueryOperator *) newProj;
-
+ 	LOG_RESULT("Rewritten Projection Operator tree", op1);
+    return (QueryOperator *) op1;
 }
 
 static QueryOperator *
