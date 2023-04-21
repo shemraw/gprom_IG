@@ -561,7 +561,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 				CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
 
 				newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
-//				attrNames = appendToTailOfList(attrNames, ((AttributeDef *) attrIgNameL)->attrName);
+//				attrNames = appendToTailOfList(attrNames, n->name);
 			}
 			else if(isSuffix(n->name, "anno"))
 			{
