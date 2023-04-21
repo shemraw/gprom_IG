@@ -463,7 +463,7 @@ rewriteIG_Projection (ProjectionOperator *op)
     	if(!isPrefix(a->attrName,"ig"))
     	{
         	char *key = a->attrName;
-        	AttributeDef *igA = (AttributeDef *) getNthOfListP(attrL,posOfIgL);
+        	AttributeDef *igA = (AttributeDef *) getNthOfListP(attrL, posOfIgL);
         	char *value = igA->attrName;
 
         	ADD_TO_MAP(nameToIgAttrNameL,createStringKeyValue(key,value));
@@ -493,7 +493,7 @@ rewriteIG_Projection (ProjectionOperator *op)
     	{
         	char *kv = a->attrName;
         	ADD_TO_MAP(nameToIgAttrNameL,createStringKeyValue(kv,kv));
-        	posOfIgL++;
+        	posOfIgR++;
     	}
 
 	}
@@ -532,13 +532,14 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	FOREACH(AttributeReference, n, LprojExprs)
 	{
-		if(!isPrefix(n->name, "ig"))
+		if(!isPrefix(n->name, "ig") && !isSuffix(n->name, "anno"))
 		{
 			newProjExpr = appendToTailOfList(newProjExpr, n);
 //			attrNames = appendToTailOfList(attrNames, n->name);
 		}
 
 	}
+
 
 	FOREACH(AttributeReference, n, LprojExprs)
 	{
@@ -546,46 +547,54 @@ rewriteIG_Projection (ProjectionOperator *op)
 		{
 			if(MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->name))
 			{
-				Node *attrIgNameL = MAP_GET_STRING(nameToIgAttrNameL, n->name);
-				Node *attrIgNameR = MAP_GET_STRING(nameToIgAttrNameR, n->name);
+				char *attrIgNameL = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->name));
+				char *attrIgNameR = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, n->name));
 
 				//AttributeDef *a = (AttributeDef *) getNthOfListP(attrL, lenL1);
-				//Node *cond = (Node *) createIsNullExpr((Node *) createAttributeReference(a->attrName));
-				Node *cond = (Node *) createIsNullExpr(attrIgNameL);
+				AttributeReference *ar = createFullAttrReference(attrIgNameL, 0,
+						listPosString(LattrNames,attrIgNameL), 0, n->attrType);
+				Node *cond = (Node *) createIsNullExpr((Node *) ar);
+//				Node *cond = (Node *) createIsNullExpr(attrIgNameL);
 				//AttributeDef *a1 = (AttributeDef *) getNthOfListP(attrR, lenR1);
 				//Node *then = (Node *) createAttributeReference(a1->attrName);
-				Node *then = attrIgNameR;
+				Node *then = (Node *) createFullAttrReference(attrIgNameR, 0,
+						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR),
+						0, n->attrType);
 				//Node *els  = (Node *) createAttributeReference(a->attrName);
-				Node *els  = attrIgNameL;
+				Node *els = (Node *) ar;
+
 				CaseWhen *caseWhen = createCaseWhen(cond, then);
 				CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
 
 				newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
 //				attrNames = appendToTailOfList(attrNames, n->name);
 			}
-			else if(isSuffix(n->name, "anno"))
-			{
-				continue;
-			}
-			else if(!MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->name))
-			{
+			else
 				newProjExpr = appendToTailOfList(newProjExpr, n);
-//				attrNames = appendToTailOfList(attrNames, n->name);
-			}
+//
+//			else if(isSuffix(n->name, "anno"))
+//			{
+//				continue;
+//			}
+//			else if(!MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->name))
+//			{
+//				newProjExpr = appendToTailOfList(newProjExpr, n);
+////				attrNames = appendToTailOfList(attrNames, n->name);
+//			}
+
 		}
 	}
 
 
 	FOREACH(AttributeReference, n, RprojExprs)
 	{
-		if(!isPrefix(n->name, "ig"))
+		if(!isPrefix(n->name, "ig") && !isSuffix(n->name, "anno"))
 		{
 			newProjExpr = appendToTailOfList(newProjExpr, n);
 //			attrNames = appendToTailOfList(attrNames, n->name);
 		}
 
 	}
-
 
 	FOREACH(AttributeReference, n, RprojExprs)
 	{
@@ -595,28 +604,40 @@ rewriteIG_Projection (ProjectionOperator *op)
 			char *ch = replaceSubstr(n->name, "1", "");
 			if(MAP_HAS_STRING_KEY(nameToIgAttrNameL, ch))
 			{
+				char *attrIgNameL = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, ch));
+				char *attrIgNameR = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, ch));
+
 				//AttributeDef *a = (AttributeDef *) getNthOfListP(attrL, lenL1);
-				//Node *cond = (Node *) createIsNullExpr((Node *) createAttributeReference(a->attrName));
-				Node *cond = (Node *) createIsNullExpr(MAP_GET_STRING(nameToIgAttrNameR, ch));
+				AttributeReference *ar = createFullAttrReference(attrIgNameR, 0,
+						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR),
+						0, n->attrType);
+				Node *cond = (Node *) createIsNullExpr((Node *) ar);
 				//AttributeDef *a1 = (AttributeDef *) getNthOfListP(attrR, lenR1);
 				//Node *then = (Node *) createAttributeReference(a1->attrName);
-				Node *then = (Node *) MAP_GET_STRING(nameToIgAttrNameL, ch);
+				Node *then = (Node *) createFullAttrReference(attrIgNameL, 0,
+						listPosString(LattrNames,attrIgNameL), 0, n->attrType);
 				//Node *els  = (Node *) createAttributeReference(a->attrName);
-				Node *els  = (Node *) MAP_GET_STRING(nameToIgAttrNameR, ch);
+				Node *els  = (Node *) ar;
+
 				CaseWhen *caseWhen = createCaseWhen(cond, then);
 				CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
+
 				newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
 //				attrNames = appendToTailOfList(attrNames, n->name);
 			}
-			else if(isSuffix(n->name, "anno"))
-			{
-				continue;
-			}
-			else if(!MAP_HAS_STRING_KEY(nameToIgAttrNameL, n->name))
-			{
+			else
 				newProjExpr = appendToTailOfList(newProjExpr, n);
-//				attrNames = appendToTailOfList(attrNames, n->name);
-			}
+//
+//			else if(isSuffix(n->name, "anno"))
+//			{
+//				continue;
+//			}
+//			else if(!MAP_HAS_STRING_KEY(nameToIgAttrNameL, n->name))
+//			{
+//				newProjExpr = appendToTailOfList(newProjExpr, n);
+////				attrNames = appendToTailOfList(attrNames, n->name);
+//			}
+//
 		}
 
 	}
