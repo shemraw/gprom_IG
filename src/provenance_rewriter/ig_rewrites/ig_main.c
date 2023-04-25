@@ -677,15 +677,26 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	List *h_valueExprs = NIL;
 	List *h_valueName = NIL;
+	//int posV = 0;
 
-	FOREACH(AttributeReference, n, hamming_op->projExprs)
+	FOREACH(AttributeReference, n, exprs)
 	{
 		if(isPrefix(n->name, "hamming"))
 		{
+//			AttributeReference *ar = createFullAttrReference(n->name, 0,
+//									posV,0, n->attrType);
+
 			FunctionCall *hammingdistvalue = createFunctionCall("hammingdistvalue", singleton(n));
 			h_valueExprs = appendToTailOfList(h_valueExprs, hammingdistvalue);
 			h_valueName = appendToTailOfList(h_valueName, CONCAT_STRINGS("value_", n->name));
+			//posV = posV + 1;
 		}
+//		else
+//		{
+//			FunctionCall *hammingdistvalue = createFunctionCall("hammingdistvalue", singleton(n));
+//			h_valueExprs = appendToTailOfList(h_valueExprs, hammingdistvalue);
+//			h_valueName = appendToTailOfList(h_valueName, CONCAT_STRINGS("value_", n->name));
+//		}
 	}
 
 	ProjectionOperator *hammingvalue_op = createProjectionOp(h_valueExprs, NULL, NIL, h_valueName);
