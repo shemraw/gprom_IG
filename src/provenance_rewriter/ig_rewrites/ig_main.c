@@ -614,7 +614,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 				CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
 
 				exprs = appendToTailOfList(exprs,caseExpr);
-				atNames = appendToTailOfList(atNames, n->name);
+				atNames = appendToTailOfList(atNames, CONCAT_STRINGS("hamming_", n->name));
 
 			}
 			else if(!MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->name) && !isSuffix(n->name, "anno"))
@@ -632,7 +632,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 				FunctionCall *hammingdist = createFunctionCall("hammingdist", functioninput);
 
 				exprs = appendToTailOfList(exprs,hammingdist);
-				atNames = appendToTailOfList(atNames, n->name);
+				atNames = appendToTailOfList(atNames, CONCAT_STRINGS("hamming_", n->name));
 
 			}
 		}
@@ -653,7 +653,8 @@ rewriteIG_Projection (ProjectionOperator *op)
 			{
 				char *attrIgNameR = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, ch));
 				AttributeReference *arR = createFullAttrReference(attrIgNameR, 0,
-						listPosString(RattrNames,attrIgNameR), 0, n->attrType);
+						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR),
+										0, n->attrType);
 
 				CastExpr *castR;
 				castR = createCastExpr((Node *) arR, DT_STRING);
@@ -663,7 +664,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 				FunctionCall *hammingdist = createFunctionCall("hammingdist", functioninput);
 
 				exprs = appendToTailOfList(exprs,hammingdist);
-				atNames = appendToTailOfList(atNames, n->name);
+				atNames = appendToTailOfList(atNames, CONCAT_STRINGS("hamming_", n->name));
 			}
 		}
 
@@ -671,8 +672,8 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 
 
-	ProjectionOperator *op2 = createProjectionOp(exprs, NULL, NIL, atNames);
-	LOG_RESULT("TESTING HAMMINGDISTANCE FUNCTION", op2);
+	ProjectionOperator *hamming_op = createProjectionOp(exprs, NULL, NIL, atNames);
+	LOG_RESULT("TESTING HAMMINGDISTANCE FUNCTION", hamming_op);
 
 
 
