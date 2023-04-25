@@ -675,7 +675,21 @@ rewriteIG_Projection (ProjectionOperator *op)
 	ProjectionOperator *hamming_op = createProjectionOp(exprs, NULL, NIL, atNames);
 	LOG_RESULT("TESTING HAMMINGDISTANCE FUNCTION", hamming_op);
 
+	List *h_valueExprs = NIL;
+	List *h_valueName = NIL;
 
+	FOREACH(AttributeReference, n, hamming_op->projExprs)
+	{
+		if(isPrefix(n->name, "hamming"))
+		{
+			FunctionCall *hammingdistvalue = createFunctionCall("hammingdistvalue", singleton(n));
+			h_valueExprs = appendToTailOfList(h_valueExprs, hammingdistvalue);
+			h_valueName = appendToTailOfList(h_valueName, CONCAT_STRINGS("value_", n->name));
+		}
+	}
+
+	ProjectionOperator *hammingvalue_op = createProjectionOp(h_valueExprs, NULL, NIL, h_valueName);
+	LOG_RESULT("TESTING HAMMINGDISTANCE VALUE FUNCTION", hammingvalue_op);
 
 
     addChildOperator((QueryOperator *) op1, (QueryOperator *) newProj);
