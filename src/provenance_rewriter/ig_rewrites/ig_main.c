@@ -573,13 +573,13 @@ rewriteIG_Projection (ProjectionOperator *op)
     ProjectionOperator *op1 = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
 
 
-
     List *exprs = NIL;
     List *atNames = NIL;
 	FOREACH(AttributeReference, n, LprojExprs)
 	{
 		List *functioninput = NIL;
-//		List *functioninput1 = NIL;
+		List *cast = NIL;
+
 		if(!isPrefix(n->name, "ig"))
 		{
 			if(MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->name) && !isSuffix(n->name, "anno"))
@@ -594,71 +594,80 @@ rewriteIG_Projection (ProjectionOperator *op)
 						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR),
 										0, n->attrType);
 
+				CastExpr *castL;
+				CastExpr *castR;
+
+				castL = createCastExpr((Node *) arL, DT_STRING);
+				castR = createCastExpr((Node *) arR, DT_STRING);
+
+				cast = appendToTailOfList(cast, castL);
+				cast = appendToTailOfList(cast, castR);
+
 				functioninput = appendToTailOfList(functioninput, arL);
 				functioninput = appendToTailOfList(functioninput, arR);
 
-				FunctionCall *hammingdist = createFunctionCall("hammingdist", functioninput);
-				exprs = appendToTailOfList(exprs,hammingdist);
+				FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
+				Node *cond = (Node *)(createOpExpr("=",functioninput));
+				Node *then = (Node *)(createConstString("0000000000"));
+				Node *els  = (Node *) hammingdist;
+				CaseWhen *caseWhen = createCaseWhen(cond, then);
+				CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
+
+				exprs = appendToTailOfList(exprs,caseExpr);
 				atNames = appendToTailOfList(atNames, n->name);
 
 			}
-			else if(!MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->name) && !isSuffix(n->name, "anno") )
+			else if(!MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->name) && !isSuffix(n->name, "anno"))
 			{
 				char *attrIgNameL = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->name));
-//				char *attrIgNameR = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, n->name));
-
 				AttributeReference *arL = createFullAttrReference(attrIgNameL, 0,
 						listPosString(LattrNames,attrIgNameL), 0, n->attrType);
-//				AttributeReference *arR = createFullAttrReference(attrIgNameR, 0,
-//						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR),
-//										0, n->attrType);
 
-				functioninput = appendToTailOfList(functioninput, arL);
+				CastExpr *castL;
+
+				castL = createCastExpr((Node *) arL, DT_STRING);
+
+				functioninput = appendToTailOfList(functioninput, castL);
 				functioninput = appendToTailOfList(functioninput, createConstString("0000000000"));
-
-//				functioninput1 = appendToTailOfList(functioninput1, arR);
-//				functioninput1 = appendToTailOfList(functioninput1, createConstString("0000000000"));
-
 				FunctionCall *hammingdist = createFunctionCall("hammingdist", functioninput);
-//				FunctionCall *hammingdist1 = createFunctionCall("hammingdist", functioninput1);
 
 				exprs = appendToTailOfList(exprs,hammingdist);
 				atNames = appendToTailOfList(atNames, n->name);
-//				exprs = appendToTailOfList(exprs,hammingdist1);
-//				atNames = appendToTailOfList(atNames, attrIgNameR);
 
 			}
 		}
 
 	}
 
-//	FOREACH(AttributeReference, n, RprojExprs)
-//	{
-//		List *functioninput1 = NIL;
-//		if(!isPrefix(n->name, "ig"))
-//		{
-//			if(!MAP_HAS_STRING_KEY(nameToIgAttrNameL, n->name) && !isSuffix(n->name, "anno") )
-//			{
-//				char *attrIgNameR = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, n->name));
-//
-////				AttributeReference *arR = createFullAttrReference(attrIgNameR, 0,
-////						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR),
-////										0, n->attrType);
-//				AttributeReference *arR = createFullAttrReference(attrIgNameR, 0,
-//										listPosString(LattrNames,attrIgNameR), 0, n->attrType);
-//
-//				functioninput1 = appendToTailOfList(functioninput1, arR);
-//				functioninput1 = appendToTailOfList(functioninput1, createConstString("0000000000"));
-//
-//				FunctionCall *hammingdist1 = createFunctionCall("hammingdist", functioninput1);
-//
-//				exprs = appendToTailOfList(exprs,hammingdist1);
-//				atNames = appendToTailOfList(atNames, attrIgNameR);
-//
-//			}
-//		}
-//
-//	}
+	FOREACH(AttributeReference, n, RprojExprs)
+	{
+		List *functioninput = NIL;
+		if(!isPrefix(n->name, "ig"))
+		{
+			char *ch = replaceSubstr(n->name, "1", "");
+			if(MAP_HAS_STRING_KEY(nameToIgAttrNameL, ch) && !isSuffix(n->name, "anno") )
+			{
+				continue;
+			}
+			else if(!MAP_HAS_STRING_KEY(nameToIgAttrNameL, ch) && !isSuffix(n->name, "anno"))
+			{
+				char *attrIgNameR = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, ch));
+				AttributeReference *arR = createFullAttrReference(attrIgNameR, 0,
+						listPosString(RattrNames,attrIgNameR), 0, n->attrType);
+
+				CastExpr *castR;
+				castR = createCastExpr((Node *) arR, DT_STRING);
+
+				functioninput = appendToTailOfList(functioninput, castR);
+				functioninput = appendToTailOfList(functioninput, createConstString("0000000000"));
+				FunctionCall *hammingdist = createFunctionCall("hammingdist", functioninput);
+
+				exprs = appendToTailOfList(exprs,hammingdist);
+				atNames = appendToTailOfList(atNames, n->name);
+			}
+		}
+
+	}
 
 
 

@@ -103,11 +103,6 @@ typedef struct IsNullExpr {
     Node *expr;
 } IsNullExpr;
 
-typedef struct IsEqExpr {
-    NodeTag type;
-    Node *expr;
-} IsEqExpr;
-
 typedef struct StringToArray {
     NodeTag type;
     Node *expr;
