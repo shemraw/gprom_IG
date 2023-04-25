@@ -375,6 +375,16 @@ createIsNullExpr (Node *expr)
     return result;
 }
 
+IsEqExpr *
+createIsEqExpr (Node *expr)
+{
+	IsEqExpr *result = makeNode(IsEqExpr);
+
+	result->expr = expr;
+
+	return result;
+}
+
 StringToArray *
 createStringToArrayExpr (Node *expr, char *delim)
 {

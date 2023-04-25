@@ -103,6 +103,11 @@ typedef struct IsNullExpr {
     Node *expr;
 } IsNullExpr;
 
+typedef struct IsEqExpr {
+    NodeTag type;
+    Node *expr;
+} IsEqExpr;
+
 typedef struct StringToArray {
     NodeTag type;
     Node *expr;
@@ -332,6 +337,7 @@ extern List *findAllNodes(Node *node, NodeTag type);
 #define MIN_FUNC_NAME backendifyIdentifier("min")
 #define MAX_FUNC_NAME backendifyIdentifier("max")
 #define SUM_FUNC_NAME backendifyIdentifier("sum")
+#define HAMMING_DIST_FUNC_NAME backendifyIdentifier("hammingdist")
 #define AVG_FUNC_NAME backendifyIdentifier("avg")
 #define COUNT_FUNC_NAME backendifyIdentifier("count")
 #define ROW_NUMBER_FUNC_NAME backendifyIdentifier("row_number")
