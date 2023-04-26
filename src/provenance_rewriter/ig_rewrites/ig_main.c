@@ -670,26 +670,23 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	}
 
-
-
 	ProjectionOperator *hamming_op = createProjectionOp(exprs, NULL, NIL, atNames);
 	LOG_RESULT("TESTING HAMMINGDISTANCE FUNCTION", hamming_op);
 
 	List *h_valueExprs = NIL;
 	List *h_valueName = NIL;
-	//int posV = 0;
+	int posV = 0;
 
-	FOREACH(AttributeReference, n, exprs)
+//	FOREACH(AttributeReference, n, exprs)
+	FOREACH(AttributeDef, a, hamming_op->op.schema->attrDefs)
 	{
-		if(isPrefix(n->name, "hamming"))
+		if(isPrefix(a->attrName, "hamming"))
 		{
-//			AttributeReference *ar = createFullAttrReference(n->name, 0,
-//									posV,0, n->attrType);
+			AttributeReference *ar = createFullAttrReference(a->attrName, 0, posV,0, a->dataType);
 
-			FunctionCall *hammingdistvalue = createFunctionCall("hammingdistvalue", singleton(n));
+			FunctionCall *hammingdistvalue = createFunctionCall("hammingdistvalue", singleton(ar));
 			h_valueExprs = appendToTailOfList(h_valueExprs, hammingdistvalue);
-			h_valueName = appendToTailOfList(h_valueName, CONCAT_STRINGS("value_", n->name));
-			//posV = posV + 1;
+			h_valueName = appendToTailOfList(h_valueName, CONCAT_STRINGS("value_", a->attrName));
 		}
 //		else
 //		{
@@ -697,6 +694,8 @@ rewriteIG_Projection (ProjectionOperator *op)
 //			h_valueExprs = appendToTailOfList(h_valueExprs, hammingdistvalue);
 //			h_valueName = appendToTailOfList(h_valueName, CONCAT_STRINGS("value_", n->name));
 //		}
+
+		posV++;
 	}
 
 	ProjectionOperator *hammingvalue_op = createProjectionOp(h_valueExprs, NULL, NIL, h_valueName);
