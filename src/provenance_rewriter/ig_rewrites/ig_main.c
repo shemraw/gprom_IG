@@ -294,7 +294,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		if(a->attrType == DT_INT || a->attrType == DT_FLOAT)
 		{
 			CastExpr *cast;
-			cast = createCastExpr((Node *) a, DT_BIT10);  // TODO: change to bit10
+			cast = createCastExpr((Node *) a, DT_BIT10);
 			newProjExprs = appendToTailOfList(newProjExprs, cast);
 		}
 		else
@@ -572,9 +572,25 @@ rewriteIG_Projection (ProjectionOperator *op)
 	List *attrNames = CONCAT_LISTS(LattrNames,RattrNames);
     ProjectionOperator *op1 = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
 
+    addChildOperator((QueryOperator *) op1, (QueryOperator *) newProj);
+    switchSubtrees((QueryOperator *) newProj, (QueryOperator *) op1);
+
 
     List *exprs = NIL;
     List *atNames = NIL;
+    int x = 0;
+
+    FOREACH(AttributeDef, a, op1->op.schema->attrDefs)
+	{
+    	AttributeReference *ar = createFullAttrReference(a->attrName, 0, x, 0, a->dataType);
+
+    	exprs = appendToTailOfList(exprs, ar);
+    	atNames = appendToTailOfList(atNames, a->attrName);
+    	x++;
+
+	}
+
+
 	FOREACH(AttributeReference, n, LprojExprs)
 	{
 		List *functioninput = NIL;
@@ -673,6 +689,9 @@ rewriteIG_Projection (ProjectionOperator *op)
 	ProjectionOperator *hamming_op = createProjectionOp(exprs, NULL, NIL, atNames);
 	LOG_RESULT("TESTING HAMMINGDISTANCE FUNCTION", hamming_op);
 
+    addChildOperator((QueryOperator *) hamming_op, (QueryOperator *) op1);
+    switchSubtrees((QueryOperator *) op1, (QueryOperator *) hamming_op);
+
 	List *h_valueExprs = NIL;
 	List *h_valueName = NIL;
 	int posV = 0;
@@ -688,12 +707,6 @@ rewriteIG_Projection (ProjectionOperator *op)
 			h_valueExprs = appendToTailOfList(h_valueExprs, hammingdistvalue);
 			h_valueName = appendToTailOfList(h_valueName, CONCAT_STRINGS("value_", a->attrName));
 		}
-//		else
-//		{
-//			FunctionCall *hammingdistvalue = createFunctionCall("hammingdistvalue", singleton(n));
-//			h_valueExprs = appendToTailOfList(h_valueExprs, hammingdistvalue);
-//			h_valueName = appendToTailOfList(h_valueName, CONCAT_STRINGS("value_", n->name));
-//		}
 
 		posV++;
 	}
@@ -702,11 +715,16 @@ rewriteIG_Projection (ProjectionOperator *op)
 	LOG_RESULT("TESTING HAMMINGDISTANCE VALUE FUNCTION", hammingvalue_op);
 
 
-    addChildOperator((QueryOperator *) op1, (QueryOperator *) newProj);
-    switchSubtrees((QueryOperator *) newProj, (QueryOperator *) op1);
+// 	LOG_RESULT("Rewritten Projection Operator tree", op1);
+//    return (QueryOperator *) op1;
 
- 	LOG_RESULT("Rewritten Projection Operator tree", op1);
-    return (QueryOperator *) op1;
+
+
+
+ 	LOG_RESULT("Rewritten Projection Operator tree", hamming_op);
+    return (QueryOperator *) hamming_op;
+
+
 }
 
 
