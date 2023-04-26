@@ -616,7 +616,10 @@ outConstant (StringInfo str, Constant *node)
                 break;
             case DT_VARCHAR2:
 	        appendStringInfo(str, "'%s'", (char *) node->value);
-	        break;
+	        	break;
+            case DT_BIT10:
+				appendStringInfo(str, "%d", *((unsigned *) node->value));
+				break;
         }
 
     WRITE_BOOL_FIELD(isNull);

@@ -51,7 +51,8 @@ NEW_ENUM_WITH_TO_STRING(DataType,
     DT_STRING,
     DT_FLOAT,
     DT_BOOL,
-    DT_VARCHAR2
+    DT_VARCHAR2,
+	DT_BIT10
 );
 
 typedef struct Constant {
@@ -265,7 +266,10 @@ extern OrderExpr *createOrderExpr (Node *expr, SortOrder order, SortNullOrder nu
 extern QuantifiedComparison *createQuantifiedComparison (char *nType, Node *checkExpr, char *opName, List *exprList);
 
 /* functions for creating constants */
+
+extern Constant *createConstBit (unsigned value);
 extern Constant *createConstInt (int value);
+
 extern Constant *createConstLong (gprom_long_t value);
 extern Constant *createConstString (char *value);
 extern Constant *createConstFloat (double value);
@@ -273,7 +277,10 @@ extern Constant *createConstBoolFromString (char *v);
 extern Constant *createConstBool (boolean value);
 extern Constant *createNullConst (DataType dt);
 extern Constant *makeConst(DataType dt);
+
 #define INT_VALUE(_c) *((int *) ((Constant *) _c)->value)
+#define BIT10_VALUE(_c) *((unsigned *) ((Constant *) _c)->value)
+
 #define FLOAT_VALUE(_c) *((double *) ((Constant *) _c)->value)
 #define LONG_VALUE(_c) *((gprom_long_t *) ((Constant *) _c)->value)
 #define BOOL_VALUE(_c) *((boolean *) ((Constant *) _c)->value)

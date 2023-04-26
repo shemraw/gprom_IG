@@ -988,6 +988,9 @@ postgresBackendDatatypeToSQL (DataType dt)
         case DT_BOOL:
             return "bool";
             break;
+        case DT_BIT10:
+        	return "bit(10)";
+        	break;
     }
 
     // keep compiler quiet
@@ -1285,6 +1288,9 @@ postgresTypenameToDT (char *typName)
     // boolean
     if (streq(typName,"bool"))
         return DT_BOOL;
+
+    if (streq(typName, "bit(10)"))
+    	return DT_BIT10;
 
     return DT_STRING;
 }

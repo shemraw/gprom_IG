@@ -294,7 +294,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		if(a->attrType == DT_INT || a->attrType == DT_FLOAT)
 		{
 			CastExpr *cast;
-			cast = createCastExpr((Node *) a, DT_FLOAT);  // TODO: change to bit10
+			cast = createCastExpr((Node *) a, DT_BIT10);  // TODO: change to bit10
 			newProjExprs = appendToTailOfList(newProjExprs, cast);
 		}
 		else

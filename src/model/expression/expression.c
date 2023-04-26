@@ -457,6 +457,20 @@ createIsNotDistinctExpr (Node *lArg, Node *rArg)
 }
 
 Constant *
+createConstBit (unsigned value)
+{
+    Constant *result = makeNode(Constant);
+    unsigned *v = NEW(unsigned);
+
+    *v = value;
+    result->constType = DT_BIT10;
+    result->value = v;
+    result->isNull = FALSE;
+
+    return result;
+}
+
+Constant *
 createConstInt (int value)
 {
     Constant *result = makeNode(Constant);
@@ -568,6 +582,13 @@ makeConst(DataType dt)
 	    result->constType = DT_VARCHAR2;
 		return result;
 	}
+	case DT_BIT10:
+	{
+
+
+
+	}
+
 	}
     return NULL;
 }
@@ -614,6 +635,10 @@ minConsts(Constant *l, Constant *r, boolean nullIsMin)
 	{
 		LONG_VALUE(result) = LONG_VALUE(l) < LONG_VALUE(r) ? LONG_VALUE(l) : LONG_VALUE(r);
 	}
+	case DT_BIT10:
+	{
+		BIT10_VALUE(result) = BIT10_VALUE(l) < BIT10_VALUE(r) ? BIT10_VALUE(l) : BIT10_VALUE(r);
+	}
 	}
 
 	return result;
@@ -659,6 +684,10 @@ maxConsts(Constant *l, Constant *r, boolean nullIsMax)
 	case DT_LONG:
 	{
 		LONG_VALUE(result) = LONG_VALUE(l) >= LONG_VALUE(r) ? LONG_VALUE(l) : LONG_VALUE(r);
+	}
+	case DT_BIT10:
+	{
+		BIT10_VALUE(result) = BIT10_VALUE(l) >= BIT10_VALUE(r) ? BIT10_VALUE(l) : BIT10_VALUE(r);
 	}
 	}
 

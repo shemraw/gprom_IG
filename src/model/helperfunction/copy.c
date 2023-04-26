@@ -1080,6 +1080,10 @@ copyConstant(Constant *from, OperatorMap **opMap)
 	      case DT_VARCHAR2:
 	    	  new->value = strdup(from->value);
 	          break;
+	      case DT_BIT10:
+			  new->value = NEW(unsigned);
+			  *((unsigned *) new->value) = *((unsigned *) from->value);
+			  break;
 	  }
 	  return new;
 }

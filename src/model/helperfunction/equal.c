@@ -306,7 +306,9 @@ equalConstant (Constant *a, Constant *b, HashMap *seenOps, MemContext *c)
         case DT_LONG:
             return LONG_VALUE(a) == LONG_VALUE(b);
         case DT_VARCHAR2:
-	    return strcmp(STRING_VALUE(a), STRING_VALUE(b)) == 0;
+        	return strcmp(STRING_VALUE(a), STRING_VALUE(b)) == 0;
+        case DT_BIT10:
+			return BIT10_VALUE(a) == BIT10_VALUE(b);
     }
 
     COMPARE_SCALAR_FIELD(isNull);

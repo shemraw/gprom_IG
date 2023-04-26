@@ -38,6 +38,8 @@
 
 // hash functions for simple types
 static inline uint64_t hashInt(uint64_t cur, int value);
+static inline uint64_t hashBit10(uint64_t cur, unsigned value);
+
 static inline uint64_t hashLong(uint64_t cur, gprom_long_t value);
 static inline uint64_t hashFloat(uint64_t cur, float value);
 static inline uint64_t hashString(uint64_t cur, char *value);
@@ -123,6 +125,12 @@ static inline uint64_t
 hashInt(uint64_t cur, int value)
 {
     return hashMemory(cur, &value, sizeof(int));
+}
+
+static inline uint64_t
+hashBit10(uint64_t cur, unsigned value)
+{
+    return hashMemory(cur, &value, sizeof(unsigned));
 }
 
 static inline uint64_t
@@ -299,7 +307,10 @@ hashConstant (uint64_t cur, Constant *node)
             break;
         case DT_VARCHAR2:
 	    cur = hashString(cur, STRING_VALUE(node));
-	    break;
+	    	break;
+        case DT_BIT10:
+			cur = hashBit10(cur, BIT10_VALUE(node));
+			break;
     }
 
     HASH_BOOLEAN(isNull);
