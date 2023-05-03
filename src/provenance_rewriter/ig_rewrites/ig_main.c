@@ -607,8 +607,9 @@ rewriteIG_Projection (ProjectionOperator *op)
 						listPosString(LattrNames,attrIgNameL), 0, n->attrType);
 
 				AttributeReference *arR = createFullAttrReference(attrIgNameR, 0,
-						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR),
+						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR) - (lenL + 1),
 										0, n->attrType);
+
 
 				CastExpr *castL;
 				CastExpr *castR;
@@ -669,7 +670,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 			{
 				char *attrIgNameR = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, ch));
 				AttributeReference *arR = createFullAttrReference(attrIgNameR, 0,
-						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR),
+						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR) - (lenL + 1),
 										0, n->attrType);
 
 				CastExpr *castR;
@@ -706,23 +707,29 @@ rewriteIG_Projection (ProjectionOperator *op)
 			FunctionCall *hammingdistvalue = createFunctionCall("hammingdistvalue", singleton(ar));
 			h_valueExprs = appendToTailOfList(h_valueExprs, hammingdistvalue);
 			h_valueName = appendToTailOfList(h_valueName, CONCAT_STRINGS("value_", a->attrName));
+			posV++;
+		}
+		else
+		{
+			AttributeReference *ar = createFullAttrReference(a->attrName, 0, posV,0, a->dataType);
+			h_valueExprs = appendToTailOfList(h_valueExprs, ar);
+			h_valueName = appendToTailOfList(h_valueName, a->attrName);
+			posV++;
 		}
 
-		posV++;
+
 	}
 
 	ProjectionOperator *hammingvalue_op = createProjectionOp(h_valueExprs, NULL, NIL, h_valueName);
 	LOG_RESULT("TESTING HAMMINGDISTANCE VALUE FUNCTION", hammingvalue_op);
 
 
-// 	LOG_RESULT("Rewritten Projection Operator tree", op1);
-//    return (QueryOperator *) op1;
+	addChildOperator((QueryOperator *) hammingvalue_op, (QueryOperator *) hamming_op);
+	switchSubtrees((QueryOperator *) hamming_op, (QueryOperator *) hammingvalue_op);
 
 
-
-
- 	LOG_RESULT("Rewritten Projection Operator tree", hamming_op);
-    return (QueryOperator *) hamming_op;
+ 	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
+    return (QueryOperator *) hammingvalue_op;
 
 
 }
