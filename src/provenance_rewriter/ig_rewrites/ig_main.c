@@ -318,10 +318,11 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	{
 		projExprs = appendToTailOfList(projExprs,
 				createFullAttrReference(a->attrName, 0,
-						getAttrPos((QueryOperator *) newPo, a->attrName), 0, a->dataType));
+				getAttrPos((QueryOperator *) newPo, a->attrName), 0, a->dataType));
 
 		newNames = appendToTailOfList(newNames, a->attrName);
 	}
+
 
 	ProjectionOperator *addPo = createProjectionOp(projExprs, NULL, NIL, newNames);
 	//LOG_RESULT("Converted Operator tree ADD_PO", addPo);
@@ -513,6 +514,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 	}
 
+
     FOREACH(AttributeReference, n, newProj->projExprs)
     {
     	if(l <= lenL)
@@ -571,8 +573,12 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 				newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
 			}
 			else
-				newProjExpr = appendToTailOfList(newProjExpr, n);
-
+			{
+				char *igAttr = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->name));
+				AttributeReference *ar = createFullAttrReference(igAttr, 0,
+										listPosString(LattrNames,igAttr), 0, n->attrType);
+				newProjExpr = appendToTailOfList(newProjExpr, ar);
+			}
 		}
 	}
 
@@ -610,7 +616,13 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 				newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
 			}
 			else
-				newProjExpr = appendToTailOfList(newProjExpr, n);
+			{
+				char *igAttr = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, ch));
+				AttributeReference *ar = createFullAttrReference(igAttr, 0,
+						LIST_LENGTH(LattrNames) + listPosString(RattrNames,igAttr),
+						0, n->attrType);
+				newProjExpr = appendToTailOfList(newProjExpr, ar);
+			}
 
 		}
 
