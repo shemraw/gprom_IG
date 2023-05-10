@@ -36,6 +36,7 @@ typedef struct Operator {
 #define OPNAME_NEQ_BANG "!="
 
 #define OPNAME_STRING_CONCAT "||"
+
 #define OPNAME_CONCAT "CONCAT"
 #define OPNAME_LIKE "LIKE"
 
@@ -222,7 +223,10 @@ typedef struct QuantifiedComparison {
 
 /* functions to create expression nodes */
 extern FunctionCall *createFunctionCall (char *fName, List *args);
+
 extern Operator *createOpExpr (char *name, List *args);
+extern Operator *createSumExpr (char *name, List *args);
+
 extern AttributeReference *createAttributeReference (char *name);
 extern AttributeReference *createFullAttrReference (char *name, int fromClause, int attrPos,
         int outerLevelsUp, DataType attrType);

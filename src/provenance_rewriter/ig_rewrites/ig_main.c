@@ -293,26 +293,21 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	{
 		if(isPrefix(a->name, "ig"))
 		{
-//			if(a->attrType == DT_INT || a->attrType == DT_FLOAT)
-//			{
+
 				CastExpr *castInt;
 				CastExpr *cast;
 				castInt = createCastExpr((Node *) a, DT_INT);
 				cast = createCastExpr((Node *) castInt, DT_BIT10);
 				newProjExprs = appendToTailOfList(newProjExprs, cast);
-//			}
-//			else
-//			{
-//				newProjExprs = appendToTailOfList(newProjExprs, a);
-//			}
 		}
 		else
 			newProjExprs = appendToTailOfList(newProjExprs, a);
-
 	}
 
+
 	newPo->projExprs = newProjExprs;
-	// retrieve the original order of the projection attributes
+
+//	retrieve the original order of the projection attributes
 	projExprs = NIL;
 	newNames = NIL;
 
@@ -327,8 +322,9 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	}
 
 	ProjectionOperator *addPo = createProjectionOp(projExprs, NULL, NIL, newNames);
+	LOG_RESULT("Converted Operator tree ADD_PO", addPo);
 
-
+	// Getting Table name and length of table name here
 	char *tblName = "";
 	FOREACH(AttributeReference, n, addPo->projExprs)
 	{
@@ -351,13 +347,14 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	List *newProjExpr2 = NIL;
 
 
-
+	// Getting original attributes
 	FOREACH(AttributeReference, n, addPo->projExprs)
 	{
 		newProjExpr1 = appendToTailOfList(newProjExpr1, n);
 		attrNames = appendToTailOfList(attrNames, n->name);
 	}
 
+	// Creating _anno Attribute
 	FOREACH(AttributeReference, n, addPo->projExprs)
 	{
 
@@ -377,6 +374,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 					createConstString((substr(n->name, 9 + tblLen, 9 + tblLen + 2))));
 		}
 	}
+
 	attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS(tblName, "_anno"));
 	newProjExpr = LIST_MAKE(createOpExpr("||", newProjExpr));
 	newProjExpr2 = concatTwoLists(newProjExpr1, newProjExpr);
@@ -738,7 +736,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 	}
 
 	ProjectionOperator *hammingvalue_op = createProjectionOp(h_valueExprs, NULL, NIL, h_valueName);
-//	LOG_RESULT("TESTING HAMMINGDISTANCE VALUE FUNCTION", hammingvalue_op);
+	//LOG_RESULT("TESTING HAMMINGDISTANCE VALUE FUNCTION", hammingvalue_op);
 
 
 	addChildOperator((QueryOperator *) hammingvalue_op, (QueryOperator *) hamming_op);
@@ -748,6 +746,8 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	posV = 0;
 	List *sumlist = NIL;
+	Node *sumExpr = NULL;
+	Node *avgExpr = NULL;
 	List *sumExprs = NIL;
 	List *sumNames = NIL;
 
@@ -774,47 +774,23 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	}
 
-	FunctionCall *sum = createFunctionCall("SUM", sumlist);
-	FunctionCall *avg = createFunctionCall("AVG", sumlist);
-	sumExprs = appendToTailOfList(sumExprs, sum);
+	sumExpr = (Node *) (createOpExpr("+", sumlist));
+	sumExprs = appendToTailOfList(sumExprs, sumExpr);
 	sumNames = appendToTailOfList(sumNames, "Total_Distance");
-	sumExprs = appendToTailOfList(sumExprs, avg);
+
+	// Just tesing Average Expression Just in Case if we need it later in future
+	avgExpr = (Node *) (createOpExpr("/", LIST_MAKE(createOpExpr("+", sumlist), createConstInt(3))));
+	sumExprs = appendToTailOfList(sumExprs, avgExpr);
 	sumNames = appendToTailOfList(sumNames, "Average_Distance");
 
 	ProjectionOperator *sumrows = createProjectionOp(sumExprs, NULL, NIL, sumNames);
-	LOG_RESULT("TESTING SUM_AVG_ROWS FUNCTION", sumrows);
+	//LOG_RESULT("TESTING SUM_AVG_ROWS FUNCTION", sumrows);
 
-//	addChildOperator((QueryOperator *) sumrows, (QueryOperator *) hammingvalue_op);
-//	switchSubtrees((QueryOperator *) hammingvalue_op, (QueryOperator *) sumrows);
-//
-//	LOG_RESULT("Rewritten Projection Operator tree", sumrows);
-//	return (QueryOperator *) sumrows;
+	addChildOperator((QueryOperator *) sumrows, (QueryOperator *) hammingvalue_op);
+	switchSubtrees((QueryOperator *) hammingvalue_op, (QueryOperator *) sumrows);
 
-//	AggregationOperator *sumrows = createAggregationOp(sumExprs, NULL, NULL, NIL, sumNames);
-//
-//	List *projExprs = NIL;
-//	int cnt = 0;
-//
-//	FOREACH(AttributeDef,a,sumrows->op.schema->attrDefs)
-//	{
-//		projExprs = appendToTailOfList(projExprs,
-//				createFullAttrReference(a->attrName, 0, cnt, 0, a->dataType));
-//
-//		cnt++;
-//	}
-//	//create projection operator upon selection operator from select clause
-//	ProjectionOperator *newPo1 = createProjectionOp(projExprs, NULL, NIL, sumNames);
-//
-//
-//	addChildOperator((QueryOperator *) newPo1, (QueryOperator *) sumrows);
-//	switchSubtrees((QueryOperator *) sumrows, (QueryOperator *) newPo1);
-//
-// 	LOG_RESULT("Rewritten Projection Operator tree", newPo1);
-//    return (QueryOperator *) newPo1;
-
-	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
-	return (QueryOperator *) hammingvalue_op;
-
+	LOG_RESULT("Rewritten Projection Operator tree", sumrows);
+	return (QueryOperator *) sumrows;
 
 }
 

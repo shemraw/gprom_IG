@@ -365,6 +365,25 @@ createOpExpr(char *name, List *args)
     return result;
 }
 
+
+Operator *
+createSumExpr(char *name, List *args)
+{
+    Operator *result = makeNode(Operator);
+
+    if(name != NULL)
+    {
+        result->name = (char *) CALLOC(1, strlen(name) + 1);
+        strcpy(result->name, name);
+    }
+    else
+        result->name = NULL;
+
+    result->args = args;
+
+    return result;
+}
+
 IsNullExpr *
 createIsNullExpr (Node *expr)
 {
@@ -1286,6 +1305,7 @@ typeOfOpSplit (char *opName, List *argDTs, boolean *exists)
         if (dLeft == dRight && dLeft == DT_STRING)
             return DT_STRING;
     }
+
 
     // comparison operators
     if (streq(opName,OPNAME_LT)
