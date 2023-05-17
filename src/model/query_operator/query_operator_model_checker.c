@@ -254,7 +254,7 @@ checkSchemaConsistency (QueryOperator *op, void *context)
                                 DataTypeToString(typeOf(p)),
                                 DataTypeToString(def->dataType));
                         DEBUG_LOG("details: %s", beatify(nodeToString(o)));
-                        return TRUE; // hard fix for now but this needs to be FALSE
+                        return FALSE; // hard fix for now but this needs to be FALSE
                     }
                 }
             }
