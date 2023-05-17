@@ -41,8 +41,8 @@
 static QueryOperator *rewriteIG_Operator (QueryOperator *op);
 static QueryOperator *rewriteIG_Conversion (ProjectionOperator *op);
 static QueryOperator *rewriteIG_Projection(ProjectionOperator *op);
-static ProjectionOperator *rewriteIG_SumExprs(ProjectionOperator *op);
-static ProjectionOperator *rewriteIG_HammingFunctions(ProjectionOperator *op);
+//static ProjectionOperator *rewriteIG_SumExprs(ProjectionOperator *op);
+//static ProjectionOperator *rewriteIG_HammingFunctions(ProjectionOperator *op);
 static QueryOperator *rewriteIG_Join(JoinOperator *op);
 static QueryOperator *rewriteIG_TableAccess(TableAccessOperator *op);
 
@@ -392,8 +392,12 @@ rewriteIG_Conversion (ProjectionOperator *op)
     LOG_RESULT("Converted Operator tree", concat);
 	return (QueryOperator *) concat;
 
+//    LOG_RESULT("Converted Operator tree", newPo);
+//	return (QueryOperator *) newPo;
+
 }
 
+/*
 static ProjectionOperator *
 rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 {
@@ -775,7 +779,6 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 			posV++;
 		}
 
-
 	}
 
 	ProjectionOperator *hammingvalue_op = createProjectionOp(h_valueExprs, NULL, NIL, h_valueName);
@@ -787,6 +790,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	return hammingvalue_op;
 
 }
+*/
 
 static QueryOperator *
 rewriteIG_Projection (ProjectionOperator *op)
@@ -816,14 +820,17 @@ rewriteIG_Projection (ProjectionOperator *op)
 	ProjectionOperator *newProj = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
     addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
     switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
+//
+//    // This function creates hash maps and adds hamming distance functions
+//	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(newProj);
+//	// This function adds the + expression to calculate the total distance
+//	ProjectionOperator *sumrows = rewriteIG_SumExprs(hammingvalue_op);
+//
+//	LOG_RESULT("Rewritten Projection Operator tree", sumrows);
+//	return (QueryOperator *) sumrows;
 
-    // This function creates hash maps and adds hamming distance functions
-	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(newProj);
-	// This function adds the + expression to calculate the total distance
-	ProjectionOperator *sumrows = rewriteIG_SumExprs(hammingvalue_op);
-
-	LOG_RESULT("Rewritten Projection Operator tree", sumrows);
-	return (QueryOperator *) sumrows;
+	LOG_RESULT("Rewritten Projection Operator tree", newProj);
+	return (QueryOperator *) newProj;
 
 }
 
