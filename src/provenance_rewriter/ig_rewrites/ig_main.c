@@ -245,23 +245,23 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	// CREATING NEW NAMES HERE FOR AGGREGATE OPERATOR
 	FOREACH(AttributeReference, a, po->projExprs)
 	{
-		if(isPrefix(a->name, "ig") && a->attrType == DT_STRING)
-		{
+//		if(isPrefix(a->name, "ig") && a->attrType == DT_STRING)
+//		{
 			newNames = appendToTailOfList(newNames, a->name);
-		}
+//		}
 	}
-
-	FOREACH(AttributeReference, b, po->projExprs)
-	{
-		if(!isPrefix(b->name, "ig"))
-		{
-			newNames = appendToTailOfList(newNames, b->name);
-		}
-		else if(isPrefix(b->name, "ig") && b->attrType != DT_STRING)
-		{
-			newNames = appendToTailOfList(newNames, b->name);
-		}
-	}
+//
+//	FOREACH(AttributeReference, b, po->projExprs)
+//	{
+//		if(!isPrefix(b->name, "ig"))
+//		{
+//			newNames = appendToTailOfList(newNames, b->name);
+//		}
+//		else if(isPrefix(b->name, "ig") && b->attrType != DT_STRING)
+//		{
+//			newNames = appendToTailOfList(newNames, b->name);
+//		}
+//	}
 
 	AggregationOperator *ao = createAggregationOp(aggrs, groupBy, NULL, NIL, newNames);
 	addChildOperator((QueryOperator *) ao, (QueryOperator *) po);
@@ -306,8 +306,16 @@ rewriteIG_Conversion (ProjectionOperator *op)
 			newProjExprs = appendToTailOfList(newProjExprs, a);
 	}
 
-
 	newPo->projExprs = newProjExprs;
+
+	// matching the datatype of attribute def in the projection
+	FOREACH(AttributeDef, a, newPo->op.schema->attrDefs)
+	{
+		if(isPrefix(a->attrName,"ig"))
+		{
+			a->dataType = DT_BIT10;
+		}
+	}
 
 //	retrieve the original order of the projection attributes
 	projExprs = NIL;
