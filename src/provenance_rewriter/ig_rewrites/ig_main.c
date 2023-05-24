@@ -155,7 +155,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 {
 	List *newProjExprs = NIL;
 	List *attrNames = NIL;
-	List *newNames = NIL;
 
 	FOREACH(AttributeReference, a, op->projExprs)
 	{
@@ -170,7 +169,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 				toArray = createStringToArrayExpr((Node *) a, "NULL");
 				tounnest = createUnnestExpr((Node *) toArray);
 				toAscii = createAsciiExpr((Node *) tounnest);
-
 				newProjExprs = appendToTailOfList(newProjExprs, toAscii);
 			}
 			else
@@ -182,7 +180,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		{
 			newProjExprs = appendToTailOfList(newProjExprs, a);
 		}
-
 	}
 
 	op->projExprs = newProjExprs;
@@ -193,6 +190,12 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 	FOREACH(AttributeDef,a,op->op.schema->attrDefs)
 	{
+
+		if(isPrefix(a->attrName, "ig"))
+		{
+			a->dataType = DT_INT;
+		}
+
 		projExprs = appendToTailOfList(projExprs,
 				createFullAttrReference(a->attrName, 0, cnt, 0, a->dataType));
 
@@ -209,6 +212,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 	List *aggrs = NIL;
 	List *groupBy = NIL;
+	List *newNames = NIL;
 	attrNames = NIL;
 	int i = 0;
 
@@ -221,13 +225,13 @@ rewriteIG_Conversion (ProjectionOperator *op)
 			FunctionCall *sum = createFunctionCall("SUM", singleton(ar));
 			aggrs = appendToTailOfList(aggrs,sum);
 
+
 		}
 		else
 		{
 			if(isA(n,AttributeReference))
 			{
 				groupBy = appendToTailOfList(groupBy,n);
-
 			}
 
 			if(isA(n,CastExpr))
@@ -241,13 +245,16 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		i++;
 	}
 
-
 	// CREATING NEW NAMES HERE FOR AGGREGATE OPERATOR
 	FOREACH(AttributeReference, a, po->projExprs)
 	{
 //		if(isPrefix(a->name, "ig") && a->attrType == DT_STRING)
 //		{
 			newNames = appendToTailOfList(newNames, a->name);
+//		}
+//		else
+//		{
+//			continue;
 //		}
 	}
 //
@@ -264,6 +271,8 @@ rewriteIG_Conversion (ProjectionOperator *op)
 //	}
 
 	AggregationOperator *ao = createAggregationOp(aggrs, groupBy, NULL, NIL, newNames);
+	ao->op.schema->attrDefs = po->op.schema->attrDefs;
+
 	addChildOperator((QueryOperator *) ao, (QueryOperator *) po);
 
 	// Switch the subtree with this newly created projection operator.
@@ -275,20 +284,48 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 	FOREACH(AttributeDef,a,ao->op.schema->attrDefs)
 	{
+
 		projExprs = appendToTailOfList(projExprs,
 				createFullAttrReference(a->attrName, 0, cnt, 0, a->dataType));
 
 		cnt++;
 	}
 
+
+
+//	FOREACH(AttributeDef, a, po->op.schema->attrDefs)
+//	{
+//		if(isPrefix(a->attrName,"ig"))
+//		{
+//			a->dataType = DT_BIT10;
+//		}
+//	}
+
+
 	//create projection operator upon selection operator from select clause
 	ProjectionOperator *newPo = createProjectionOp(projExprs, NULL, NIL, newNames);
+//	newProjExprs = NIL;
+//	FOREACH(AttributeReference, a, newPo->projExprs)
+//	{
+//		if(isPrefix(a->name, "ig"))
+//		{
+//
+//				CastExpr *castInt;
+//				CastExpr *cast;
+//				castInt = createCastExpr((Node *) a, DT_INT);
+//				cast = createCastExpr((Node *) castInt, DT_BIT10);
+//				newProjExprs = appendToTailOfList(newProjExprs, cast);
+//		}
+//		else
+//			newProjExprs = appendToTailOfList(newProjExprs, a);
+//	}
+//	newPo->projExprs = newProjExprs;
 	addChildOperator((QueryOperator *) newPo, (QueryOperator *) ao);
 
 	// Switch the subtree with this newly created projection operator.
 	switchSubtrees((QueryOperator *) ao, (QueryOperator *) newPo);
 
-	// CAST_EXPR
+//	// CAST_EXPR
 	newProjExprs = NIL;
 
 	FOREACH(AttributeReference, a, newPo->projExprs)
@@ -379,8 +416,8 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		{
 			CastExpr *cast;
 			cast = createCastExpr((Node *) n, DT_STRING);
-
 			newProjExpr = appendToTailOfList(newProjExpr, cast);
+
 			//this adds first 3 letter for the variable in concat
 			newProjExpr = appendToTailOfList(newProjExpr,
 					createConstString((substr(n->name, 9 + tblLen, 9 + tblLen + 2))));
@@ -401,7 +438,8 @@ rewriteIG_Conversion (ProjectionOperator *op)
     LOG_RESULT("Converted Operator tree", concat);
 	return (QueryOperator *) concat;
 
-//    LOG_RESULT("Converted Operator tree", newPo);
+//
+//	LOG_RESULT("Converted Operator tree", newPo);
 //	return (QueryOperator *) newPo;
 
 }
@@ -833,7 +871,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 	ProjectionOperator *newProj = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
     addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
     switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
-//
+
 //    // This function creates hash maps and adds hamming distance functions
 //	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(newProj);
 //	// This function adds the + expression to calculate the total distance
@@ -934,7 +972,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	{
 		AttributeDef *att = getAttrDef((QueryOperator *) po,a);
 		newProjExprs = appendToTailOfList(newProjExprs,
-				 createFullAttrReference(att->attrName, 0, a, 0, att->dataType));
+						 createFullAttrReference(att->attrName, 0, a, 0, att->dataType));
 	}
 
 	ProjectionOperator *newPo = createProjectionOp(newProjExprs, NULL, NIL, attrNames);
