@@ -191,7 +191,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	FOREACH(AttributeDef,a,op->op.schema->attrDefs)
 	{
 
-		if(isPrefix(a->attrName, "ig"))
+		if(isPrefix(a->attrName, "ig") && a->dataType == DT_STRING)
 		{
 			a->dataType = DT_INT;
 		}
@@ -213,6 +213,8 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	List *aggrs = NIL;
 	List *groupBy = NIL;
 	List *newNames = NIL;
+	List *aggrNames = NIL;
+	List *groupByNames = NIL;
 	attrNames = NIL;
 	int i = 0;
 
@@ -224,14 +226,16 @@ rewriteIG_Conversion (ProjectionOperator *op)
 			AttributeReference *ar = createAttrsRefByName((QueryOperator *) po, attrName);
 			FunctionCall *sum = createFunctionCall("SUM", singleton(ar));
 			aggrs = appendToTailOfList(aggrs,sum);
-
-
+			aggrNames = appendToTailOfList(aggrNames,attrName);
 		}
 		else
 		{
 			if(isA(n,AttributeReference))
 			{
 				groupBy = appendToTailOfList(groupBy,n);
+
+				AttributeReference *ar = (AttributeReference *) n;
+				groupByNames = appendToTailOfList(groupByNames,(ar->name));
 			}
 
 			if(isA(n,CastExpr))
@@ -245,33 +249,8 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		i++;
 	}
 
-	// CREATING NEW NAMES HERE FOR AGGREGATE OPERATOR
-	FOREACH(AttributeReference, a, po->projExprs)
-	{
-//		if(isPrefix(a->name, "ig") && a->attrType == DT_STRING)
-//		{
-			newNames = appendToTailOfList(newNames, a->name);
-//		}
-//		else
-//		{
-//			continue;
-//		}
-	}
-//
-//	FOREACH(AttributeReference, b, po->projExprs)
-//	{
-//		if(!isPrefix(b->name, "ig"))
-//		{
-//			newNames = appendToTailOfList(newNames, b->name);
-//		}
-//		else if(isPrefix(b->name, "ig") && b->attrType != DT_STRING)
-//		{
-//			newNames = appendToTailOfList(newNames, b->name);
-//		}
-//	}
-
+	newNames = CONCAT_LISTS(aggrNames, groupByNames);
 	AggregationOperator *ao = createAggregationOp(aggrs, groupBy, NULL, NIL, newNames);
-	ao->op.schema->attrDefs = po->op.schema->attrDefs;
 
 	addChildOperator((QueryOperator *) ao, (QueryOperator *) po);
 
