@@ -201,7 +201,7 @@ checkAttributeRefList (List *attrRefs, List *children, QueryOperator *parent)
                     DataTypeToString(a->attrType));
             ERROR_OP_LOG("parent is",parent);
             DEBUG_NODE_BEATIFY_LOG("details are:", a, childA, parent);
-            return FALSE;
+            return FALSE; // hard fix for now but this needs to be FALSE
         }
        /* else
         {
