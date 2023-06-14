@@ -909,6 +909,15 @@ rewriteIG_Join (JoinOperator *op)
     op->op.schema->attrDefs = copyObject(newAttrDefs);
     makeAttrNamesUnique((QueryOperator *) op);
 
+    List *attrLists = ((Operator *) op->cond)->args;
+    List *attrNames = NIL;
+
+    FOREACH(AttributeReference, ar, attrLists) {
+     	attrNames = appendToTailOfList(attrNames, ar);
+    }
+
+    SET_STRING_PROP(op, PROP_JOIN_ATTRS_FOR_HAMMING, attrNames);
+
 	LOG_RESULT("Rewritten Join Operator tree",op);
     return (QueryOperator *) op;
 }
