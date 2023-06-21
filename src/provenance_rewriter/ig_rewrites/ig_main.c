@@ -253,7 +253,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	AggregationOperator *ao = createAggregationOp(aggrs, groupBy, NULL, NIL, newNames);
 
 	addChildOperator((QueryOperator *) ao, (QueryOperator *) po);
-
 	// Switch the subtree with this newly created projection operator.
 	switchSubtrees((QueryOperator *) po, (QueryOperator *) ao);
 
@@ -270,41 +269,13 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		cnt++;
 	}
 
-
-
-//	FOREACH(AttributeDef, a, po->op.schema->attrDefs)
-//	{
-//		if(isPrefix(a->attrName,"ig"))
-//		{
-//			a->dataType = DT_BIT10;
-//		}
-//	}
-
-
 	//create projection operator upon selection operator from select clause
 	ProjectionOperator *newPo = createProjectionOp(projExprs, NULL, NIL, newNames);
-//	newProjExprs = NIL;
-//	FOREACH(AttributeReference, a, newPo->projExprs)
-//	{
-//		if(isPrefix(a->name, "ig"))
-//		{
-//
-//				CastExpr *castInt;
-//				CastExpr *cast;
-//				castInt = createCastExpr((Node *) a, DT_INT);
-//				cast = createCastExpr((Node *) castInt, DT_BIT10);
-//				newProjExprs = appendToTailOfList(newProjExprs, cast);
-//		}
-//		else
-//			newProjExprs = appendToTailOfList(newProjExprs, a);
-//	}
-//	newPo->projExprs = newProjExprs;
 	addChildOperator((QueryOperator *) newPo, (QueryOperator *) ao);
-
 	// Switch the subtree with this newly created projection operator.
 	switchSubtrees((QueryOperator *) ao, (QueryOperator *) newPo);
 
-//	// CAST_EXPR
+	// CAST_EXPR
 	newProjExprs = NIL;
 
 	FOREACH(AttributeReference, a, newPo->projExprs)
@@ -441,9 +412,6 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 			AttributeReference *ar = createFullAttrReference(a->attrName, 0, posV,0, a->dataType);
 			sumExprs = appendToTailOfList(sumExprs, ar);
 			sumNames = appendToTailOfList(sumNames, a->attrName);
-//			CastExpr *cast;
-//			cast = createCastExpr((Node *) ar, DT_INT);
-//			sumlist = appendToTailOfList(sumlist, cast);
 			sumlist = appendToTailOfList(sumlist, ar);
 			posV++;
 		}
@@ -484,7 +452,6 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
     DEBUG_LOG("REWRITE-IG - Projection");
     DEBUG_LOG("Operator tree \n%s", nodeToString(newProj));
 
-
     // Creating the HASH MAPS
     List *newProjExpr = NIL;
     int lenL = LIST_LENGTH(attrL) - 1;
@@ -496,6 +463,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
     List *RprojExprs = NIL;
     List *LattrNames = NIL;
     List *RattrNames = NIL;
+    List* joinAttrs = LIST_MAKE(GET_STRING_PROP(newProj, PROP_JOIN_ATTRS_FOR_HAMMING));
 
     HashMap *nameToIgAttrNameL = NEW_MAP(Constant, Constant);
     HashMap *nameToIgAttrNameR = NEW_MAP(Constant, Constant);
@@ -535,10 +503,9 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
     	else if(isSuffix(a->attrName,"anno"))
     	{
         	char *kv = a->attrName;
-        	ADD_TO_MAP(nameToIgAttrNameL,createStringKeyValue(kv,kv));
+        	ADD_TO_MAP(nameToIgAttrNameR,createStringKeyValue(kv,kv));
         	posOfIgR++;
     	}
-
 	}
 
 
@@ -566,6 +533,8 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 			l++;
 		}
     }
+
+
 
 	FOREACH(AttributeReference, n, LprojExprs)
 	{
@@ -704,17 +673,9 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 				char *attrIgNameL = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->name));
 				char *attrIgNameR = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, n->name));
 
-
-//				AttributeReference *arL = createFullAttrReference(attrIgNameL, 0,
-//						listPosString(LattrNames,attrIgNameL), 0, n->attrType);
-
 				AttributeReference *arL = createFullAttrReference(attrIgNameL, 0,
 						listPosString(LattrNames,attrIgNameL), 0,
 						isPrefix(attrIgNameL,"ig") ? DT_BIT10 : n->attrType);
-
-//				AttributeReference *arR = createFullAttrReference(attrIgNameR, 0,
-//						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR) - (lenL + 1),
-//										0, n->attrType);
 
 				AttributeReference *arR = createFullAttrReference(attrIgNameR, 0,
 						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR) - (lenL + 1),
@@ -742,13 +703,12 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 				exprs = appendToTailOfList(exprs,caseExpr);
 				atNames = appendToTailOfList(atNames, CONCAT_STRINGS("hamming_", n->name));
+				x++;
 
 			}
 			else if(!MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->name) && !isSuffix(n->name, "anno"))
 			{
 				char *attrIgNameL = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->name));
-//				AttributeReference *arL = createFullAttrReference(attrIgNameL, 0,
-//						listPosString(LattrNames,attrIgNameL), 0, n->attrType);
 
 				AttributeReference *arL = createFullAttrReference(attrIgNameL, 0,
 										listPosString(LattrNames,attrIgNameL), 0,
@@ -764,6 +724,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 				exprs = appendToTailOfList(exprs,hammingdist);
 				atNames = appendToTailOfList(atNames, CONCAT_STRINGS("hamming_", n->name));
+				x++;
 
 			}
 		}
@@ -778,6 +739,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 			char *ch = replaceSubstr(n->name, "1", "");
 			if(MAP_HAS_STRING_KEY(nameToIgAttrNameL, ch) && !isSuffix(n->name, "anno") )
 			{
+				x++;
 				continue;
 			}
 			else if(!MAP_HAS_STRING_KEY(nameToIgAttrNameL, ch) && !isSuffix(n->name, "anno"))
@@ -800,10 +762,40 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 				exprs = appendToTailOfList(exprs,hammingdist);
 				atNames = appendToTailOfList(atNames, CONCAT_STRINGS("hamming_", n->name));
+				x++;
 			}
 		}
 
 	}
+
+	// for the join atributes
+	List *functioninput = NIL;
+	char *tempName = NULL;
+	FOREACH(AttributeReference, n, joinAttrs)
+	{
+		if(MAP_HAS_STRING_KEY(nameToIgAttrNameL, n->name))
+		{
+			char *attrName = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->name));
+			AttributeReference *ar = createFullAttrReference(attrName, 0, x, 0,
+									isPrefix(attrName,"ig") ? DT_BIT10 : n->attrType);
+			x++;
+			functioninput = appendToTailOfList(functioninput, ar);
+			tempName = n->name;
+		}
+		else if(MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->name))
+		{
+			char *attrName = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, n->name));
+			AttributeReference *ar = createFullAttrReference(attrName, 0, x, 0,
+									isPrefix(attrName,"ig") ? DT_BIT10 : n->attrType);
+			x++;
+			functioninput = appendToTailOfList(functioninput, ar);
+		}
+	}
+
+	atNames = appendToTailOfList(atNames, CONCAT_STRINGS("hamming_correct_", tempName));
+	FunctionCall *hammingdist = createFunctionCall("hammingdist", functioninput);
+	exprs = appendToTailOfList(exprs,hammingdist);
+
 
 	ProjectionOperator *hamming_op = createProjectionOp(exprs, NULL, NIL, atNames);
 
@@ -857,7 +849,7 @@ rewriteIG_Projection (ProjectionOperator *op)
     // rewrite child
     rewriteIG_Operator(OP_LCHILD(op));
     QueryOperator *child = OP_LCHILD(op);
- 	switchSubtrees((QueryOperator *) op, child);
+ 	switchSubtrees((QueryOperator *) op, child); // child here has join property
 
 	List *newProjExpr = NIL;
 	List *newAttrNames = NIL;
@@ -873,6 +865,14 @@ rewriteIG_Projection (ProjectionOperator *op)
 	}
 
 	ProjectionOperator *newProj = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
+
+    // if there is PROP_JOIN_ATTRS_FOR_HAMMING set then copy over the properties to the new proj op
+    if(HAS_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING))
+    {
+        SET_STRING_PROP(newProj, PROP_JOIN_ATTRS_FOR_HAMMING,
+                copyObject(GET_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING)));
+    }
+
     addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
     switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
 
@@ -917,6 +917,7 @@ rewriteIG_Join (JoinOperator *op)
     }
 
     SET_STRING_PROP(op, PROP_JOIN_ATTRS_FOR_HAMMING, attrNames);
+
 
 	LOG_RESULT("Rewritten Join Operator tree",op);
     return (QueryOperator *) op;
