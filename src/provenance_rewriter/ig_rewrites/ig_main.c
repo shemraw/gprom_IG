@@ -463,7 +463,8 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
     List *RprojExprs = NIL;
     List *LattrNames = NIL;
     List *RattrNames = NIL;
-    List* joinAttrs = LIST_MAKE(GET_STRING_PROP(newProj, PROP_JOIN_ATTRS_FOR_HAMMING));
+//    List* joinAttrs = LIST_MAKE(GET_STRING_PROP(newProj, PROP_JOIN_ATTRS_FOR_HAMMING));
+    List* joinAttrs = NIL;
 
     HashMap *nameToIgAttrNameL = NEW_MAP(Constant, Constant);
     HashMap *nameToIgAttrNameR = NEW_MAP(Constant, Constant);
@@ -768,27 +769,44 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 	}
 
-	// for the join atributes
+	// for the join attributes
 	List *functioninput = NIL;
 	char *tempName = NULL;
+	joinAttrs = (List *) GET_STRING_PROP(newProj, PROP_JOIN_ATTRS_FOR_HAMMING);
+
 	FOREACH(AttributeReference, n, joinAttrs)
 	{
-		if(MAP_HAS_STRING_KEY(nameToIgAttrNameL, n->name))
+		//TODO: handle more than two-way join and/or multiple join attributes
+		if(n->fromClauseItem == 0)
 		{
-			char *attrName = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->name));
-			AttributeReference *ar = createFullAttrReference(attrName, 0, x, 0,
-									isPrefix(attrName,"ig") ? DT_BIT10 : n->attrType);
-			x++;
-			functioninput = appendToTailOfList(functioninput, ar);
-			tempName = n->name;
+			if(MAP_HAS_STRING_KEY(nameToIgAttrNameL, n->name))
+			{
+				char *attrName = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->name));
+				AttributeReference *ar = createFullAttrReference(attrName, 0,
+										listPosString(LattrNames,attrName), 0,
+										isPrefix(attrName,"ig") ? DT_BIT10 : n->attrType);
+
+				CastExpr *castL;
+				castL = createCastExpr((Node *) ar, DT_STRING);
+				functioninput = appendToTailOfList(functioninput, castL);
+				tempName = n->name;
+			}
 		}
-		else if(MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->name))
+
+		//TODO: handle more than two-way join and/or multiple join attributes
+		if(n->fromClauseItem == 1)
 		{
-			char *attrName = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, n->name));
-			AttributeReference *ar = createFullAttrReference(attrName, 0, x, 0,
-									isPrefix(attrName,"ig") ? DT_BIT10 : n->attrType);
-			x++;
-			functioninput = appendToTailOfList(functioninput, ar);
+			if(MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->name))
+			{
+				char *attrName = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, n->name));
+				AttributeReference *ar = createFullAttrReference(attrName, 0,
+						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrName) - (lenL + 1),
+						0, isPrefix(attrName,"ig") ? DT_BIT10 : n->attrType);
+
+				CastExpr *castR;
+				castR = createCastExpr((Node *) ar, DT_STRING);
+				functioninput = appendToTailOfList(functioninput, castR);
+			}
 		}
 	}
 
