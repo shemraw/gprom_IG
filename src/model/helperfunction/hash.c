@@ -134,6 +134,12 @@ hashBit10(uint64_t cur, unsigned value)
 }
 
 static inline uint64_t
+hashBit15(uint64_t cur, unsigned value)
+{
+    return hashMemory(cur, &value, sizeof(unsigned));
+}
+
+static inline uint64_t
 hashString(uint64_t cur, char *value)
 {
     if (value == NULL)
@@ -310,6 +316,9 @@ hashConstant (uint64_t cur, Constant *node)
 	    	break;
         case DT_BIT10:
 			cur = hashBit10(cur, BIT10_VALUE(node));
+			break;
+        case DT_BIT15:
+			cur = hashBit15(cur, BIT15_VALUE(node));
 			break;
     }
 

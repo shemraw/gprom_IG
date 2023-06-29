@@ -620,6 +620,9 @@ outConstant (StringInfo str, Constant *node)
             case DT_BIT10:
 				appendStringInfo(str, "%d", *((unsigned *) node->value));
 				break;
+            case DT_BIT15:
+				appendStringInfo(str, "%d", *((unsigned *) node->value));
+				break;
         }
 
     WRITE_BOOL_FIELD(isNull);

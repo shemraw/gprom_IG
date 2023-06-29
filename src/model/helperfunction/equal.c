@@ -309,6 +309,8 @@ equalConstant (Constant *a, Constant *b, HashMap *seenOps, MemContext *c)
         	return strcmp(STRING_VALUE(a), STRING_VALUE(b)) == 0;
         case DT_BIT10:
 			return BIT10_VALUE(a) == BIT10_VALUE(b);
+        case DT_BIT15:
+			return BIT15_VALUE(a) == BIT15_VALUE(b);
     }
 
     COMPARE_SCALAR_FIELD(isNull);

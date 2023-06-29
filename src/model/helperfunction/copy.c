@@ -1084,6 +1084,10 @@ copyConstant(Constant *from, OperatorMap **opMap)
 			  new->value = NEW(unsigned);
 			  *((unsigned *) new->value) = *((unsigned *) from->value);
 			  break;
+	      case DT_BIT15:
+			  new->value = NEW(unsigned);
+			  *((unsigned *) new->value) = *((unsigned *) from->value);
+			  break;
 	  }
 	  return new;
 }

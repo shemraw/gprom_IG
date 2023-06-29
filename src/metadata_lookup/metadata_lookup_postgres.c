@@ -991,6 +991,9 @@ postgresBackendDatatypeToSQL (DataType dt)
         case DT_BIT10:
         	return "bit(10)";
         	break;
+        case DT_BIT15:
+			return "bit(15)";
+			break;
     }
 
     // keep compiler quiet

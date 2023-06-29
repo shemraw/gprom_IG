@@ -91,6 +91,9 @@ constantToSQL (StringInfo str, Constant *node)
         case DT_BIT10:
 			appendStringInfo(str, "%d", *((unsigned *) node->value));
 			break;
+        case DT_BIT15:
+			appendStringInfo(str, "%d", *((unsigned *) node->value));
+			break;
     }
 }
 
@@ -802,6 +805,9 @@ constantToLatex (StringInfo str, Constant *node)
             appendStringInfo(str, "\\texttt{\\textcolor{blue}{%s}}", latexEscapeString((char *) node->value));
             break;
         case DT_BIT10:
+			appendStringInfo(str, "%d", *((unsigned *) node->value));
+			break;
+        case DT_BIT15:
 			appendStringInfo(str, "%d", *((unsigned *) node->value));
 			break;
     }

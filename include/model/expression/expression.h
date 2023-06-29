@@ -53,7 +53,8 @@ NEW_ENUM_WITH_TO_STRING(DataType,
     DT_FLOAT,
     DT_BOOL,
     DT_VARCHAR2,
-	DT_BIT10
+	DT_BIT10,
+	DT_BIT15
 );
 
 typedef struct Constant {
@@ -277,6 +278,7 @@ extern Constant *makeConst(DataType dt);
 
 #define INT_VALUE(_c) *((int *) ((Constant *) _c)->value)
 #define BIT10_VALUE(_c) *((unsigned *) ((Constant *) _c)->value)
+#define BIT15_VALUE(_c) *((unsigned *) ((Constant *) _c)->value)
 
 #define FLOAT_VALUE(_c) *((double *) ((Constant *) _c)->value)
 #define LONG_VALUE(_c) *((gprom_long_t *) ((Constant *) _c)->value)
