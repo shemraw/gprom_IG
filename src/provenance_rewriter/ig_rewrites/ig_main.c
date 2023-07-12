@@ -71,26 +71,27 @@ rewriteIG (ProvenanceComputation  *op)
     //mark the number of table - used in provenance scratch
     markNumOfTableAccess((QueryOperator *) op);
 
-    QueryOperator *rewRoot = OP_LCHILD(op);
-    DEBUG_NODE_BEATIFY_LOG("rewRoot is:", rewRoot);
+    QueryOperator *newRoot = OP_LCHILD(op);
+//    QueryOperator *rewRoot = (QueryOperator *) op;
+    DEBUG_NODE_BEATIFY_LOG("rewRoot is:", newRoot);
 
     // cache asOf
     asOf = op->asOf;
 
     // rewrite subquery under provenance computation
-    rewriteIG_Operator(rewRoot);
-    DEBUG_NODE_BEATIFY_LOG("before rewritten query root is switched:", rewRoot);
+    rewriteIG_Operator(newRoot);
+    DEBUG_NODE_BEATIFY_LOG("before rewritten query root is switched:", newRoot);
 
     // update root of rewritten subquery
-    rewRoot = OP_LCHILD(op);
+    newRoot = OP_LCHILD(op);
 
     // adapt inputs of parents to remove provenance computation
-    switchSubtrees((QueryOperator *) op, rewRoot);
-    DEBUG_NODE_BEATIFY_LOG("rewritten query root is:", rewRoot);
+    switchSubtrees((QueryOperator *) op, newRoot);
+    DEBUG_NODE_BEATIFY_LOG("rewritten query root is:", newRoot);
 
     STOP_TIMER("rewrite - IG rewrite");
 
-    return rewRoot;
+    return newRoot;
 }
 
 
@@ -591,6 +592,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 	}
 
+
 	FOREACH(AttributeReference, n, RprojExprs)
 	{
 		if(!isPrefix(n->name, "ig") && !isSuffix(n->name, "anno"))
@@ -890,7 +892,24 @@ rewriteIG_Projection (ProjectionOperator *op)
     DEBUG_LOG("Operator tree \n%s", nodeToString(op));
 
     // rewrite child
-    rewriteIG_Operator(OP_LCHILD(op));
+//	List *newProjExpr1 = NIL;
+//	List *newAttrNames1 = NIL;
+//	int pos1 = 0;
+//	FOREACH(AttributeDef, a, op->op.schema->attrDefs)
+//	{
+//		newProjExpr1 = appendToTailOfList(newProjExpr1,
+//				 createFullAttrReference(a->attrName, 0, pos1, 0, a->dataType));
+//
+//		newAttrNames1 = appendToTailOfList(newAttrNames1, a->attrName);
+//		pos1++;
+//	}
+//
+//	ProjectionOperator *newProj1 = createProjectionOp(newProjExpr1, NULL, NIL, newAttrNames1);
+    QueryOperator *child_test = OP_LCHILD(op);
+//    rewriteIG_Operator(OP_LCHILD(op));
+    rewriteIG_Operator(child_test);
+//	rewriteIG_Operator((QueryOperator *) newProj1);
+
     QueryOperator *child = OP_LCHILD(op);
  	switchSubtrees((QueryOperator *) op, child); // child here has join property
 
@@ -906,6 +925,8 @@ rewriteIG_Projection (ProjectionOperator *op)
 		newAttrNames = appendToTailOfList(newAttrNames, a->attrName);
 		pos++;
 	}
+
+
 
 	ProjectionOperator *newProj = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
 

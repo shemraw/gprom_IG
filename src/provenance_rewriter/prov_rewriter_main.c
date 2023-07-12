@@ -224,27 +224,6 @@ rewriteProvenanceComputation (ProvenanceComputation *op)
             break;
         case IG_PI_CS: //TODO implement
         	result = rewriteIG(op);
-
-//			if (isRewriteOptionActivated(OPTION_PI_CS_USE_COMPOSABLE))
-//				result =  rewritePI_CSComposable(op);
-//			else
-//				result = rewritePI_CS(op);
-//			removeParent(result, (QueryOperator *) op);
-//
-//			//semiring comb operations
-//			if(isCombinerActivated)
-//			{
-//				Node *addExpr;
-//				Node *multExpr;
-//
-//				addExpr = getSemiringCombinerAddExpr((QueryOperator *) op);
-//				multExpr = getSemiringCombinerMultExpr((QueryOperator *) op);
-//
-//				INFO_LOG("user has provied a semiring combiner: %s:\n\n%s", beatify(nodeToString(addExpr)), beatify(nodeToString(multExpr)));
-//				result = addSemiringCombiner(result,addExpr,multExpr);
-//				INFO_OP_LOG("Add semiring combiner:", result);
-//			}
-
 			break;
     }
 
