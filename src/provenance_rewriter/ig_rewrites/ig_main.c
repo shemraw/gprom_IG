@@ -41,6 +41,7 @@
 static QueryOperator *rewriteIG_Operator (QueryOperator *op);
 static QueryOperator *rewriteIG_Conversion (ProjectionOperator *op);
 static QueryOperator *rewriteIG_Projection(ProjectionOperator *op);
+static QueryOperator *rewriteIG_Selection(SelectionOperator *op);
 //static ProjectionOperator *rewriteIG_SumExprs(ProjectionOperator *op);
 //static ProjectionOperator *rewriteIG_HammingFunctions(ProjectionOperator *op);
 static QueryOperator *rewriteIG_Join(JoinOperator *op);
@@ -106,8 +107,8 @@ rewriteIG_Operator (QueryOperator *op)
         	FATAL_LOG("no rewrite implemented for operator ", nodeToString(op));
         	return NULL;
         case T_SelectionOperator:
-        	FATAL_LOG("no rewrite implemented for operator ", nodeToString(op));
-        	return NULL;
+        	rewrittenOp = rewriteIG_Selection((SelectionOperator *) op);
+        	break;
         case T_ProjectionOperator:
             rewrittenOp = rewriteIG_Projection((ProjectionOperator *) op);
             break;
@@ -150,6 +151,27 @@ rewriteIG_Operator (QueryOperator *op)
     return rewrittenOp;
 }
 
+
+static QueryOperator *
+rewriteIG_Selection (SelectionOperator *op)
+{
+    ASSERT(OP_LCHILD(op));
+
+    DEBUG_LOG("REWRITE-PICS - Selection");
+    DEBUG_LOG("Operator tree \n%s", nodeToString(op));
+
+    //add semiring options
+    addSCOptionToChild((QueryOperator *) op,OP_LCHILD(op));
+
+    // rewrite child first
+    rewriteIG_Operator(OP_LCHILD(op));
+
+    // adapt schema
+    addProvenanceAttrsToSchema((QueryOperator *) op, OP_LCHILD(op));
+
+    LOG_RESULT("Rewritten Operator tree", op);
+    return (QueryOperator *) op;
+}
 
 static QueryOperator *
 rewriteIG_Conversion (ProjectionOperator *op)
@@ -392,6 +414,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 }
 
+/*
 static ProjectionOperator *
 rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 {
@@ -883,6 +906,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 }
 
+*/
 
 static QueryOperator *
 rewriteIG_Projection (ProjectionOperator *op)
@@ -892,24 +916,7 @@ rewriteIG_Projection (ProjectionOperator *op)
     DEBUG_LOG("Operator tree \n%s", nodeToString(op));
 
     // rewrite child
-//	List *newProjExpr1 = NIL;
-//	List *newAttrNames1 = NIL;
-//	int pos1 = 0;
-//	FOREACH(AttributeDef, a, op->op.schema->attrDefs)
-//	{
-//		newProjExpr1 = appendToTailOfList(newProjExpr1,
-//				 createFullAttrReference(a->attrName, 0, pos1, 0, a->dataType));
-//
-//		newAttrNames1 = appendToTailOfList(newAttrNames1, a->attrName);
-//		pos1++;
-//	}
-//
-//	ProjectionOperator *newProj1 = createProjectionOp(newProjExpr1, NULL, NIL, newAttrNames1);
-    QueryOperator *child_test = OP_LCHILD(op);
-//    rewriteIG_Operator(OP_LCHILD(op));
-    rewriteIG_Operator(child_test);
-//	rewriteIG_Operator((QueryOperator *) newProj1);
-
+    rewriteIG_Operator(OP_LCHILD(op));
     QueryOperator *child = OP_LCHILD(op);
  	switchSubtrees((QueryOperator *) op, child); // child here has join property
 
@@ -926,8 +933,6 @@ rewriteIG_Projection (ProjectionOperator *op)
 		pos++;
 	}
 
-
-
 	ProjectionOperator *newProj = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
 
     // if there is PROP_JOIN_ATTRS_FOR_HAMMING set then copy over the properties to the new proj op
@@ -939,14 +944,17 @@ rewriteIG_Projection (ProjectionOperator *op)
 
     addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
     switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
-
-   // This function creates hash maps and adds hamming distance functions
-	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(newProj);
-	// This function adds the + expression to calculate the total distance
-	ProjectionOperator *sumrows = rewriteIG_SumExprs(hammingvalue_op);
-
-	LOG_RESULT("Rewritten Projection Operator tree", sumrows);
-	return (QueryOperator *) sumrows;
+//
+//   // This function creates hash maps and adds hamming distance functions
+//	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(newProj);
+//	// This function adds the + expression to calculate the total distance
+//	ProjectionOperator *sumrows = rewriteIG_SumExprs(hammingvalue_op);
+//
+//	LOG_RESULT("Rewritten Projection Operator tree", sumrows);
+//	return (QueryOperator *) sumrows;
+//
+	LOG_RESULT("Rewritten Projection Operator tree", newProj);
+	return (QueryOperator *) newProj;
 
 }
 

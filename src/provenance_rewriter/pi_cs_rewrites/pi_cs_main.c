@@ -743,9 +743,6 @@ rewritePI_CSJoin (JoinOperator *op)
     // if (!HAS_STRING_PROP(PROP...))
     rChild = rewritePI_CSOperator(rChild);
 
-	LOG_RESULT("AFTER PI CS OPERATOR INSIDE IG JOIN RCHILD", rChild);
-	LOG_RESULT("AFTER PI CS OPERATOR INSIDE IG JOIN LCHILD", lChild);
-
     // adapt schema for join op
 //    clearAttrsFromSchema((QueryOperator *) op);
 //    addNormalAttrsToSchema(o, lChild);
@@ -765,7 +762,6 @@ rewritePI_CSJoin (JoinOperator *op)
     addChildOperator((QueryOperator *) proj, (QueryOperator *) op);
 
     // SET PROP IS_REWRITTEN
-
     LOG_RESULT("Rewritten Operator tree", op);
     return (QueryOperator *) proj;
 }

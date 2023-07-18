@@ -222,7 +222,7 @@ rewriteProvenanceComputation (ProvenanceComputation *op)
         case PROV_NONE:
             result = OP_LCHILD(op);
             break;
-        case IG_PI_CS: //TODO implement
+        case IG_PI_CS:
         	result = rewriteIG(op);
 			break;
     }
