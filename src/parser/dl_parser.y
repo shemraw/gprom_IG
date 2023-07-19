@@ -135,6 +135,7 @@ stmtList:
  *	- summarization, e.g., TOP k SUMMARIZED BY type WITH SAMPLE(p);
  *  - RPQ requests, e.g., RPQ('a*.b', typeOfResult, edge, result)
  */
+ 
 statement:
 		rule { RULELOG("statement::rule"); $$ = $1; }
 		| fact { RULELOG("statement::fact"); $$ = $1; }

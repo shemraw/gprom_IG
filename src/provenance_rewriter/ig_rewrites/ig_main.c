@@ -161,13 +161,45 @@ rewriteIG_Selection (SelectionOperator *op)
     DEBUG_LOG("Operator tree \n%s", nodeToString(op));
 
     //add semiring options
-    addSCOptionToChild((QueryOperator *) op,OP_LCHILD(op));
+    QueryOperator *child = OP_LCHILD(op);
+
+    if(HAS_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING))
+    {
+        SET_STRING_PROP(op, PROP_JOIN_ATTRS_FOR_HAMMING,
+                copyObject(GET_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING)));
+    }
+
+    if(HAS_STRING_PROP(child, PROP_USER_IG_ATTRS))
+   {
+	   SET_STRING_PROP(op, PROP_USER_IG_ATTRS,
+			   copyObject(GET_STRING_PROP(child, PROP_USER_IG_ATTRS)));
+   }
+
+    addSCOptionToChild((QueryOperator *) op,child);
 
     // rewrite child first
-    rewriteIG_Operator(OP_LCHILD(op));
+    rewriteIG_Operator(child);
 
     // adapt schema
-    addProvenanceAttrsToSchema((QueryOperator *) op, OP_LCHILD(op));
+    addProvenanceAttrsToSchema((QueryOperator *) op, child);
+
+//	List *newProjExpr = NIL;
+//	List *newAttrNames = NIL;
+//	int pos = 0;
+//
+//	FOREACH(AttributeDef, a, child->schema->attrDefs)
+//	{
+//		newProjExpr = appendToTailOfList(newProjExpr,
+//				 createFullAttrReference(a->attrName, 0, pos, 0, a->dataType));
+//
+//		newAttrNames = appendToTailOfList(newAttrNames, a->attrName);
+//		pos++;
+//	}
+//
+//	ProjectionOperator *newProj = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
+//
+//    addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
+//    switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
 
     LOG_RESULT("Rewritten Operator tree", op);
     return (QueryOperator *) op;
@@ -920,9 +952,36 @@ rewriteIG_Projection (ProjectionOperator *op)
     QueryOperator *child = OP_LCHILD(op);
  	switchSubtrees((QueryOperator *) op, child); // child here has join property
 
+// 	QueryOperator *child_inputs = (List *) child->inputs;
+
 	List *newProjExpr = NIL;
 	List *newAttrNames = NIL;
 	int pos = 0;
+
+
+    List *testAttrDefs = NIL;
+    List *tempExpr = NIL;
+    List *tempNames = NIL;
+    int posTemp = 0;
+
+    testAttrDefs = (List *) GET_STRING_PROP(child, PROP_USER_IG_ATTRS);
+
+//	FOREACH(AttributeDef, a, child_inputs->schema->attrDefs)
+    FOREACH(AttributeDef, a, testAttrDefs)
+	{
+		tempExpr = appendToTailOfList(tempExpr,
+				 createFullAttrReference(a->attrName, 0, posTemp, 0, a->dataType));
+
+		tempNames = appendToTailOfList(tempNames, a->attrName);
+		posTemp++;
+	}
+
+	ProjectionOperator *tempProj = createProjectionOp(tempExpr, NULL, NIL, tempNames);
+
+
+	LOG_RESULT("TESTING FOR SELECT OPERATOR", tempProj);
+
+
 
 	FOREACH(AttributeDef, a, child->schema->attrDefs)
 	{
@@ -942,8 +1001,58 @@ rewriteIG_Projection (ProjectionOperator *op)
                 copyObject(GET_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING)));
     }
 
+    if(HAS_STRING_PROP(child, PROP_USER_IG_ATTRS))
+   {
+	   SET_STRING_PROP(newProj, PROP_USER_IG_ATTRS,
+			   copyObject(GET_STRING_PROP(child, PROP_USER_IG_ATTRS)));
+   }
+
     addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
     switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
+
+
+
+//    if(HAS_STRING_PROP(child, PROP_USER_IG_ATTRS))
+//    {
+////        SET_STRING_PROP(testAttrDefs, PROP_USER_IG_ATTRS,
+////                copyObject(GET_STRING_PROP(child, PROP_USER_IG_ATTRS)));
+//    	testAttrDefs = copyObject(GET_STRING_PROP(child, PROP_USER_IG_ATTRS));
+//
+//
+//    	LOG_RESULT("CHECK IF IT ENTERED IF", newProj); // did not enter if here
+//    }
+
+//    testAttrDefs = child->igAttrs;
+
+
+
+//    QueryOperator *lChild = OP_LCHILD(op);
+//    QueryOperator *rChild = OP_RCHILD(op);
+//    List *newAttrDefs = NIL;
+//    List *tempNames = NIL;
+
+//
+//	FOREACH(AttributeDef, a, lChild->schema->attrDefs)
+//	{
+//		newAttrDefs = appendToTailOfList(newAttrDefs,
+//				 createFullAttrReference(a->attrName, 0, pos, 0, a->dataType));
+//
+//		tempNames = appendToTailOfList(tempNames, a->attrName);
+//		posTemp++;
+//	}
+
+//	FOREACH(AttributeDef, a, rChild->schema->attrDefs)
+//	{
+//		newAttrDefs = appendToTailOfList(newAttrDefs,
+//				 createFullAttrReference(a->attrName, 0, pos, 0, a->dataType));
+//
+//		tempNames = appendToTailOfList(tempNames, a->attrName);
+//		posTemp++;
+//	}
+
+//
+//	ProjectionOperator *testProj = createProjectionOp(newAttrDefs, NULL, NIL, tempNames);
+
 //
 //   // This function creates hash maps and adds hamming distance functions
 //	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(newProj);
@@ -953,8 +1062,11 @@ rewriteIG_Projection (ProjectionOperator *op)
 //	LOG_RESULT("Rewritten Projection Operator tree", sumrows);
 //	return (QueryOperator *) sumrows;
 //
+
 	LOG_RESULT("Rewritten Projection Operator tree", newProj);
 	return (QueryOperator *) newProj;
+
+
 
 }
 
@@ -979,7 +1091,11 @@ rewriteIG_Join (JoinOperator *op)
 
     List *newAttrDefs = CONCAT_LISTS(lAttrDefs,rAttrDefs);
     op->op.schema->attrDefs = copyObject(newAttrDefs);
+    SET_STRING_PROP(op, PROP_USER_IG_ATTRS, newAttrDefs);
+//    op->op.igAttrs = newAttrDefs;
+
     makeAttrNamesUnique((QueryOperator *) op);
+
 
     List *attrLists = ((Operator *) op->cond)->args;
     List *attrNames = NIL;
