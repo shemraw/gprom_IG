@@ -153,7 +153,7 @@ rewriteIG_Operator (QueryOperator *op)
 
 
 static QueryOperator *
-rewriteIG_Selection (SelectionOperator *op)
+rewriteIG_Selection (SelectionOperator *op) //where clause
 {
     ASSERT(OP_LCHILD(op));
 
@@ -162,23 +162,29 @@ rewriteIG_Selection (SelectionOperator *op)
 
     //add semiring options
     QueryOperator *child = OP_LCHILD(op);
+    List *tempExpr = NIL;
+    List *tempNames = NIL;
+    int posTemp = 0;
 
-    if(HAS_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING))
-    {
-        SET_STRING_PROP(op, PROP_JOIN_ATTRS_FOR_HAMMING,
-                copyObject(GET_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING)));
-    }
+    FOREACH(AttributeDef, a, child->schema->attrDefs)
+	{
+		tempExpr = appendToTailOfList(tempExpr,
+				 createFullAttrReference(a->attrName, 0, posTemp, 0, a->dataType));
 
-    if(HAS_STRING_PROP(child, PROP_USER_IG_ATTRS))
-   {
-	   SET_STRING_PROP(op, PROP_USER_IG_ATTRS,
-			   copyObject(GET_STRING_PROP(child, PROP_USER_IG_ATTRS)));
-   }
+		tempNames = appendToTailOfList(tempNames, a->attrName);
+		posTemp++;
+	}
+
+	ProjectionOperator *tempProj = createProjectionOp(tempExpr, NULL, NIL, tempNames);
+	LOG_RESULT("TESTING FOR SELECT OPERATOR", tempProj);
+
+
 
     addSCOptionToChild((QueryOperator *) op,child);
 
     // rewrite child first
     rewriteIG_Operator(child);
+    switchSubtrees((QueryOperator *) op, child); // child here has join property
 
     // adapt schema
     addProvenanceAttrsToSchema((QueryOperator *) op, child);
@@ -201,7 +207,7 @@ rewriteIG_Selection (SelectionOperator *op)
 //    addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
 //    switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
 
-    LOG_RESULT("Rewritten Operator tree", op);
+    LOG_RESULT("Rewritten Selection Operator tree", op);
     return (QueryOperator *) op;
 }
 
@@ -952,35 +958,12 @@ rewriteIG_Projection (ProjectionOperator *op)
     QueryOperator *child = OP_LCHILD(op);
  	switchSubtrees((QueryOperator *) op, child); // child here has join property
 
-// 	QueryOperator *child_inputs = (List *) child->inputs;
+// 	QueryOperator *child_inputs = child->inputs;
+
 
 	List *newProjExpr = NIL;
 	List *newAttrNames = NIL;
 	int pos = 0;
-
-
-    List *testAttrDefs = NIL;
-    List *tempExpr = NIL;
-    List *tempNames = NIL;
-    int posTemp = 0;
-
-    testAttrDefs = (List *) GET_STRING_PROP(child, PROP_USER_IG_ATTRS);
-
-//	FOREACH(AttributeDef, a, child_inputs->schema->attrDefs)
-    FOREACH(AttributeDef, a, testAttrDefs)
-	{
-		tempExpr = appendToTailOfList(tempExpr,
-				 createFullAttrReference(a->attrName, 0, posTemp, 0, a->dataType));
-
-		tempNames = appendToTailOfList(tempNames, a->attrName);
-		posTemp++;
-	}
-
-	ProjectionOperator *tempProj = createProjectionOp(tempExpr, NULL, NIL, tempNames);
-
-
-	LOG_RESULT("TESTING FOR SELECT OPERATOR", tempProj);
-
 
 
 	FOREACH(AttributeDef, a, child->schema->attrDefs)
@@ -1065,7 +1048,6 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	LOG_RESULT("Rewritten Projection Operator tree", newProj);
 	return (QueryOperator *) newProj;
-
 
 
 }
