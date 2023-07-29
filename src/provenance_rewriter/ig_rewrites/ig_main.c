@@ -167,7 +167,7 @@ rewriteIG_Selection (SelectionOperator *op) //where clause
 
     // rewrite child first
     rewriteIG_Operator(child);
-//    switchSubtrees((QueryOperator *) op, child); // child here has join property
+//  switchSubtrees((QueryOperator *) op, child); // child here has join property
 
 
     List *tempExpr = NIL;
@@ -186,6 +186,7 @@ rewriteIG_Selection (SelectionOperator *op) //where clause
  	ProjectionOperator *tempProj = createProjectionOp(tempExpr, NULL, NIL, tempNames);
  	op->op.schema->attrDefs = tempProj->op.schema->attrDefs;
 
+ 	// comment it out and check
  	addChildOperator((QueryOperator *) tempProj, (QueryOperator *) op);
  	switchSubtrees((QueryOperator *) op, (QueryOperator *) tempProj);
 
@@ -496,7 +497,7 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 
 
 //rewriteIG_HammingFunctions
-/*
+
 
 static ProjectionOperator *
 rewriteIG_HammingFunctions (ProjectionOperator *newProj)
@@ -935,7 +936,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 }
 
-*/
+
 
 
 //Conversion Case
@@ -1325,23 +1326,24 @@ rewriteIG_Projection (ProjectionOperator *op)
 		pos4++;
 	}
 
-//	int i = 0;
-//
-//	FOREACH(Node, a, tempExprsR)
-//	{
-//		if(isA(a, CaseExpr))
-//		{
-//			char *attrName = getAttrNameByPos((QueryOperator *) tempProjR, i);
-//			char *name = CONCAT_STRINGS("ig_conv_", tblNameR);
-//			AttributeReference *ar = createAttrsRefByName((QueryOperator *) tempProjR, attrName);
-//
-//			tempExprsR = appendToTailOfList(tempExprsR,
-//					 createFullAttrReference(CONCAT_STRINGS(name, a->attrName), 0, pos4, 0, a->dataType));
-//
-//			tempNamesR = appendToTailOfList(tempNamesR, CONCAT_STRINGS(name, a->attrName));
-//		}
-//		i ++;
-//	}
+	int i = 0;
+
+	AttributeReference *test;
+	FOREACH(Node, a, tempExprsR) // tempExprsR is a list of Attribute reference
+	{
+		if(isA(a, CaseExpr))
+		{
+			char *attrName = getAttrNameByPos((QueryOperator *) tempProjR, i);
+			char *name = CONCAT_STRINGS("ig_conv_", tblNameR);
+			AttributeReference *ar = createAttrsRefByName((QueryOperator *) tempProjR, attrName);
+
+			tempExprsR = appendToTailOfList(tempExprsR,
+					 createFullAttrReference(CONCAT_STRINGS(name, a->attrName), 0, pos4, 0, a->dataType));
+
+			tempNamesR = appendToTailOfList(tempNamesR, CONCAT_STRINGS(name, a->attrName));
+		}
+		i ++;
+	}
 
 	ProjectionOperator *tempProjRFull = createProjectionOp(tempExprsR, NULL, NIL, tempNamesR);
 	LOG_RESULT("TEST PROJ TO SAVE CASEWHEN FROM INPUT QUERY RRRRRRRRRRR2 ----------", tempProjRFull);
