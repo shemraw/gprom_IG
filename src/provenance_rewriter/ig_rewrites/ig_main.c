@@ -1327,42 +1327,53 @@ rewriteIG_Projection (ProjectionOperator *op)
 	}
 
  // need to edit then and else. Then is in whenClause
-	List *whenClause;
-	Node *elseClause;
-//	Node *thenClause;
+	List *whenClauses = NIL;
+	CaseWhen *whenClause;
+	Node *elseClause = NULL;
+	AttributeReference *thenClause = NULL;
 //	Node *condClause; // cond in this case
 	AttributeReference *elsear;
-	char *elsename;
-	char *thenname;
+	char *elsename = NULL;
+	char *thenname = NULL;
 //	AttributeReference *thenar;
 //	Node *cond;
 
-	FOREACH(AttributeReference, a, tempExprsR) // tempExprsR is a list of Attribute reference
+	FOREACH(Node, a, tempExprsR) // tempExprsR is a list of Attribute reference
 	{
 		if(isA(a, CaseExpr))
 		{
+			//TODO: make sure to maintain the position of the attribute reference
 			char *nameelse = CONCAT_STRINGS("ig_conv_", tblNameL); // dayswaqi should come from the left list
 			elsename = CONCAT_STRINGS(nameelse,((AttributeReference *)((CaseExpr *) a)->elseRes)->name);
 			elsear = createFullAttrReference(elsename, 0, pos4, 0, DT_BIT10);
 			elseClause =  (Node *) elsear;
-			whenClause = ((CaseExpr *) a)->whenClauses;
 
-			int x = 0;
-			FOREACH(Node , n, whenClause)
-			{
-				if(x == 0)
-				{
-					x++;
-				}
+			// replace the attribute name in the case when statement
+			whenClauses = ((CaseExpr *) a)->whenClauses;
+			whenClause = (CaseWhen *) getHeadOfListP(whenClauses);
+			thenClause = (AttributeReference *) whenClause->then;
 
-				else if(x == 1)
-				{
-					char *namethen = CONCAT_STRINGS("ig_conv_", tblNameR); // gdays should come from right list
-					thenname = CONCAT_STRINGS(namethen , ((AttributeReference *) n)->name); // then
-					((AttributeReference *) n)->name = thenname;
-					break;
-				}
-			}
+			char *namethen = CONCAT_STRINGS("ig_conv_", tblNameR);
+			thenname = CONCAT_STRINGS(namethen , thenClause->name); // then
+			thenClause->name = thenname;
+
+
+//			int x = 0;
+//			FOREACH(Node , n, whenClause)
+//			{
+//				if(x == 0)
+//				{
+//					x++;
+//				}
+//
+//				else if(x == 1)
+//				{
+//					char *namethen = CONCAT_STRINGS("ig_conv_", tblNameR); // gdays should come from right list
+//					thenname = CONCAT_STRINGS(namethen , ((AttributeReference *) n)->name); // then
+//					((AttributeReference *) n)->name = thenname;
+//					break;
+//				}
+//			}
 
 
 //			((CaseWhen *) a)->when; // cond -----x-----
@@ -1371,7 +1382,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 //			condClause = (Node *) ((CaseWhen *) a)->when; // cond
 
 //			CaseWhen *newcaseWhen = createCaseWhen(condClause, thenClause);
-			CaseExpr *caseExpr = createCaseExpr(NULL, (whenClause), elseClause);
+			CaseExpr *caseExpr = createCaseExpr(NULL, singleton(whenClause), elseClause);
 //			CaseExpr *caseExpr = createCaseExpr(NULL, singleton(newcaseWhen), elseClause);
 			tempExprsR = appendToTailOfList(tempExprsR, caseExpr);
 			tempNamesR = appendToTailOfList(tempNamesR, nameelse);
