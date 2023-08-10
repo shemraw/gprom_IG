@@ -939,247 +939,6 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 */
 
 
-//Conversion Case
-static QueryOperator *
-rewriteIG_ConversionCase (ProjectionOperator *op)
-{
-	List *newProjExprs = NIL;
-	List *attrNames = NIL;
-
-	FOREACH(AttributeReference, a, op->projExprs)
-	{
-		if(isPrefix(a->name,"ig"))
-		{
-			if (a->attrType == DT_STRING)
-			{
-				StringToArray *toArray;
-				Unnest *tounnest;
-				Ascii *toAscii;
-
-				toArray = createStringToArrayExpr((Node *) a, "NULL");
-				tounnest = createUnnestExpr((Node *) toArray);
-				toAscii = createAsciiExpr((Node *) tounnest);
-				newProjExprs = appendToTailOfList(newProjExprs, toAscii);
-			}
-			else
-			{
-				newProjExprs = appendToTailOfList(newProjExprs, a);
-			}
-		}
-		else
-		{
-			newProjExprs = appendToTailOfList(newProjExprs, a);
-		}
-	}
-
-	op->projExprs = newProjExprs;
-
-	// CREATING a projection to not feed ascii expression into aggregation
-	int cnt = 0;
-	List *projExprs = NIL;
-
-	FOREACH(AttributeDef,a,op->op.schema->attrDefs)
-	{
-
-		if(isPrefix(a->attrName, "ig") && a->dataType == DT_STRING)
-		{
-			a->dataType = DT_INT;
-		}
-
-		projExprs = appendToTailOfList(projExprs,
-				createFullAttrReference(a->attrName, 0, cnt, 0, a->dataType));
-
-		attrNames = appendToTailOfList(attrNames, a->attrName);
-
-		cnt++;
-	}
-
-	//create projection operator upon selection operator from select clause
-	ProjectionOperator *po = createProjectionOp(projExprs, NULL, NIL, attrNames);
-	addChildOperator((QueryOperator *) po, (QueryOperator *) op);
-	// Switch the subtree with this newly created projection operator.
-	switchSubtrees((QueryOperator *) op, (QueryOperator *) po);
-
-	List *aggrs = NIL;
-	List *groupBy = NIL;
-	List *newNames = NIL;
-	List *aggrNames = NIL;
-	List *groupByNames = NIL;
-	attrNames = NIL;
-	int i = 0;
-
-	FOREACH(Node,n,newProjExprs)
-	{
-		if(isA(n,Ascii))
-		{
-			char *attrName = getAttrNameByPos((QueryOperator *) po, i);
-			AttributeReference *ar = createAttrsRefByName((QueryOperator *) po, attrName);
-			FunctionCall *sum = createFunctionCall("SUM", singleton(ar));
-			aggrs = appendToTailOfList(aggrs,sum);
-			aggrNames = appendToTailOfList(aggrNames,attrName);
-		}
-		else
-		{
-			if(isA(n,AttributeReference))
-			{
-				groupBy = appendToTailOfList(groupBy,n);
-
-				AttributeReference *ar = (AttributeReference *) n;
-				groupByNames = appendToTailOfList(groupByNames,(ar->name));
-			}
-
-			if(isA(n,CastExpr))
-			{
-				CastExpr *ce = (CastExpr *) n;
-				AttributeReference *ar = (AttributeReference *) ce->expr;
-				groupBy = appendToTailOfList(groupBy, (Node *) ar);
-			}
-		}
-
-		i++;
-	}
-
-	newNames = CONCAT_LISTS(aggrNames, groupByNames);
-	AggregationOperator *ao = createAggregationOp(aggrs, groupBy, NULL, NIL, newNames);
-
-	addChildOperator((QueryOperator *) ao, (QueryOperator *) po);
-	// Switch the subtree with this newly created projection operator.
-	switchSubtrees((QueryOperator *) po, (QueryOperator *) ao);
-
-	// CREATING THE NEW PROJECTION OPERATOR
-	projExprs = NIL;
-	cnt = 0;
-
-	FOREACH(AttributeDef,a,ao->op.schema->attrDefs)
-	{
-
-		projExprs = appendToTailOfList(projExprs,
-				createFullAttrReference(a->attrName, 0, cnt, 0, a->dataType));
-
-		cnt++;
-	}
-
-	//create projection operator upon selection operator from select clause
-	ProjectionOperator *newPo = createProjectionOp(projExprs, NULL, NIL, newNames);
-	addChildOperator((QueryOperator *) newPo, (QueryOperator *) ao);
-	// Switch the subtree with this newly created projection operator.
-	switchSubtrees((QueryOperator *) ao, (QueryOperator *) newPo);
-
-	// CAST_EXPR
-	newProjExprs = NIL;
-
-	FOREACH(AttributeReference, a, newPo->projExprs)
-	{
-		if(isPrefix(a->name, "ig"))
-		{
-
-				CastExpr *castInt;
-				CastExpr *cast;
-				castInt = createCastExpr((Node *) a, DT_INT);
-				cast = createCastExpr((Node *) castInt, DT_BIT15);
-
-				newProjExprs = appendToTailOfList(newProjExprs, cast);
-		}
-		else
-			newProjExprs = appendToTailOfList(newProjExprs, a);
-	}
-
-	newPo->projExprs = newProjExprs;
-
-	// matching the datatype of attribute def in the projection
-	FOREACH(AttributeDef, a, newPo->op.schema->attrDefs)
-	{
-		if(isPrefix(a->attrName,"ig"))
-		{
-			a->dataType = DT_BIT15;
-		}
-	}
-
-//	retrieve the original order of the projection attributes
-	projExprs = NIL;
-	newNames = NIL;
-
-
-	FOREACH(AttributeDef,a,po->op.schema->attrDefs)
-	{
-		projExprs = appendToTailOfList(projExprs,
-				createFullAttrReference(a->attrName, 0,
-						getAttrPos((QueryOperator *) newPo, a->attrName), 0,
-						isPrefix(a->attrName,"ig") ? DT_BIT15 : a->dataType));
-
-		newNames = appendToTailOfList(newNames, a->attrName);
-	}
-
-
-	ProjectionOperator *addPo = createProjectionOp(projExprs, NULL, NIL, newNames);;
-
-	// Getting Table name and length of table name here
-	char *tblName = "";
-	FOREACH(AttributeReference, n, addPo->projExprs)
-	{
-		if(isPrefix(n->name, "ig"))
-		{
-			int len1 = strlen(n->name);
-			int len2 = strlen(strrchr(n->name, '_'));
-			int len = len1 - len2 - 1;
-			tblName = substr(n->name, 8, len);
-			break;
-		}
-
-	}
-
-	int temp = 0;
-	int tblLen = strlen(tblName);
-
-	List *newProjExpr = NIL;
-	List *newProjExpr1 = NIL;
-	List *newProjExpr2 = NIL;
-
-
-	// Getting original attributes
-	FOREACH(AttributeReference, n, addPo->projExprs)
-	{
-		newProjExpr1 = appendToTailOfList(newProjExpr1, n);
-		attrNames = appendToTailOfList(attrNames, n->name);
-	}
-
-	// Creating _anno Attribute
-	FOREACH(AttributeReference, n, addPo->projExprs)
-	{
-
-		if(temp == 0)
-		{
-			newProjExpr = appendToTailOfList(newProjExpr, createConstString(tblName));
-			temp++;
-		}
-		else if (isPrefix(n->name, "ig"))
-		{
-			CastExpr *cast;
-			cast = createCastExpr((Node *) n, DT_STRING);
-			newProjExpr = appendToTailOfList(newProjExpr, cast);
-
-			//this adds first 3 letter for the variable in concat
-			newProjExpr = appendToTailOfList(newProjExpr,
-					createConstString((substr(n->name, 9 + tblLen, 9 + tblLen + 2))));
-		}
-	}
-
-	attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS(tblName, "_anno"));
-	newProjExpr = LIST_MAKE(createOpExpr("||", newProjExpr));
-	newProjExpr2 = concatTwoLists(newProjExpr1, newProjExpr);
-
-	ProjectionOperator *concat = createProjectionOp(newProjExpr2, NULL, NIL, attrNames);
-
-	addChildOperator((QueryOperator *) concat, (QueryOperator *) newPo);
-
-	// Switch the subtree with this newly created projection operator.
-	switchSubtrees((QueryOperator *) newPo, (QueryOperator *) concat);
-
-    LOG_RESULT("Converted Operator tree", concat);
-	return (QueryOperator *) concat;
-
-
-}
 
 static QueryOperator *
 rewriteIG_Projection (ProjectionOperator *op)
@@ -1265,12 +1024,22 @@ rewriteIG_Projection (ProjectionOperator *op)
 	{
 		if(c < lenL)
 		{
+//		char *ch = replaceSubstr(a->name, "1", "");
+//		a->name = replaceSubstr(a->name, "1", "");
 		tempExprsL = appendToTailOfList(tempExprsL, a);
+//		tempExprsL = appendToTailOfList(tempExprsL,
+//				 createFullAttrReference(ch, 0, getAttrPos((QueryOperator *) tempProj, ch),
+//				 0, a->attrType));
 		c++;
 		}
 		else if(c >= lenL && c1 < (lenL + lenR))
 		{
+//		char *ch = replaceSubstr(a->name, "1", "");
+//		a->name = replaceSubstr(a->name, "1", "");
 		tempExprsR = appendToTailOfList(tempExprsR, a);
+//		tempExprsL = appendToTailOfList(tempExprsR,
+//				 createFullAttrReference(ch, 0, getAttrPos((QueryOperator *) tempProj, ch),
+//				 0, a->attrType));
 		c1++;
 		}
 	}
@@ -1279,16 +1048,17 @@ rewriteIG_Projection (ProjectionOperator *op)
 	{
 		if(c2 < lenL)
 		{
-		tempNamesL = appendToTailOfList(tempNamesL, a->attrName);
+		char *ch = replaceSubstr(a->attrName, "1", "");
+		tempNamesL = appendToTailOfList(tempNamesL, ch);
 		c2++;
 		}
 		else if(c2 >= lenL && c1 < (lenL + lenR))
 		{
-		tempNamesR = appendToTailOfList(tempNamesR, a->attrName);
+		char *ch = replaceSubstr(a->attrName, "1", "");
+		tempNamesR = appendToTailOfList(tempNamesR, ch);
 		c1++;
 		}
 	}
-
 
 
 	ProjectionOperator *tempProjL = createProjectionOp(tempExprsL, NULL, NIL, tempNamesL);
@@ -1296,131 +1066,6 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	ProjectionOperator *tempProjR = createProjectionOp(tempExprsR, NULL, NIL, tempNamesR);
 	LOG_RESULT("TEST PROJ TO SAVE CASEWHEN FROM INPUT QUERY RRRRRRRRRRRRR1 ----------", tempProjR);
-
-	//int pos3 = c + 1;
-	int pos3 = LIST_LENGTH(tempExprsL);
-
-	FOREACH(AttributeDef, a, tempProjL->op.schema->attrDefs)
-	{
-		char *name = CONCAT_STRINGS("ig_conv_", tblNameL);
-		tempExprsL = appendToTailOfList(tempExprsL,
-				 createFullAttrReference(CONCAT_STRINGS(name, a->attrName), 0, pos3, 0, a->dataType));
-
-		tempNamesL = appendToTailOfList(tempNamesL, CONCAT_STRINGS(name, a->attrName));
-		pos3++;
-	}
-
-	ProjectionOperator *tempProjLFull = createProjectionOp(tempExprsL, NULL, NIL, tempNamesL);
-	LOG_RESULT("TEST PROJ TO SAVE CASEWHEN FROM INPUT QUERY LLLLLLLLLLL2 ----------", tempProjLFull);
-
-	int pos4 = LIST_LENGTH(tempExprsR);
-
-	FOREACH(AttributeDef, a, tempProjR->op.schema->attrDefs)
-	{
-
-		char *name = CONCAT_STRINGS("ig_conv_", tblNameR);
-		tempExprsR = appendToTailOfList(tempExprsR,
-				 createFullAttrReference(CONCAT_STRINGS(name, a->attrName), 0, pos4, 0, a->dataType));
-
-		tempNamesR = appendToTailOfList(tempNamesR, CONCAT_STRINGS(name, a->attrName));
-		pos4++;
-	}
-
- // need to edit then and else. Then is in whenClause
-	List *whenClauses = NIL;
-	CaseWhen *whenClause;
-	Node *elseClause = NULL;
-	AttributeReference *thenClause = NULL;
-//	Node *condClause; // cond in this case
-	AttributeReference *elsear;
-	char *elsename = NULL;
-	char *thenname = NULL;
-//	AttributeReference *thenar;
-//	Node *cond;
-
-	FOREACH(Node, a, tempExprsR) // tempExprsR is a list of Attribute reference
-	{
-		if(isA(a, CaseExpr))
-		{
-			//TODO: make sure to maintain the position of the attribute reference
-			char *nameelse = CONCAT_STRINGS("ig_conv_", tblNameL); // dayswaqi should come from the left list
-			elsename = CONCAT_STRINGS(nameelse,((AttributeReference *)((CaseExpr *) a)->elseRes)->name);
-			elsear = createFullAttrReference(elsename, 0, pos4, 0, DT_BIT10);
-			elseClause =  (Node *) elsear;
-
-			// replace the attribute name in the case when statement
-			whenClauses = ((CaseExpr *) a)->whenClauses;
-			whenClause = (CaseWhen *) getHeadOfListP(whenClauses);
-			thenClause = (AttributeReference *) whenClause->then;
-
-			char *namethen = CONCAT_STRINGS("ig_conv_", tblNameR);
-			thenname = CONCAT_STRINGS(namethen , thenClause->name); // then
-			thenClause->name = thenname;
-
-
-//			int x = 0;
-//			FOREACH(Node , n, whenClause)
-//			{
-//				if(x == 0)
-//				{
-//					x++;
-//				}
-//
-//				else if(x == 1)
-//				{
-//					char *namethen = CONCAT_STRINGS("ig_conv_", tblNameR); // gdays should come from right list
-//					thenname = CONCAT_STRINGS(namethen , ((AttributeReference *) n)->name); // then
-//					((AttributeReference *) n)->name = thenname;
-//					break;
-//				}
-//			}
-
-
-//			((CaseWhen *) a)->when; // cond -----x-----
-//			thenar = createFullAttrReference(thenname, 0, pos4, 0, DT_BIT10);
-//			thenClause = (Node *) thenar;
-//			condClause = (Node *) ((CaseWhen *) a)->when; // cond
-
-//			CaseWhen *newcaseWhen = createCaseWhen(condClause, thenClause);
-			CaseExpr *caseExpr = createCaseExpr(NULL, singleton(whenClause), elseClause);
-//			CaseExpr *caseExpr = createCaseExpr(NULL, singleton(newcaseWhen), elseClause);
-			tempExprsR = appendToTailOfList(tempExprsR, caseExpr);
-			tempNamesR = appendToTailOfList(tempNamesR, nameelse);
-			pos4++;
-			break;
-		}
-
-
-	}
-
-	ProjectionOperator *tempProjRFull = createProjectionOp(tempExprsR, NULL, NIL, tempNamesR);
-	LOG_RESULT("TEST PROJ TO SAVE CASEWHEN FROM INPUT QUERY RRRRRRRRRRR2 ----------", tempProjRFull);
-
-
-	//test to see what happens if i send it into conversion
-	QueryOperator *testConvertL = rewriteIG_ConversionCase(tempProjLFull);
-	LOG_RESULT("TEST PROJ TO SAVE CASEWHEN FROM INPUT QUERY LLLLLLLLLLLLL2222 ----------", testConvertL);
-
-
-
-
-	List *newProjExpr2 = NIL;
-	List *newAttrNames2 = NIL;
-	int pos2 = 0;
-
-    FOREACH(AttributeDef,a,attrL)
-    {
-		newProjExpr2 = appendToTailOfList(newProjExpr2,
-				 createFullAttrReference(a->attrName, 0, pos2, 0, a->dataType));
-
-		newAttrNames2 = appendToTailOfList(newAttrNames2, a->attrName);
-		pos2++;
-    }
-
-	ProjectionOperator *tempProjL1 = createProjectionOp(newProjExpr2, NULL, NIL, newAttrNames2);
-	LOG_RESULT("TEST PROJ TO SAVE CASEWHEN FROM INPUT QUERY 222222222 ----------", tempProjL1);
-
-
 
 
 	List *newProjExpr = NIL;
@@ -1437,6 +1082,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 	}
 
 	ProjectionOperator *newProj = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
+	LOG_RESULT("NEW PROJ -------------------", newProj);
 
     // if there is PROP_JOIN_ATTRS_FOR_HAMMING set then copy over the properties to the new proj op
     if(HAS_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING))
@@ -1445,16 +1091,130 @@ rewriteIG_Projection (ProjectionOperator *op)
                 copyObject(GET_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING)));
     }
 
-    if(HAS_STRING_PROP(child, PROP_USER_IG_ATTRS))
-   {
-	   SET_STRING_PROP(newProj, PROP_USER_IG_ATTRS,
-			   copyObject(GET_STRING_PROP(child, PROP_USER_IG_ATTRS)));
-   }
 
     addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
     switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
 
+//
+//	FOREACH(AttributeDef, a, tempProjL->op.schema->attrDefs)
+//	{
+//		char *ch = replaceSubstr(a->attrName, "1", "");
+//		char *name = CONCAT_STRINGS("ig_conv_", tblNameL);
+//		char *fullname = CONCAT_STRINGS(name, ch);
+//		tempExprsL = appendToTailOfList(tempExprsL,
+//				 createFullAttrReference(fullname, 0, getAttrPos((QueryOperator *) newProj, fullname),
+//				 0, DT_BIT15));
+//
+//		tempNamesL = appendToTailOfList(tempNamesL, CONCAT_STRINGS(name, ch));
+//	}
+//
+//	tempExprsL = appendToTailOfList(tempExprsL,
+//				 createFullAttrReference(CONCAT_STRINGS(tblNameL, "anno"), 0,
+//				 getAttrPos((QueryOperator *) newProj, CONCAT_STRINGS(tblNameL, "anno")),
+//				 0, DT_BIT15));
+//
+//	tempNamesL = appendToTailOfList(tempNamesL, CONCAT_STRINGS(tblNameL, "anno"));
+//
+//
+//	FOREACH(AttributeDef, a, tempProjR->op.schema->attrDefs)
+//	{
+//		char *ch = replaceSubstr(a->attrName, "1", "");
+//		char *name = CONCAT_STRINGS("ig_conv_", tblNameR);
+//		char *fullname = CONCAT_STRINGS(name, ch);
+//		tempExprsR = appendToTailOfList(tempExprsR,
+//				 createFullAttrReference(fullname, 0, getAttrPos((QueryOperator *) newProj, fullname),
+//				 0, DT_BIT15));
+//
+//		tempNamesR = appendToTailOfList(tempNamesR, CONCAT_STRINGS(name, ch));
+//	}
+//
+//	tempExprsR = appendToTailOfList(tempExprsR,
+//				 createFullAttrReference(CONCAT_STRINGS(tblNameR, "anno"), 0,
+//				 getAttrPos((QueryOperator *) newProj, CONCAT_STRINGS(tblNameR, "anno")),
+//				 0, DT_BIT15));
+//
+//	tempNamesR = appendToTailOfList(tempNamesR, CONCAT_STRINGS(tblNameR, "anno"));
+//
 
+
+ // need to edit then and else. Then is in whenClause
+	List *whenClauses = NIL;
+	CaseWhen *whenClause;
+	Node *elseClause = NULL;
+	AttributeReference *thenClause = NULL;
+	AttributeReference *elsear;
+	char *elsename = NULL;
+	char *thenname = NULL;
+	char *tempName;
+
+	FOREACH(Node, a, tempExprsR) // tempExprsR is a list of Attribute reference
+	{
+		if(isA(a, CaseExpr))
+		{
+			//TODO: make sure to maintain the position of the attribute reference
+			//getAttrPos((QueryOperator *) newPo, a->attrName)
+			char *nameelse = CONCAT_STRINGS("ig_conv_", tblNameL); // dayswaqi should come from the left list
+			elsename = CONCAT_STRINGS(nameelse,((AttributeReference *)((CaseExpr *) a)->elseRes)->name);
+
+//			char *ch = replaceSubstr(elsename, "1", "");
+			elsear = createFullAttrReference(elsename, 0,
+					getAttrPos((QueryOperator *) newProj, elsename), 0, DT_BIT15);
+			elseClause =  (Node *) elsear;
+
+			// replace the attribute name in the case when statement
+			whenClauses = ((CaseExpr *) a)->whenClauses;
+			whenClause = (CaseWhen *) getHeadOfListP(whenClauses);
+			thenClause = (AttributeReference *) whenClause->then;
+
+
+			char *namethen = CONCAT_STRINGS("ig_conv_", tblNameR);
+			thenname = CONCAT_STRINGS(namethen , thenClause->name); // then
+//			char *ch1 = replaceSubstr(thenname, "1", "");
+			thenClause->name = thenname;
+			thenClause->attrType = DT_BIT15;
+
+
+			tempName = ((AttributeDef *) a)->attrName;
+//			char *ch2 = replaceSubstr(tempName, "1", "");
+			CaseExpr *caseExpr = createCaseExpr(NULL, singleton(whenClause), elseClause);
+			tempExprsR = appendToTailOfList(tempExprsR, caseExpr);
+			tempNamesR = appendToTailOfList(tempNamesR, tempName);
+			break;
+		}
+
+
+	}
+
+//	newProjExpr
+	CaseExpr *caseExpr1 = createCaseExpr(NULL, singleton(whenClause), elseClause);
+	newProjExpr = appendToTailOfList(newProjExpr, caseExpr1);
+	newAttrNames = appendToTailOfList(newAttrNames, tempName);
+
+	ProjectionOperator *testList = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
+	LOG_RESULT("ANOtHER TEST EXPR LIST ----------", testList);
+
+//	List *concatExprs = CONCAT_LISTS(tempExprsL, tempExprsR);
+//	List *concatNames = CONCAT_LISTS(tempNamesL, tempNamesR);
+
+//	List *fixList = NIL;
+	//LOOP TO FIX ALL ATTRIBUTE POSITIONS AND NAMES
+//	FOREACH(AttributeReference, a, concatExprs)
+//	{
+////		char *ch = replaceSubstr(a->name, "1", "");
+//		fixList = appendToTailOfList(fixList,
+//				 createFullAttrReference(a->name, 0, getAttrPos((QueryOperator *) newProj, a->name),
+//				 0, a->attrType));
+//	}
+
+//	ProjectionOperator *concatProj = createProjectionOp(concatExprs, NULL, NIL, concatNames);
+//	LOG_RESULT("CONCATINATED LIST ----------", concatProj);
+	//concatProj->op.schema->attrDefs
+
+
+
+
+    addChildOperator((QueryOperator *) testList, (QueryOperator *) newProj);
+    switchSubtrees((QueryOperator *) newProj, (QueryOperator *) testList);
 
 //    if(HAS_STRING_PROP(child, PROP_USER_IG_ATTRS))
 //    {
@@ -1507,9 +1267,11 @@ rewriteIG_Projection (ProjectionOperator *op)
 //	return (QueryOperator *) sumrows;
 //
 
-	LOG_RESULT("Rewritten Projection Operator tree", newProj);
-	return (QueryOperator *) newProj;
+//	LOG_RESULT("Rewritten Projection Operator tree", newProj);
+//	return (QueryOperator *) newProj;
 
+	LOG_RESULT("Rewritten Projection Operator tree", testList);
+	return (QueryOperator *) testList;
 
 }
 
@@ -1535,7 +1297,6 @@ rewriteIG_Join (JoinOperator *op)
 
     List *newAttrDefs = CONCAT_LISTS(lAttrDefs,rAttrDefs);
     op->op.schema->attrDefs = copyObject(newAttrDefs);
-    SET_STRING_PROP(op, PROP_USER_IG_ATTRS, newAttrDefs);
 
     makeAttrNamesUnique((QueryOperator *) op);
 
