@@ -942,12 +942,36 @@ rewriteIG_Projection (ProjectionOperator *op)
     DEBUG_LOG("REWRITE-IG - Projection");
     DEBUG_LOG("Operator tree \n%s", nodeToString(op));
 
-	List *grabCaseExprs = NIL;
+    // temporary expression list to grab the case when from the input
+    List *grabCaseExprs = NIL;
 
 	// temporary expression list to grab the case when from the input
+    int x = 0;
 	FOREACH(AttributeReference, a, op->projExprs)
 	{
-		grabCaseExprs = appendToTailOfList(grabCaseExprs, a);
+		if(isA(a, CaseExpr))
+		{
+			grabCaseExprs = appendToTailOfList(grabCaseExprs, a);
+		}
+		else
+		{
+			x++;
+		}
+
+	}
+
+	List *asNames = NIL;
+	int y = 0;
+	FOREACH(AttributeDef, a, op->op.schema->attrDefs)
+	{
+		if(x != y)
+		{
+			y ++;
+		}
+		else
+		{
+			asNames = appendToTailOfList(asNames, a->attrName);
+		}
 	}
 
 
@@ -1097,9 +1121,8 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	CaseExpr *caseExpr1 = createCaseExpr(NULL, singleton(whenClause), elseClause);
 	newProjExpr = appendToTailOfList(newProjExpr, caseExpr1);
-	newAttrNames = appendToTailOfList(newAttrNames, "tempName");
 
-	ProjectionOperator *caseWhenList = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
+	ProjectionOperator *caseWhenList = createProjectionOp(newProjExpr, NULL, NIL, CONCAT_LISTS(newAttrNames,asNames));
 
     addChildOperator((QueryOperator *) caseWhenList, (QueryOperator *) newProj);
     switchSubtrees((QueryOperator *) newProj, (QueryOperator *) caseWhenList);
