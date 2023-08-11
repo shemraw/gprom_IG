@@ -1049,7 +1049,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 	List *when = NULL;
 	char *elsename = NULL;
 	char *thenname = NULL;
-//	char *tempName;
+	List *caseList = NULL;
 	//TODO: create a new list if there are multiple case when and then concatenate it to newProjExpr
 
 	FOREACH(Node, a, grabCaseExprs) // tempExprsR is a list of Attribute reference
@@ -1079,7 +1079,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 			when = ((Operator *) whenClause->when)->args;
 
 
-			// TODO : AUtomate this ? Create a recursive function ?
+			// TODO : Automate this ? Create a recursive function ?
 			FOREACH(Operator, a, when)
 			{
 				FOREACH(Node, x, a->args)
@@ -1113,16 +1113,14 @@ rewriteIG_Projection (ProjectionOperator *op)
 			elsename = CONCAT_STRINGS(nameelse,((AttributeReference *)((CaseExpr *) a)->elseRes)->name);
 			elseClause =  (Node *) createFullAttrReference(elsename, 0,
 					getAttrPos((QueryOperator *) newProj, elsename), 0, DT_BIT15);;
+			CaseExpr *caseExpr = createCaseExpr(NULL, singleton(whenClause), elseClause);
 
-//			tempName = ((AttributeDef *) a)->attrName;
+			caseList = appendToTailOfList(caseList, caseExpr);
 		}
 	}
 
-
-	CaseExpr *caseExpr1 = createCaseExpr(NULL, singleton(whenClause), elseClause);
-	newProjExpr = appendToTailOfList(newProjExpr, caseExpr1);
-
-	ProjectionOperator *caseWhenList = createProjectionOp(newProjExpr, NULL, NIL, CONCAT_LISTS(newAttrNames,asNames));
+	ProjectionOperator *caseWhenList = createProjectionOp(CONCAT_LISTS(newProjExpr,caseList),
+			NULL, NIL, CONCAT_LISTS(newAttrNames,asNames));
 
     addChildOperator((QueryOperator *) caseWhenList, (QueryOperator *) newProj);
     switchSubtrees((QueryOperator *) newProj, (QueryOperator *) caseWhenList);
