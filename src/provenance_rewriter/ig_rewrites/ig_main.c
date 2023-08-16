@@ -1036,6 +1036,20 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	ProjectionOperator *newProj = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
 
+
+
+
+	List *newProjExpr123 = NIL;
+	List *newAttrNames123 = NIL;
+	int pos123 = 0;
+	//TODO: PRACTICE
+
+
+
+	ProjectionOperator *newProj123 = createProjectionOp(newProjExpr123, NULL, NIL, newAttrNames123);
+	LOG_RESULT("asdasdasdasdase", newProj123);
+
+
     // if there is PROP_JOIN_ATTRS_FOR_HAMMING set then copy over the properties to the new proj op
     if(HAS_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING))
     {
