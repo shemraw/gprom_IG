@@ -32,6 +32,7 @@
 #include "provenance_rewriter/semiring_combiner/sc_main.h"
 #include "provenance_rewriter/coarse_grained/coarse_grained_rewrite.h"
 
+#include "src/provenance_rewriter/ig_rewrites/ig_functions.c"
 
 #define LOG_RESULT(mes,op) \
     do { \
@@ -94,7 +95,6 @@ rewriteIG (ProvenanceComputation  *op)
     return newRoot;
 }
 
-
 static QueryOperator *
 rewriteIG_Operator (QueryOperator *op)
 {
@@ -149,7 +149,6 @@ rewriteIG_Operator (QueryOperator *op)
     DEBUG_NODE_BEATIFY_LOG("rewritten query operators:", rewrittenOp);
     return rewrittenOp;
 }
-
 
 static QueryOperator *
 rewriteIG_Selection (SelectionOperator *op) //where clause
@@ -440,6 +439,8 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 
 /*
+
+//rewriteIG_SumExprs
 static ProjectionOperator *
 rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 {
@@ -493,9 +494,11 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 
 }
 
+*/
 
-
+/*
 //rewriteIG_HammingFunctions
+
 static ProjectionOperator *
 rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 {
@@ -642,7 +645,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 	}
 
-
+	// TODO : ERROR IN THIS LOOP FIX IT TO SUPPORT NEW CASE WHEN
 	FOREACH(AttributeReference, n, RprojExprs)
 	{
 		if(!isPrefix(n->name, "ig") && !isSuffix(n->name, "anno"))
@@ -932,6 +935,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	return hammingvalue_op;
 
 }
+
 */
 
 
@@ -970,7 +974,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 		}
 		else
 		{
-			asNames = appendToTailOfList(asNames, a->attrName);
+			asNames = appendToTailOfList(asNames, CONCAT_STRINGS(a->attrName, "_case"));
 		}
 	}
 
@@ -1050,13 +1054,11 @@ rewriteIG_Projection (ProjectionOperator *op)
 	char *elsename = NULL;
 	char *thenname = NULL;
 	List *caseList = NULL;
-	//TODO: create a new list if there are multiple case when and then concatenate it to newProjExpr
 
-	FOREACH(Node, a, grabCaseExprs) // tempExprsR is a list of Attribute reference
+	FOREACH(Node, a, grabCaseExprs)
 	{
 		if(isA(a, CaseExpr))
 		{
-			//TODO: make sure to maintain the position of the attribute reference
 
 			/*
 			 * whenClause contains 2 Nodes when and then
@@ -1078,27 +1080,37 @@ rewriteIG_Projection (ProjectionOperator *op)
 			// getting wehn from when clause and fixing the attributePositions
 			when = ((Operator *) whenClause->when)->args;
 
-
-			// TODO : Automate this ? Create a recursive function ?
-			FOREACH(Operator, a, when)
+			FOREACH(Node, a, when)
 			{
-				FOREACH(Node, x, a->args)
+				if(isA(a, Operator))
 				{
-					// this works and changes position for maqi1
-					if(isA(x, AttributeReference))
+					Operator * op = (Operator *) a;
+					FOREACH(Node, x, op->args) // op = a
 					{
-						((AttributeReference *) x)->attrPosition = getAttrPos((QueryOperator *) newProj,
-								((AttributeReference *) x)->name);
-					}
+						// this works and changes position for maqi1
+						if(isA(x, AttributeReference))
+						{
+							((AttributeReference *) x)->attrPosition = getAttrPos((QueryOperator *) newProj,
+									((AttributeReference *) x)->name);
+						}
 
-					// this works and changes the position for gdays
-					else if(isA(x, IsNullExpr))
-					{
-						((AttributeReference *)((IsNullExpr *) x)->expr)->attrPosition =
-								getAttrPos((QueryOperator *) newProj,
-										((AttributeReference *)((IsNullExpr *) x)->expr)->name);
+						// this works and changes the position for gdays
+						else if(isA(x, IsNullExpr))
+						{
+							((AttributeReference *)((IsNullExpr *) x)->expr)->attrPosition =
+									getAttrPos((QueryOperator *) newProj,
+											((AttributeReference *)((IsNullExpr *) x)->expr)->name);
+						}
 					}
 				}
+
+				else if(isA(a, IsNullExpr))
+				{
+					((AttributeReference *)((IsNullExpr *) a)->expr)->attrPosition =
+							getAttrPos((QueryOperator *) newProj,
+									((AttributeReference *)((IsNullExpr *) a)->expr)->name);
+				}
+
 			}
 
 			//getting then here and fixing the AttributePositions for then
@@ -1122,22 +1134,20 @@ rewriteIG_Projection (ProjectionOperator *op)
 	ProjectionOperator *caseWhenList = createProjectionOp(CONCAT_LISTS(newProjExpr,caseList),
 			NULL, NIL, CONCAT_LISTS(newAttrNames,asNames));
 
+
     addChildOperator((QueryOperator *) caseWhenList, (QueryOperator *) newProj);
     switchSubtrees((QueryOperator *) newProj, (QueryOperator *) caseWhenList);
 
 
 
-//   // This function creates hash maps and adds hamming distance functions
-//	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(newProj);
-//	// This function adds the + expression to calculate the total distance
+    // This function creates hash maps and adds hamming distance functions
+//	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(caseWhenList);
+	// This function adds the + expression to calculate the total distance
 //	ProjectionOperator *sumrows = rewriteIG_SumExprs(hammingvalue_op);
-//
-//	LOG_RESULT("Rewritten Projection Operator tree", sumrows);
-//	return (QueryOperator *) sumrows;
-//
 
-//	LOG_RESULT("Rewritten Projection Operator tree", newProj);
-//	return (QueryOperator *) newProj;
+//	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
+//	return (QueryOperator *) hammingvalue_op;
+
 
 	LOG_RESULT("Rewritten Projection Operator tree", caseWhenList);
 	return (QueryOperator *) caseWhenList;
@@ -1150,7 +1160,6 @@ rewriteIG_Join (JoinOperator *op)
 {
     DEBUG_LOG("REWRITE-IG - Join");
 
-    LOG_RESULT("TEST IN JOIN ---------------",op);
     QueryOperator *lChild = OP_LCHILD(op);
     QueryOperator *rChild = OP_RCHILD(op);
 
@@ -1183,7 +1192,6 @@ rewriteIG_Join (JoinOperator *op)
 	LOG_RESULT("Rewritten Join Operator tree",op);
     return (QueryOperator *) op;
 }
-
 
 static QueryOperator *
 rewriteIG_TableAccess(TableAccessOperator *op)
