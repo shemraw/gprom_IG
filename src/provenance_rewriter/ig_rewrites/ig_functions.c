@@ -7,13 +7,14 @@
 
 //
 //#include "src/provenance_rewriter/ig_rewrites/ig_main.c"
+//#include "provenance_rewriter/ig_rewrites/ig_main.h"
 
 //static ProjectionOperator *rewriteIG_SumExprs(ProjectionOperator *op);
 //static ProjectionOperator *rewriteIG_HammingFunctions(ProjectionOperator *op);
+//static QueryOperator *rewriteIG_Conversion (ProjectionOperator *op);
 
 
 /*
-
 //rewriteIG_SumExprs
 static ProjectionOperator *
 rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
@@ -68,9 +69,6 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 
 }
 
-*/
-
-/*
 //rewriteIG_HammingFunctions
 
 static ProjectionOperator *
@@ -509,6 +507,248 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	return hammingvalue_op;
 
 }
-
 */
 
+/*
+//rewriteIG_Conversion
+static QueryOperator *
+rewriteIG_Conversion (ProjectionOperator *op)
+{
+	List *newProjExprs = NIL;
+	List *attrNames = NIL;
+
+	FOREACH(AttributeReference, a, op->projExprs)
+	{
+		if(isPrefix(a->name,"ig"))
+		{
+			if (a->attrType == DT_STRING)
+			{
+				StringToArray *toArray;
+				Unnest *tounnest;
+				Ascii *toAscii;
+
+				toArray = createStringToArrayExpr((Node *) a, "NULL");
+				tounnest = createUnnestExpr((Node *) toArray);
+				toAscii = createAsciiExpr((Node *) tounnest);
+				newProjExprs = appendToTailOfList(newProjExprs, toAscii);
+			}
+			else
+			{
+				newProjExprs = appendToTailOfList(newProjExprs, a);
+			}
+		}
+		else
+		{
+			newProjExprs = appendToTailOfList(newProjExprs, a);
+		}
+	}
+
+	op->projExprs = newProjExprs;
+
+	// CREATING a projection to not feed ascii expression into aggregation
+	int cnt = 0;
+	List *projExprs = NIL;
+
+	FOREACH(AttributeDef,a,op->op.schema->attrDefs)
+	{
+
+		if(isPrefix(a->attrName, "ig") && a->dataType == DT_STRING)
+		{
+			a->dataType = DT_INT;
+		}
+
+		projExprs = appendToTailOfList(projExprs,
+				createFullAttrReference(a->attrName, 0, cnt, 0, a->dataType));
+
+		attrNames = appendToTailOfList(attrNames, a->attrName);
+
+		cnt++;
+	}
+
+	//create projection operator upon selection operator from select clause
+	ProjectionOperator *po = createProjectionOp(projExprs, NULL, NIL, attrNames);
+	addChildOperator((QueryOperator *) po, (QueryOperator *) op);
+	// Switch the subtree with this newly created projection operator.
+	switchSubtrees((QueryOperator *) op, (QueryOperator *) po);
+
+	List *aggrs = NIL;
+	List *groupBy = NIL;
+	List *newNames = NIL;
+	List *aggrNames = NIL;
+	List *groupByNames = NIL;
+	attrNames = NIL;
+	int i = 0;
+
+	FOREACH(Node,n,newProjExprs)
+	{
+		if(isA(n,Ascii))
+		{
+			char *attrName = getAttrNameByPos((QueryOperator *) po, i);
+			AttributeReference *ar = createAttrsRefByName((QueryOperator *) po, attrName);
+			FunctionCall *sum = createFunctionCall("SUM", singleton(ar));
+			aggrs = appendToTailOfList(aggrs,sum);
+			aggrNames = appendToTailOfList(aggrNames,attrName);
+		}
+		else
+		{
+			if(isA(n,AttributeReference))
+			{
+				groupBy = appendToTailOfList(groupBy,n);
+
+				AttributeReference *ar = (AttributeReference *) n;
+				groupByNames = appendToTailOfList(groupByNames,(ar->name));
+			}
+
+			if(isA(n,CastExpr))
+			{
+				CastExpr *ce = (CastExpr *) n;
+				AttributeReference *ar = (AttributeReference *) ce->expr;
+				groupBy = appendToTailOfList(groupBy, (Node *) ar);
+			}
+		}
+
+		i++;
+	}
+
+	newNames = CONCAT_LISTS(aggrNames, groupByNames);
+	AggregationOperator *ao = createAggregationOp(aggrs, groupBy, NULL, NIL, newNames);
+
+	addChildOperator((QueryOperator *) ao, (QueryOperator *) po);
+	// Switch the subtree with this newly created projection operator.
+	switchSubtrees((QueryOperator *) po, (QueryOperator *) ao);
+
+	// CREATING THE NEW PROJECTION OPERATOR
+	projExprs = NIL;
+	cnt = 0;
+
+	FOREACH(AttributeDef,a,ao->op.schema->attrDefs)
+	{
+
+		projExprs = appendToTailOfList(projExprs,
+				createFullAttrReference(a->attrName, 0, cnt, 0, a->dataType));
+
+		cnt++;
+	}
+
+	//create projection operator upon selection operator from select clause
+	ProjectionOperator *newPo = createProjectionOp(projExprs, NULL, NIL, newNames);
+	addChildOperator((QueryOperator *) newPo, (QueryOperator *) ao);
+	// Switch the subtree with this newly created projection operator.
+	switchSubtrees((QueryOperator *) ao, (QueryOperator *) newPo);
+
+	// CAST_EXPR
+	newProjExprs = NIL;
+
+	FOREACH(AttributeReference, a, newPo->projExprs)
+	{
+		if(isPrefix(a->name, "ig"))
+		{
+
+				CastExpr *castInt;
+				CastExpr *cast;
+				castInt = createCastExpr((Node *) a, DT_INT);
+				cast = createCastExpr((Node *) castInt, DT_BIT15);
+
+				newProjExprs = appendToTailOfList(newProjExprs, cast);
+		}
+		else
+			newProjExprs = appendToTailOfList(newProjExprs, a);
+	}
+
+	newPo->projExprs = newProjExprs;
+
+	// matching the datatype of attribute def in the projection
+	FOREACH(AttributeDef, a, newPo->op.schema->attrDefs)
+	{
+		if(isPrefix(a->attrName,"ig"))
+		{
+			a->dataType = DT_BIT15;
+		}
+	}
+
+//	retrieve the original order of the projection attributes
+	projExprs = NIL;
+	newNames = NIL;
+
+
+	FOREACH(AttributeDef,a,po->op.schema->attrDefs)
+	{
+		projExprs = appendToTailOfList(projExprs,
+				createFullAttrReference(a->attrName, 0,
+						getAttrPos((QueryOperator *) newPo, a->attrName), 0,
+						isPrefix(a->attrName,"ig") ? DT_BIT15 : a->dataType));
+
+		newNames = appendToTailOfList(newNames, a->attrName);
+	}
+
+
+	ProjectionOperator *addPo = createProjectionOp(projExprs, NULL, NIL, newNames);;
+
+	// Getting Table name and length of table name here
+	char *tblName = "";
+	FOREACH(AttributeReference, n, addPo->projExprs)
+	{
+		if(isPrefix(n->name, "ig"))
+		{
+			int len1 = strlen(n->name);
+			int len2 = strlen(strrchr(n->name, '_'));
+			int len = len1 - len2 - 1;
+			tblName = substr(n->name, 8, len);
+			break;
+		}
+
+	}
+
+	int temp = 0;
+	int tblLen = strlen(tblName);
+
+	List *newProjExpr = NIL;
+	List *newProjExpr1 = NIL;
+	List *newProjExpr2 = NIL;
+
+
+	// Getting original attributes
+	FOREACH(AttributeReference, n, addPo->projExprs)
+	{
+		newProjExpr1 = appendToTailOfList(newProjExpr1, n);
+		attrNames = appendToTailOfList(attrNames, n->name);
+	}
+
+	// Creating _anno Attribute
+	FOREACH(AttributeReference, n, addPo->projExprs)
+	{
+
+		if(temp == 0)
+		{
+			newProjExpr = appendToTailOfList(newProjExpr, createConstString(tblName));
+			temp++;
+		}
+		else if (isPrefix(n->name, "ig"))
+		{
+			CastExpr *cast;
+			cast = createCastExpr((Node *) n, DT_STRING);
+			newProjExpr = appendToTailOfList(newProjExpr, cast);
+
+			//this adds first 3 letter for the variable in concat
+			newProjExpr = appendToTailOfList(newProjExpr,
+					createConstString((substr(n->name, 9 + tblLen, 9 + tblLen + 2))));
+		}
+	}
+
+	attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS(tblName, "_anno"));
+	newProjExpr = LIST_MAKE(createOpExpr("||", newProjExpr));
+	newProjExpr2 = concatTwoLists(newProjExpr1, newProjExpr);
+
+	ProjectionOperator *concat = createProjectionOp(newProjExpr2, NULL, NIL, attrNames);
+
+	addChildOperator((QueryOperator *) concat, (QueryOperator *) newPo);
+
+	// Switch the subtree with this newly created projection operator.
+	switchSubtrees((QueryOperator *) newPo, (QueryOperator *) concat);
+
+    LOG_RESULT("Converted Operator tree", concat);
+	return (QueryOperator *) concat;
+
+
+}
+*/

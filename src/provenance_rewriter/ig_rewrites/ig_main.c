@@ -14,6 +14,7 @@
 #include "instrumentation/timing_instrumentation.h"
 #include "provenance_rewriter/pi_cs_rewrites/pi_cs_main.h"
 #include "provenance_rewriter/ig_rewrites/ig_main.h"
+//#include "provenance_rewriter/ig_rewrites/ig_functions.h"
 #include "provenance_rewriter/prov_utility.h"
 #include "utility/string_utils.h"
 #include "model/query_operator/query_operator.h"
@@ -32,7 +33,7 @@
 #include "provenance_rewriter/semiring_combiner/sc_main.h"
 #include "provenance_rewriter/coarse_grained/coarse_grained_rewrite.h"
 
-#include "src/provenance_rewriter/ig_rewrites/ig_functions.c"
+//#include "src/provenance_rewriter/ig_rewrites/ig_functions.c"
 
 #define LOG_RESULT(mes,op) \
     do { \
@@ -196,6 +197,7 @@ rewriteIG_Selection (SelectionOperator *op) //where clause
 //    return (QueryOperator *) op;
 }
 
+//rewriteIG_Conversion
 static QueryOperator *
 rewriteIG_Conversion (ProjectionOperator *op)
 {
@@ -436,7 +438,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 
 }
-
 
 /*
 
@@ -1073,7 +1074,12 @@ rewriteIG_Projection (ProjectionOperator *op)
 			 * 		 args and this args contains IS_NULL_EXPR which contains expr
 			 * 		 which contains AttributeReference (gdays) which we need to access
 			 *
+			 *
+			 * The bug was coming because the second node in when was not an operator
+			 * It was a IsNullExpr so there was no second Operator which caused the issues
+			 *
 			 */
+
 
 			//getting when clause here
 			whenClause = (CaseWhen *) getHeadOfListP(((CaseExpr *) a)->whenClauses);
@@ -1084,31 +1090,39 @@ rewriteIG_Projection (ProjectionOperator *op)
 			{
 				if(isA(a, Operator))
 				{
-					Operator * op = (Operator *) a;
+					Operator *op = (Operator *) a;
 					FOREACH(Node, x, op->args) // op = a
 					{
 						// this works and changes position for maqi1
 						if(isA(x, AttributeReference))
 						{
-							((AttributeReference *) x)->attrPosition = getAttrPos((QueryOperator *) newProj,
-									((AttributeReference *) x)->name);
+							AttributeReference *ar = (AttributeReference *) x;
+							ar->attrPosition = getAttrPos((QueryOperator *) newProj, ar->name);
 						}
 
 						// this works and changes the position for gdays
 						else if(isA(x, IsNullExpr))
 						{
-							((AttributeReference *)((IsNullExpr *) x)->expr)->attrPosition =
-									getAttrPos((QueryOperator *) newProj,
-											((AttributeReference *)((IsNullExpr *) x)->expr)->name);
+							// this gets the IsNullExpr of node x and stores it in isN
+							IsNullExpr *isN = (IsNullExpr *) x;
+							// this takes the expr of IsNullExpr(isN) and stores it in new node ofisN
+							Node *ofisN = isN->expr;
+							// this gets the AttributeReference in the node(ofisN) and stores it in arofisN
+							AttributeReference *arofisN = (AttributeReference *) ofisN;
+							arofisN->attrPosition = getAttrPos((QueryOperator *) newProj, arofisN->name);
 						}
 					}
 				}
 
 				else if(isA(a, IsNullExpr))
 				{
-					((AttributeReference *)((IsNullExpr *) a)->expr)->attrPosition =
-							getAttrPos((QueryOperator *) newProj,
-									((AttributeReference *)((IsNullExpr *) a)->expr)->name);
+					// this gets the IsNullExpr of node x and stores it in isN
+					IsNullExpr *isN = (IsNullExpr *) a;
+					// this takes the expr of IsNullExpr(isN) and stores it in new node ofisN
+					Node *ofisN = isN->expr;
+					// this gets the AttributeReference in the node(ofisN) and stores it in arofisN
+					AttributeReference *arofisN = (AttributeReference *) ofisN;
+					arofisN->attrPosition = getAttrPos((QueryOperator *) newProj, arofisN->name);
 				}
 
 			}
@@ -1122,7 +1136,11 @@ rewriteIG_Projection (ProjectionOperator *op)
 			then->attrPosition = getAttrPos((QueryOperator *) newProj, thenname);
 
 			char *nameelse = CONCAT_STRINGS("ig_conv_", tblNameL);
-			elsename = CONCAT_STRINGS(nameelse,((AttributeReference *)((CaseExpr *) a)->elseRes)->name);
+			// getting else node from CaseExpr
+			Node *ce = ((CaseExpr *) a)->elseRes;
+			// getting AtributeReference from node else
+			AttributeReference *arce = (AttributeReference *) ce;
+			elsename = CONCAT_STRINGS(nameelse, arce->name);
 			elseClause =  (Node *) createFullAttrReference(elsename, 0,
 					getAttrPos((QueryOperator *) newProj, elsename), 0, DT_BIT15);;
 			CaseExpr *caseExpr = createCaseExpr(NULL, singleton(whenClause), elseClause);
