@@ -707,11 +707,7 @@ rewritePI_CSProjection (ProjectionOperator *op)
     // adapt schema
     addProvenanceAttrsToSchema((QueryOperator *) op, OP_LCHILD(op));
     LOG_RESULT("Rewritten Operator tree", op);
-//    LOG_RESULT("Rewritten Operator tree", op);
-//    LOG_RESULT("Rewritten Operator tree", op);
-//    LOG_RESULT("Rewritten Operator tree", op);
 
-    // ProjectionOperator *po = copyObject(op);
 	return (QueryOperator *) op;
 
 }
