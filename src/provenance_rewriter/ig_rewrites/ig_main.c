@@ -497,9 +497,10 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 
 */
 
-/*
+
 //rewriteIG_HammingFunctions
 
+/*
 static ProjectionOperator *
 rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 {
@@ -600,7 +601,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 	}
 
-
+	// creating case when statements here for integration
 	FOREACH(AttributeReference, n, LprojExprs)
 	{
 		if(!isPrefix(n->name, "ig") && !isSuffix(n->name, "anno"))
@@ -646,7 +647,6 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 	}
 
-	// TODO : ERROR IN THIS LOOP FIX IT TO SUPPORT NEW CASE WHEN
 	FOREACH(AttributeReference, n, RprojExprs)
 	{
 		if(!isPrefix(n->name, "ig") && !isSuffix(n->name, "anno"))
@@ -917,7 +917,6 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 			h_valueName = appendToTailOfList(h_valueName, CONCAT_STRINGS("value_", a->attrName));
 			posV++;
 		}
-
 		else
 		{
 			AttributeReference *ar = createFullAttrReference(a->attrName, 0, posV,0, a->dataType);
@@ -938,7 +937,6 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 }
 
 */
-
 
 static QueryOperator *
 rewriteIG_Projection (ProjectionOperator *op)
@@ -979,6 +977,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 		}
 	}
 
+//	asNames = appendToTailOfList(asNames, CONCAT_STRINGS("newName"));
 
 
     QueryOperator *child = OP_LCHILD(op);
@@ -1037,19 +1036,6 @@ rewriteIG_Projection (ProjectionOperator *op)
 	ProjectionOperator *newProj = createProjectionOp(newProjExpr, NULL, NIL, newAttrNames);
 
 
-
-
-	List *newProjExpr123 = NIL;
-	List *newAttrNames123 = NIL;
-	int pos123 = 0;
-	//TODO: PRACTICE
-
-
-
-	ProjectionOperator *newProj123 = createProjectionOp(newProjExpr123, NULL, NIL, newAttrNames123);
-	LOG_RESULT("asdasdasdasdase", newProj123);
-
-
     // if there is PROP_JOIN_ATTRS_FOR_HAMMING set then copy over the properties to the new proj op
     if(HAS_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING))
     {
@@ -1060,15 +1046,108 @@ rewriteIG_Projection (ProjectionOperator *op)
     addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
     switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
 
+    //fixing positions in grabCaseExprs before we do anything
+    // need to edit then and else. Then is in whenClause
+	CaseWhen *whenClause1;
+	Node *elseClause1 = NULL;
+	AttributeReference *then1 = NULL;
+	List *when1 = NULL;
+	char *elsename1 = NULL;
+//	char *thenname1 = NULL;
+	List *grabCaseExprs1 = NULL;
+
+	FOREACH(Node, a, grabCaseExprs)
+	{
+		if(isA(a, CaseExpr))
+		{
+
+			whenClause1 = (CaseWhen *) getHeadOfListP(((CaseExpr *) a)->whenClauses);
+
+			when1 = ((Operator *) whenClause1->when)->args;
+
+			FOREACH(Node, a, when1)
+			{
+				if(isA(a, Operator))
+				{
+					Operator *op = (Operator *) a;
+					FOREACH(Node, x, op->args) // op = a
+					{
+						// this works and changes position for maqi1
+						if(isA(x, AttributeReference))
+						{
+							AttributeReference *ar = (AttributeReference *) x;
+							ar->attrPosition = getAttrPos((QueryOperator *) newProj, ar->name);
+						}
+
+						// this works and changes the position for gdays
+						else if(isA(x, IsNullExpr))
+						{
+							// this gets the IsNullExpr of node x and stores it in isN
+							IsNullExpr *isN = (IsNullExpr *) x;
+							// this takes the expr of IsNullExpr(isN) and stores it in new node ofisN
+							Node *ofisN = isN->expr;
+							// this gets the AttributeReference in the node(ofisN) and stores it in arofisN
+							AttributeReference *arofisN = (AttributeReference *) ofisN;
+							arofisN->attrPosition = getAttrPos((QueryOperator *) newProj, arofisN->name);
+						}
+					}
+				}
+
+				else if(isA(a, IsNullExpr))
+				{
+					// this gets the IsNullExpr of node x and stores it in isN
+					IsNullExpr *isN = (IsNullExpr *) a;
+					// this takes the expr of IsNullExpr(isN) and stores it in new node ofisN
+					Node *ofisN = isN->expr;
+					// this gets the AttributeReference in the node(ofisN) and stores it in arofisN
+					AttributeReference *arofisN = (AttributeReference *) ofisN;
+					arofisN->attrPosition = getAttrPos((QueryOperator *) newProj, arofisN->name);
+				}
+
+			}
+
+			//getting then here and fixing the AttributePositions for then
+			then1 = (AttributeReference *) whenClause1->then;
+			then1->attrType = DT_INT;
+			then1->attrPosition = getAttrPos((QueryOperator *) newProj, then1->name);
+
+			// getting else node from CaseExpr
+			Node *ce = ((CaseExpr *) a)->elseRes;
+			// getting AtributeReference from node else
+			AttributeReference *arce = (AttributeReference *) ce;
+			elsename1 = arce->name;
+			elseClause1 =  (Node *) createFullAttrReference(elsename1, 0,
+					getAttrPos((QueryOperator *) newProj, elsename1), 0, DT_INT);
+
+			CaseExpr *caseExpr1 = createCaseExpr(NULL, singleton(whenClause1), elseClause1);
+			grabCaseExprs1 = appendToTailOfList(grabCaseExprs1, caseExpr1);
+//			caseList = appendToTailOfList(caseList, caseExprnew);
+
+
+		}
+	}
+
+
 
     // need to edit then and else. Then is in whenClause
 	CaseWhen *whenClause;
+//	CaseWhen *whenClausenew;
 	Node *elseClause = NULL;
 	AttributeReference *then = NULL;
+//	AttributeReference *thennew = NULL;
 	List *when = NULL;
 	char *elsename = NULL;
 	char *thenname = NULL;
 	List *caseList = NULL;
+
+//	CaseExpr *caseExprnew = NULL;
+
+//	CaseWhen *whenClausenew;
+//	char *thennew = NULL;
+//	char *elsenamenew= NULL;
+//	Node *elseClausenew = NULL;
+//	char *thennamenew = NULL;
+
 
 	FOREACH(Node, a, grabCaseExprs)
 	{
@@ -1094,11 +1173,13 @@ rewriteIG_Projection (ProjectionOperator *op)
 			 *
 			 */
 
-
 			//getting when clause here
-			whenClause = (CaseWhen *) getHeadOfListP(((CaseExpr *) a)->whenClauses);
+//			whenClausenew = copyObject((CaseWhen *) getHeadOfListP(((CaseExpr *) a)->whenClauses));
+			whenClause = copyObject((CaseWhen *) getHeadOfListP(((CaseExpr *) a)->whenClauses));
+//			whenClausenew = (CaseWhen *) getHeadOfListP(((CaseExpr *) a)->whenClauses);
 			// getting wehn from when clause and fixing the attributePositions
 			when = ((Operator *) whenClause->when)->args;
+//			thennew = ((Operator *) whenClausenew->then)->name;
 
 			FOREACH(Node, a, when)
 			{
@@ -1149,19 +1230,46 @@ rewriteIG_Projection (ProjectionOperator *op)
 			then->attrType = DT_BIT15;
 			then->attrPosition = getAttrPos((QueryOperator *) newProj, thenname);
 
+
+//			thennew = (AttributeReference *) whenClausenew->then;
+//			thennamenew = substr(thennew->name, 16, 18);
+//			thennew->name = thennamenew;
+//			thennew->attrType = DT_INT;
+//			thennew->attrPosition = getAttrPos((QueryOperator *) newProj, thennamenew);
+
 			char *nameelse = CONCAT_STRINGS("ig_conv_", tblNameL);
 			// getting else node from CaseExpr
 			Node *ce = ((CaseExpr *) a)->elseRes;
 			// getting AtributeReference from node else
 			AttributeReference *arce = (AttributeReference *) ce;
 			elsename = CONCAT_STRINGS(nameelse, arce->name);
+
+//			elsenamenew = arce->name;
+
+
+//			elseClausenew = (Node *) createFullAttrReference(elsenamenew, 0,
+//					getAttrPos((QueryOperator *) newProj, elsenamenew), 0, DT_INT);
+//			CaseExpr *caseExprnew = createCaseExpr(NULL, singleton(whenClause), elseClausenew);
+
+
 			elseClause =  (Node *) createFullAttrReference(elsename, 0,
-					getAttrPos((QueryOperator *) newProj, elsename), 0, DT_BIT15);;
+					getAttrPos((QueryOperator *) newProj, elsename), 0, DT_BIT15);
 			CaseExpr *caseExpr = createCaseExpr(NULL, singleton(whenClause), elseClause);
 
+
+//			elseClausenew =  (Node *) createFullAttrReference(elsenamenew, 0,
+//					getAttrPos((QueryOperator *) newProj, elsenamenew), 0, DT_INT);
+//			CaseExpr *caseExprnew = createCaseExpr(NULL, singleton(whenClausenew), elseClausenew);
+
 			caseList = appendToTailOfList(caseList, caseExpr);
+//			caseList = appendToTailOfList(caseList, caseExprnew);
+
+
+
+
 		}
 	}
+
 
 	ProjectionOperator *caseWhenList = createProjectionOp(CONCAT_LISTS(newProjExpr,caseList),
 			NULL, NIL, CONCAT_LISTS(newAttrNames,asNames));
@@ -1172,20 +1280,154 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 
 
+	List *newOrderExpr = NIL;
+	List *newOrderNames = NIL;
+//	int orderPos = 0;
+//	int t = 0;
+
+	List *attrDefsName = NIL;
+
+	FOREACH(AttributeDef, n, caseWhenList->op.schema->attrDefs)
+	{
+		attrDefsName = appendToTailOfList(attrDefsName, n->attrName);
+	}
+
+    //reordering Projection puts old dayswaqi in the end and replaces the new one with the casewhen
+	FOREACH(AttributeDef, a, caseWhenList->op.schema->attrDefs)
+	{
+		FOREACH(char, n, asNames)
+		{
+			int l1 = strlen(n);
+			int l2 = strlen(strchr(n, '_'));
+			int l = l1-l2-2;
+			char *name = substr(n, 0, l);
+			// we can remove the _new from here this is just here to show in the meeting
+//			char *namenew = CONCAT_STRINGS(name, "_new");
+
+			int pos = listPosString(attrDefsName, n);
+			AttributeReference *ar = (AttributeReference *) getNthOfListP(caseWhenList->projExprs, pos);
+
+			//fixing jsut the attribute
+			if(strcmp(a->attrName, name) == 0)
+			{
+				//getting the case when from grabCaseExprs List which is the new caseExprList
+				FOREACH(AttributeReference, a, grabCaseExprs1)
+				{
+					newOrderExpr = appendToTailOfList(newOrderExpr, a);
+//					newOrderNames = appendToTailOfList(newOrderNames, namenew);
+					newOrderNames = appendToTailOfList(newOrderNames, name);
+				}
+
+
+//				t = orderPos;
+//				orderPos++;
+			}
+			//fixing ig attribute adding the new attribute here / adding the new attribute
+			else if(isPrefix(a->attrName, "ig"))
+			{
+				int l1a = strlen(a->attrName) - 1;
+				int l2a = strlen(strrchr(a->attrName, '_'));
+				int la = l1a - l2a + 2;
+				char *namea = substr(a->attrName, la, l1a);
+				char *nameFull = CONCAT_STRINGS("ig_conv_", tblNameL);
+				char *nameFulla = CONCAT_STRINGS(nameFull, name);
+				// adding the new ig attribute here
+				if(strcmp(name, namea) == 0 )
+				{
+					newOrderExpr = appendToTailOfList(newOrderExpr, ar);
+					newOrderNames = appendToTailOfList(newOrderNames, nameFulla);
+//					orderPos++;
+				}
+				else
+				{
+					newOrderExpr = appendToTailOfList(newOrderExpr,
+									 createFullAttrReference(a->attrName, 0,
+											 getAttrPos((QueryOperator *) caseWhenList, a->attrName), 0, a->dataType));
+
+					newOrderNames = appendToTailOfList(newOrderNames, a->attrName);
+//					orderPos++;
+				}
+			}
+			else if(isSuffix(a->attrName, "case"))
+			{
+				continue;
+			}
+			else
+			{
+				newOrderExpr = appendToTailOfList(newOrderExpr,
+								 createFullAttrReference(a->attrName, 0,
+										 getAttrPos((QueryOperator *) caseWhenList, a->attrName), 0, a->dataType));
+
+				newOrderNames = appendToTailOfList(newOrderNames, a->attrName);
+//				orderPos++;
+			}
+		}
+
+	}
+
+	FOREACH(AttributeDef, a, caseWhenList->op.schema->attrDefs)
+	{
+		FOREACH(char, n, asNames)
+		{
+			int l1 = strlen(n);
+			int l2 = strlen(strchr(n, '_'));
+			int l = l1-l2-2;
+			char *name = substr(n, 0, l);
+			char *nameold = CONCAT_STRINGS(name, "_old");
+
+			//adding the old attribute in the end
+			if(strcmp(a->attrName, name) == 0)
+			{
+				newOrderExpr = appendToTailOfList(newOrderExpr,
+								 createFullAttrReference(name, 0,
+										 getAttrPos((QueryOperator *) caseWhenList, a->attrName), 0, a->dataType));
+
+				newOrderNames = appendToTailOfList(newOrderNames, nameold);
+			}
+			// pushing old ig attribute in the end
+			else if(isPrefix(a->attrName, "ig"))
+			{
+				int l1a = strlen(a->attrName) - 1;
+				int l2a = strlen(strrchr(a->attrName, '_'));
+				int la = l1a - l2a + 2;
+				char *namea = substr(a->attrName, la, l1a);
+				char *newName = CONCAT_STRINGS(a->attrName, "_old");
+
+				if(strcmp(name, namea) == 0 )
+				{
+					newOrderExpr = appendToTailOfList(newOrderExpr,
+									 createFullAttrReference(a->attrName, 0,
+											 getAttrPos((QueryOperator *) caseWhenList, a->attrName), 0, a->dataType));
+
+					newOrderNames = appendToTailOfList(newOrderNames, newName);
+//					orderPos++;
+				}
+			}
+		}
+	}
+
+	//now need to fix the old and new ig attributes
+
+	ProjectionOperator *order = createProjectionOp(newOrderExpr, NULL, NIL, newOrderNames);
+//	LOG_RESULT("REORDETING TEST ----------------------", order);
+
+
+    addChildOperator((QueryOperator *) order, (QueryOperator *) caseWhenList);
+    switchSubtrees((QueryOperator *) caseWhenList, (QueryOperator *) order);
+
     // This function creates hash maps and adds hamming distance functions
-//	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(caseWhenList);
-	// This function adds the + expression to calculate the total distance
+//	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(order);
+//	 This function adds the + expression to calculate the total distance
 //	ProjectionOperator *sumrows = rewriteIG_SumExprs(hammingvalue_op);
 
 //	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
 //	return (QueryOperator *) hammingvalue_op;
 
 
-	LOG_RESULT("Rewritten Projection Operator tree", caseWhenList);
-	return (QueryOperator *) caseWhenList;
+	LOG_RESULT("Rewritten Projection Operator tree", order);
+	return (QueryOperator *) order;
 
 }
-
 
 static QueryOperator *
 rewriteIG_Join (JoinOperator *op)
