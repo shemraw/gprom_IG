@@ -14,7 +14,7 @@
 #include "instrumentation/timing_instrumentation.h"
 #include "provenance_rewriter/pi_cs_rewrites/pi_cs_main.h"
 #include "provenance_rewriter/ig_rewrites/ig_main.h"
-//#include "provenance_rewriter/ig_rewrites/ig_functions.h"
+#include "provenance_rewriter/ig_rewrites/ig_functions.h" //------------------
 #include "provenance_rewriter/prov_utility.h"
 #include "utility/string_utils.h"
 #include "model/query_operator/query_operator.h"
@@ -500,7 +500,6 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 
 //rewriteIG_HammingFunctions
 
-/*
 static ProjectionOperator *
 rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 {
@@ -515,6 +514,8 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
     int posOfIgL = LIST_LENGTH(attrL) / 2;
     int posOfIgR = LIST_LENGTH(attrR) / 2;
 
+    List *oldExprs = NIL;
+    List *oldNames = NIL;
     List *LprojExprs = NIL;
     List *RprojExprs = NIL;
     List *LattrNames = NIL;
@@ -526,6 +527,31 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
     HashMap *nameToIgAttrNameL = NEW_MAP(Constant, Constant);
     HashMap *nameToIgAttrNameR = NEW_MAP(Constant, Constant);
 
+    FOREACH(AttributeDef, n, newProj->op.schema->attrDefs)
+	{
+//    	newProj->op.schema->attrDefs->attrName
+    	if(isSuffix(n->attrName, "old"))
+    	{
+    		if(isPrefix(n->attrName, "ig"))
+    		{
+    			oldExprs = appendToTailOfList(oldExprs,
+						createFullAttrReference(n->attrName, 0,
+								getAttrPos((QueryOperator *) newProj, n->attrName), 0, DT_INT));
+
+				oldNames = appendToTailOfList(oldNames, n->attrName);
+
+    		}
+    		else
+    		{
+    			oldExprs = appendToTailOfList(oldExprs,
+						createFullAttrReference(n->attrName, 0,
+								getAttrPos((QueryOperator *) newProj, n->attrName), 0, DT_BIT15));
+
+				oldNames = appendToTailOfList(oldNames, n->attrName);
+    		}
+
+    	}
+	}
 
     FOREACH(AttributeDef,a,attrL)
     {
@@ -568,7 +594,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
     FOREACH(AttributeReference, n, newProj->projExprs)
     {
-		if(l <= lenL)
+		if(l <= lenL && !isSuffix(n->name, "old"))
 		{
 			LprojExprs = appendToTailOfList(LprojExprs, n);
 			LattrNames = appendToTailOfList(LattrNames, n->name);
@@ -579,7 +605,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
     l = 0;
     FOREACH(AttributeReference, n, newProj->projExprs)
     {
-		if(l > lenL)
+		if(l > lenL && !isSuffix(n->name, "old"))
 		{
 			RprojExprs = appendToTailOfList(RprojExprs, n);
 			RattrNames = appendToTailOfList(RattrNames, n->name);
@@ -685,6 +711,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	}
 
 	List *attrNames = CONCAT_LISTS(LattrNames,RattrNames);
+
     ProjectionOperator *op1 = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
 
     addChildOperator((QueryOperator *) op1, (QueryOperator *) newProj);
@@ -926,6 +953,9 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 		}
 	}
 
+	h_valueExprs = CONCAT_LISTS(h_valueExprs, oldExprs);
+	h_valueName = CONCAT_LISTS(h_valueName, oldNames);
+
 	ProjectionOperator *hammingvalue_op = createProjectionOp(h_valueExprs, NULL, NIL, h_valueName);
 
 	addChildOperator((QueryOperator *) hammingvalue_op, (QueryOperator *) hamming_op);
@@ -936,7 +966,6 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 }
 
-*/
 
 static QueryOperator *
 rewriteIG_Projection (ProjectionOperator *op)
@@ -1416,16 +1445,17 @@ rewriteIG_Projection (ProjectionOperator *op)
     switchSubtrees((QueryOperator *) caseWhenList, (QueryOperator *) order);
 
     // This function creates hash maps and adds hamming distance functions
-//	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(order);
+	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(order);
+
 //	 This function adds the + expression to calculate the total distance
 //	ProjectionOperator *sumrows = rewriteIG_SumExprs(hammingvalue_op);
 
-//	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
-//	return (QueryOperator *) hammingvalue_op;
+	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
+	return (QueryOperator *) hammingvalue_op;
 
 
-	LOG_RESULT("Rewritten Projection Operator tree", order);
-	return (QueryOperator *) order;
+//	LOG_RESULT("Rewritten Projection Operator tree", order);
+//	return (QueryOperator *) order;
 
 }
 
