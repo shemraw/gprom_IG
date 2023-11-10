@@ -497,7 +497,6 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 
 */
 
-
 //rewriteIG_HammingFunctions
 
 static ProjectionOperator *
@@ -514,44 +513,14 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
     int posOfIgL = LIST_LENGTH(attrL) / 2;
     int posOfIgR = LIST_LENGTH(attrR) / 2;
 
-    List *oldExprs = NIL;
-    List *oldNames = NIL;
     List *LprojExprs = NIL;
     List *RprojExprs = NIL;
-    List *LattrNames = NIL;
-    List *RattrNames = NIL;
     List* joinAttrs = NIL;
-
-    //joinAttrs = (List *) GET_STRING_PROP(newProj, PROP_JOIN_ATTRS_FOR_HAMMING);
 
     HashMap *nameToIgAttrNameL = NEW_MAP(Constant, Constant);
     HashMap *nameToIgAttrNameR = NEW_MAP(Constant, Constant);
 
-    FOREACH(AttributeDef, n, newProj->op.schema->attrDefs)
-	{
-//    	newProj->op.schema->attrDefs->attrName
-    	if(isSuffix(n->attrName, "old"))
-    	{
-    		if(isPrefix(n->attrName, "ig"))
-    		{
-    			oldExprs = appendToTailOfList(oldExprs,
-						createFullAttrReference(n->attrName, 0,
-								getAttrPos((QueryOperator *) newProj, n->attrName), 0, DT_INT));
 
-				oldNames = appendToTailOfList(oldNames, n->attrName);
-
-    		}
-    		else
-    		{
-    			oldExprs = appendToTailOfList(oldExprs,
-						createFullAttrReference(n->attrName, 0,
-								getAttrPos((QueryOperator *) newProj, n->attrName), 0, DT_BIT15));
-
-				oldNames = appendToTailOfList(oldNames, n->attrName);
-    		}
-
-    	}
-	}
 
     FOREACH(AttributeDef,a,attrL)
     {
@@ -594,10 +563,9 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
     FOREACH(AttributeReference, n, newProj->projExprs)
     {
-		if(l <= lenL && !isSuffix(n->name, "old"))
+		if(l <= lenL)
 		{
 			LprojExprs = appendToTailOfList(LprojExprs, n);
-			LattrNames = appendToTailOfList(LattrNames, n->name);
 			l++;
 		}
     }
@@ -605,10 +573,9 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
     l = 0;
     FOREACH(AttributeReference, n, newProj->projExprs)
     {
-		if(l > lenL && !isSuffix(n->name, "old"))
+		if(l > lenL)
 		{
 			RprojExprs = appendToTailOfList(RprojExprs, n);
-			RattrNames = appendToTailOfList(RattrNames, n->name);
 			l++;
 		}
 		else
@@ -630,19 +597,28 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	// creating case when statements here for integration
 	FOREACH(AttributeReference, n, LprojExprs)
 	{
-		if(!isPrefix(n->name, "ig") && !isSuffix(n->name, "anno"))
+		if(!isPrefix(n->name, "ig") && !isSuffix(n->name, "anno") && !isA(n, CaseExpr))
 		{
 			if(MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->name))
 			{
 				char *attrIgNameL = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->name));
 				char *attrIgNameR = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, n->name));
 
+//				AttributeReference *ar = createFullAttrReference(attrIgNameL, 0,
+//						listPosString(LattrNames,attrIgNameL), 0, DT_BIT15);
+
 				AttributeReference *ar = createFullAttrReference(attrIgNameL, 0,
-						listPosString(LattrNames,attrIgNameL), 0, DT_BIT15);
+						getAttrPos((QueryOperator *) newProj, attrIgNameL), 0, DT_BIT15);
+
 				Node *cond = (Node *) createIsNullExpr((Node *) ar);
+
+//				Node *then = (Node *) createFullAttrReference(attrIgNameR, 0,
+//						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR),
+//						0, DT_BIT15);
+
 				Node *then = (Node *) createFullAttrReference(attrIgNameR, 0,
-						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR),
-						0, DT_BIT15);
+						getAttrPos((QueryOperator *) newProj, attrIgNameR), 0, DT_BIT15);
+
 				Node *els = (Node *) ar;
 
 				CaseWhen *caseWhen = createCaseWhen(cond, then);
@@ -650,17 +626,32 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 				newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
 			}
+			// is this correct ? because there already is a case when statement so do we need the old ones ?
+//			else if(isA(n, CaseExpr))
+//			{
+//				newProjExpr = appendToTailOfList(newProjExpr, n);
+//			}
 			else
 			{
 				char *igAttr = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->name));
+//				AttributeReference *ar = createFullAttrReference(igAttr, 0,
+//						listPosString(LattrNames,igAttr), 0, DT_BIT15);
+
 				AttributeReference *ar = createFullAttrReference(igAttr, 0,
-						listPosString(LattrNames,igAttr), 0, DT_BIT15);
+						getAttrPos((QueryOperator *) newProj, igAttr), 0, DT_BIT15);
+
+
 				newProjExpr = appendToTailOfList(newProjExpr, ar);
 			}
 		}
-
-		if(isSuffix(n->name, "anno"))
+		else if(isA(n, CaseExpr))
+		{
 			newProjExpr = appendToTailOfList(newProjExpr, n);
+		}
+		else if(isSuffix(n->name, "anno"))
+		{
+			newProjExpr = appendToTailOfList(newProjExpr, n);
+		}
 	}
 
 
@@ -675,7 +666,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 	FOREACH(AttributeReference, n, RprojExprs)
 	{
-		if(!isPrefix(n->name, "ig") && !isSuffix(n->name, "anno"))
+		if(!isPrefix(n->name, "ig") && !isSuffix(n->name, "anno") && !isA(n, CaseExpr))
 		{
 			char *ch = replaceSubstr(n->name, "1", "");
 
@@ -684,12 +675,22 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 				char *attrIgNameL = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, ch));
 				char *attrIgNameR = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, ch));
 
+//				AttributeReference *ar = createFullAttrReference(attrIgNameR, 0,
+//						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR),
+//						0, DT_BIT15);
+
 				AttributeReference *ar = createFullAttrReference(attrIgNameR, 0,
-						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR),
-						0, DT_BIT15);
+						getAttrPos((QueryOperator *) newProj, attrIgNameR), 0, DT_BIT15);
+
 				Node *cond = (Node *) createIsNullExpr((Node *) ar);
+
+//				Node *then = (Node *) createFullAttrReference(attrIgNameL, 0,
+//						listPosString(LattrNames,attrIgNameL), 0, DT_BIT15);
+//
+
 				Node *then = (Node *) createFullAttrReference(attrIgNameL, 0,
-						listPosString(LattrNames,attrIgNameL), 0, DT_BIT15);
+						getAttrPos((QueryOperator *) newProj, attrIgNameL), 0, DT_BIT15);
+
 				Node *els  = (Node *) ar;
 
 				CaseWhen *caseWhen = createCaseWhen(cond, then);
@@ -700,19 +701,55 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 			else
 			{
 				char *igAttr = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, ch));
+//				AttributeReference *ar = createFullAttrReference(igAttr, 0,
+//										 listPosString(RattrNames,igAttr) + lenL + 1, 0, DT_BIT15);
+
 				AttributeReference *ar = createFullAttrReference(igAttr, 0,
-										 listPosString(RattrNames,igAttr) + lenL + 1, 0, DT_BIT15);
+						getAttrPos((QueryOperator *) newProj, igAttr), 0, DT_BIT15);
+
 				newProjExpr = appendToTailOfList(newProjExpr, ar);
 			}
 		}
-
-		if(isSuffix(n->name, "anno"))
+		else if(isA(n, CaseExpr))
+		{
 			newProjExpr = appendToTailOfList(newProjExpr, n);
+		}
+		else if(isSuffix(n->name, "anno"))
+		{
+			newProjExpr = appendToTailOfList(newProjExpr, n);
+		}
 	}
 
-	List *attrNames = CONCAT_LISTS(LattrNames,RattrNames);
+
+//	List *attrNames = CONCAT_LISTS(LattrNames,RattrNames);
+//	newProj
+	List *attrNames = NIL;
+    List *LattrDefs = NIL;
+    List *RattrDefs = NIL;
+    int len = LIST_LENGTH(newProj->op.schema->attrDefs);
+    int c = 0;
+
+	FOREACH(AttributeDef, a, newProj->op.schema->attrDefs)
+	{
+		attrNames = appendToTailOfList(attrNames, a->attrName);
+
+		if(c < len/2)
+		{
+			LattrDefs = appendToTailOfList(LattrDefs, a);
+			c ++;
+		}
+		else
+		{
+			RattrDefs = appendToTailOfList(RattrDefs, a);
+			c++;
+		}
+
+	}
+
 
     ProjectionOperator *op1 = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
+
+    op1->op.schema->attrDefs = newProj->op.schema->attrDefs;
 
     addChildOperator((QueryOperator *) op1, (QueryOperator *) newProj);
     switchSubtrees((QueryOperator *) newProj, (QueryOperator *) op1);
@@ -759,9 +796,15 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 			if(MAP_HAS_STRING_KEY(nameToIgAttrNameL, n->name))
 			{
 				char *attrName = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->name));
+//				AttributeReference *ar = createFullAttrReference(attrName, 0,
+//										listPosString(LattrNames,attrName), 0,
+//										isPrefix(attrName,"ig") ? DT_BIT15 : n->attrType);
+
+
 				AttributeReference *ar = createFullAttrReference(attrName, 0,
-										listPosString(LattrNames,attrName), 0,
+										getAttrPos((QueryOperator *) newProj, attrName), 0,
 										isPrefix(attrName,"ig") ? DT_BIT15 : n->attrType);
+
 
 				CastExpr *castL;
 				castL = createCastExpr((Node *) ar, DT_STRING);
@@ -777,9 +820,13 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 			if(MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->name))
 			{
 				char *attrName = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, n->name));
+//				AttributeReference *ar = createFullAttrReference(attrName, 0,
+//						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrName) - (lenL + 1),
+//						0, isPrefix(attrName,"ig") ? DT_BIT15 : n->attrType);
+
 				AttributeReference *ar = createFullAttrReference(attrName, 0,
-						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrName) - (lenL + 1),
-						0, isPrefix(attrName,"ig") ? DT_BIT15 : n->attrType);
+										getAttrPos((QueryOperator *) newProj, attrName),
+										0, isPrefix(attrName,"ig") ? DT_BIT15 : n->attrType);
 
 				CastExpr *castR;
 				castR = createCastExpr((Node *) ar, DT_STRING);
@@ -805,27 +852,41 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 		joinNames = appendToTailOfList(joinNames, n->name);
 	}
 
-	FOREACH(AttributeReference, n, LprojExprs)
+//	FOREACH(AttributeReference, n, LprojExprs)
+	FOREACH(AttributeDef, n, LattrDefs)
 	{
 		List *functioninput = NIL;
 		List *cast = NIL;
 
-		boolean flag = searchListString(joinNames, n->name);
+		boolean flag = searchListString(joinNames, n->attrName);
 
-		if(!isPrefix(n->name, "ig") && flag == FALSE)
+		if(!isPrefix(n->attrName, "ig") && flag == FALSE)
 		{
-			if(MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->name) && !isSuffix(n->name, "anno"))
+			if(MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->attrName) && !isSuffix(n->attrName, "anno"))
 			{
-				char *attrIgNameL = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->name));
-				char *attrIgNameR = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, n->name));
+				char *attrIgNameL = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->attrName));
+				char *attrIgNameR = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, n->attrName));
+
+//				AttributeReference *arL = createFullAttrReference(attrIgNameL, 0,
+//						listPosString(LattrNames,attrIgNameL), 0,
+//						isPrefix(attrIgNameL,"ig") ? DT_BIT15 : n->attrType);
 
 				AttributeReference *arL = createFullAttrReference(attrIgNameL, 0,
-						listPosString(LattrNames,attrIgNameL), 0,
-						isPrefix(attrIgNameL,"ig") ? DT_BIT15 : n->attrType);
+						getAttrPos((QueryOperator *) newProj, attrIgNameL), 0,
+						isPrefix(attrIgNameL,"ig") ? DT_BIT15 : DT_INT);
+
+//				AttributeReference *arL = getAttrRefByName((QueryOperator *) newProj, attrIgNameL);
+
+//				AttributeReference *arR = createFullAttrReference(attrIgNameR, 0,
+//						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR) - (lenL + 1),
+//						0, isPrefix(attrIgNameR,"ig") ? DT_BIT15 : n->attrType);
+
 
 				AttributeReference *arR = createFullAttrReference(attrIgNameR, 0,
-						LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR) - (lenL + 1),
-						0, isPrefix(attrIgNameR,"ig") ? DT_BIT15 : n->attrType);
+						getAttrPos((QueryOperator *) newProj, attrIgNameR), 0,
+						isPrefix(attrIgNameR,"ig") ? DT_BIT15 : DT_INT);
+
+//				AttributeReference *arR = getAttrRefByName((QueryOperator *) newProj, attrIgNameR);
 
 				CastExpr *castL;
 				CastExpr *castR;
@@ -847,17 +908,23 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 				CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
 
 				exprs = appendToTailOfList(exprs,caseExpr);
-				atNames = appendToTailOfList(atNames, CONCAT_STRINGS("hamming_", n->name));
+				atNames = appendToTailOfList(atNames, CONCAT_STRINGS("hamming_", n->attrName));
 				x++;
 
 			}
-			else if(!MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->name) && !isSuffix(n->name, "anno"))
+			else if(!MAP_HAS_STRING_KEY(nameToIgAttrNameR, n->attrName) && !isSuffix(n->attrName, "anno"))
 			{
-				char *attrIgNameL = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->name));
+				char *attrIgNameL = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->attrName));
+
+//				AttributeReference *arL = createFullAttrReference(attrIgNameL, 0,
+//										listPosString(LattrNames,attrIgNameL), 0,
+//										isPrefix(attrIgNameL,"ig") ? DT_BIT15 : n->attrType);
 
 				AttributeReference *arL = createFullAttrReference(attrIgNameL, 0,
-										listPosString(LattrNames,attrIgNameL), 0,
-										isPrefix(attrIgNameL,"ig") ? DT_BIT15 : n->attrType);
+										getAttrPos((QueryOperator *) newProj, attrIgNameL), 0,
+										isPrefix(attrIgNameL,"ig") ? DT_BIT15 :DT_INT);
+
+//				AttributeReference *arL = getAttrRefByName((QueryOperator *) newProj, attrIgNameL);
 
 				CastExpr *castL;
 
@@ -868,31 +935,38 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 				FunctionCall *hammingdist = createFunctionCall("hammingdist", functioninput);
 
 				exprs = appendToTailOfList(exprs,hammingdist);
-				atNames = appendToTailOfList(atNames, CONCAT_STRINGS("hamming_", n->name));
+				atNames = appendToTailOfList(atNames, CONCAT_STRINGS("hamming_", n->attrName));
 				x++;
 			}
 		}
 	}
 
-	FOREACH(AttributeReference, n, RprojExprs)
+//	FOREACH(AttributeReference, n, RprojExprs)
+	FOREACH(AttributeDef, n, LattrDefs)
 	{
 		List *functioninput = NIL;
-		boolean flag = searchListString(joinNames, n->name);
-		if(!isPrefix(n->name, "ig") && flag == FALSE)
+		boolean flag = searchListString(joinNames, n->attrName);
+		if(!isPrefix(n->attrName, "ig") && flag == FALSE)
 		{
-			char *ch = replaceSubstr(n->name, "1", "");
-			if(MAP_HAS_STRING_KEY(nameToIgAttrNameL, ch) && !isSuffix(n->name, "anno") )
+			char *ch = replaceSubstr(n->attrName, "1", "");
+			if(MAP_HAS_STRING_KEY(nameToIgAttrNameL, ch) && !isSuffix(n->attrName, "anno") )
 			{
 				x++;
 				continue;
 			}
-			else if(!MAP_HAS_STRING_KEY(nameToIgAttrNameL, ch) && !isSuffix(n->name, "anno"))
+			else if(!MAP_HAS_STRING_KEY(nameToIgAttrNameL, ch) && !isSuffix(n->attrName, "anno"))
 			{
 				char *attrIgNameR = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameR, ch));
 
+//				AttributeReference *arR = createFullAttrReference(attrIgNameR, 0,
+//										LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR) - (lenL + 1),
+//										0, isPrefix(attrIgNameR,"ig") ? DT_BIT15 : n->attrType);
+
 				AttributeReference *arR = createFullAttrReference(attrIgNameR, 0,
-										LIST_LENGTH(LattrNames) + listPosString(RattrNames,attrIgNameR) - (lenL + 1),
-										0, isPrefix(attrIgNameR,"ig") ? DT_BIT15 : n->attrType);
+										getAttrPos((QueryOperator *) newProj, attrIgNameR),
+										0, isPrefix(attrIgNameR,"ig") ? DT_BIT15 : DT_INT);
+
+//				AttributeReference *arR = getAttrRefByName((QueryOperator *) newProj, attrIgNameR);
 
 				CastExpr *castR;
 				castR = createCastExpr((Node *) arR, DT_STRING);
@@ -902,7 +976,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 				FunctionCall *hammingdist = createFunctionCall("hammingdist", functioninput);
 
 				exprs = appendToTailOfList(exprs,hammingdist);
-				atNames = appendToTailOfList(atNames, CONCAT_STRINGS("hamming_", n->name));
+				atNames = appendToTailOfList(atNames, CONCAT_STRINGS("hamming_", n->attrName));
 				x++;
 			}
 		}
@@ -910,6 +984,22 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 
 	ProjectionOperator *hamming_op = createProjectionOp(exprs, NULL, NIL, atNames);
+
+	FOREACH(AttributeDef, n, hamming_op->op.schema->attrDefs)
+	{
+		if(isPrefix(n->attrName, "hamming"))
+		{
+			n->dataType = DT_STRING;
+		}
+	}
+
+	FOREACH(AttributeReference, n, hamming_op->projExprs)
+	{
+		if(isPrefix(n->name, "hamming"))
+		{
+			n->attrType = DT_STRING;
+		}
+	}
 
     addChildOperator((QueryOperator *) hamming_op, (QueryOperator *) op1);
     switchSubtrees((QueryOperator *) op1, (QueryOperator *) hamming_op);
@@ -953,10 +1043,27 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 		}
 	}
 
-	h_valueExprs = CONCAT_LISTS(h_valueExprs, oldExprs);
-	h_valueName = CONCAT_LISTS(h_valueName, oldNames);
+//	h_valueExprs = CONCAT_LISTS(h_valueExprs, oldExprs);
+//	h_valueName = CONCAT_LISTS(h_valueName, oldNames);
 
 	ProjectionOperator *hammingvalue_op = createProjectionOp(h_valueExprs, NULL, NIL, h_valueName);
+
+	FOREACH(AttributeDef, n, hammingvalue_op->op.schema->attrDefs)
+	{
+		if(isPrefix(n->attrName, "value"))
+		{
+			n->dataType = DT_INT;
+		}
+	}
+
+	FOREACH(AttributeReference, n, hammingvalue_op->projExprs)
+	{
+		if(isPrefix(n->name, "value"))
+		{
+			n->attrType = DT_INT;
+		}
+	}
+
 
 	addChildOperator((QueryOperator *) hammingvalue_op, (QueryOperator *) hamming_op);
 	switchSubtrees((QueryOperator *) hamming_op, (QueryOperator *) hammingvalue_op);
@@ -1044,7 +1151,6 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 			break;
 		}
-
 	}
 
 
@@ -1311,6 +1417,8 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	List *newOrderExpr = NIL;
 	List *newOrderNames = NIL;
+	List *oldExprs = NIL;
+	List *oldNames = NIL;
 //	int orderPos = 0;
 //	int t = 0;
 
@@ -1407,11 +1515,20 @@ rewriteIG_Projection (ProjectionOperator *op)
 			//adding the old attribute in the end
 			if(strcmp(a->attrName, name) == 0)
 			{
-				newOrderExpr = appendToTailOfList(newOrderExpr,
+//				newOrderExpr = appendToTailOfList(newOrderExpr,
+//								 createFullAttrReference(name, 0,
+//										 getAttrPos((QueryOperator *) caseWhenList, a->attrName), 0, a->dataType));
+//
+//				newOrderNames = appendToTailOfList(newOrderNames, nameold);
+//
+
+				oldExprs = appendToTailOfList(oldExprs,
 								 createFullAttrReference(name, 0,
 										 getAttrPos((QueryOperator *) caseWhenList, a->attrName), 0, a->dataType));
 
-				newOrderNames = appendToTailOfList(newOrderNames, nameold);
+				oldNames = appendToTailOfList(oldNames, nameold);
+
+
 			}
 			// pushing old ig attribute in the end
 			else if(isPrefix(a->attrName, "ig"))
@@ -1424,28 +1541,47 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 				if(strcmp(name, namea) == 0 )
 				{
-					newOrderExpr = appendToTailOfList(newOrderExpr,
+//					newOrderExpr = appendToTailOfList(newOrderExpr,
+//									 createFullAttrReference(a->attrName, 0,
+//											 getAttrPos((QueryOperator *) caseWhenList, a->attrName), 0, a->dataType));
+//
+//					newOrderNames = appendToTailOfList(newOrderNames, newName);
+//					orderPos++;
+
+
+					oldExprs = appendToTailOfList(oldExprs,
 									 createFullAttrReference(a->attrName, 0,
 											 getAttrPos((QueryOperator *) caseWhenList, a->attrName), 0, a->dataType));
 
-					newOrderNames = appendToTailOfList(newOrderNames, newName);
-//					orderPos++;
+					oldNames = appendToTailOfList(oldNames, newName);
+
+
 				}
 			}
 		}
 	}
 
 	//now need to fix the old and new ig attributes
+//	newOrderExpr = CONCAT_LISTS(newOrderExpr, oldExprs);
+//	newOrderNames = CONCAT_LISTS(newOrderNames, oldNames);
+//
 
 	ProjectionOperator *order = createProjectionOp(newOrderExpr, NULL, NIL, newOrderNames);
-//	LOG_RESULT("REORDETING TEST ----------------------", order);
 
+    // if there is PROP_JOIN_ATTRS_FOR_HAMMING set then copy over the properties to the new proj op
+    if(HAS_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING))
+    {
+        SET_STRING_PROP(order, PROP_JOIN_ATTRS_FOR_HAMMING,
+                copyObject(GET_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING)));
+    }
 
     addChildOperator((QueryOperator *) order, (QueryOperator *) caseWhenList);
     switchSubtrees((QueryOperator *) caseWhenList, (QueryOperator *) order);
+    LOG_RESULT("REORDETING TEST ----------------------", order);
 
     // This function creates hash maps and adds hamming distance functions
 	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(order);
+
 
 //	 This function adds the + expression to calculate the total distance
 //	ProjectionOperator *sumrows = rewriteIG_SumExprs(hammingvalue_op);
