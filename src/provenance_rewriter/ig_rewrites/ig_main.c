@@ -498,7 +498,7 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 */
 
 //rewriteIG_HammingFunctions
-
+/*
 static ProjectionOperator *
 rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 {
@@ -1073,7 +1073,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 }
 
-
+*/
 static QueryOperator *
 rewriteIG_Projection (ProjectionOperator *op)
 {
@@ -1580,18 +1580,18 @@ rewriteIG_Projection (ProjectionOperator *op)
     LOG_RESULT("REORDETING TEST ----------------------", order);
 
     // This function creates hash maps and adds hamming distance functions
-	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(order);
+//	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(order);
 
 
 //	 This function adds the + expression to calculate the total distance
 //	ProjectionOperator *sumrows = rewriteIG_SumExprs(hammingvalue_op);
 
-	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
-	return (QueryOperator *) hammingvalue_op;
+//	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
+//	return (QueryOperator *) hammingvalue_op;
 
 
-//	LOG_RESULT("Rewritten Projection Operator tree", order);
-//	return (QueryOperator *) order;
+	LOG_RESULT("Rewritten Projection Operator tree", order);
+	return (QueryOperator *) order;
 
 }
 
