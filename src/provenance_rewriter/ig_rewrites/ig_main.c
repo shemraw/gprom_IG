@@ -498,8 +498,9 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 */
 
 //rewriteIG_HammingFunctions
-/*
+
 static ProjectionOperator *
+
 rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 {
     ASSERT(OP_LCHILD(newProj));
@@ -584,12 +585,14 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 		}
     }
 
-
+    int sizeLprojExprs = LIST_LENGTH(LprojExprs) / 2;
+    int cntLprojExprs = 0;
 	FOREACH(AttributeReference, n, LprojExprs)
 	{
-		if(!isPrefix(n->name, "ig") && !isSuffix(n->name, "anno"))
+		if(!isPrefix(n->name, "ig") && !isSuffix(n->name, "anno") && cntLprojExprs < sizeLprojExprs)
 		{
 			newProjExpr = appendToTailOfList(newProjExpr, n);
+			cntLprojExprs = cntLprojExprs + 1;
 		}
 
 	}
@@ -655,11 +658,14 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	}
 
 
+    int sizeRprojExprs = LIST_LENGTH(RprojExprs) / 2;
+    int cntRprojExprs = 0;
 	FOREACH(AttributeReference, n, RprojExprs)
 	{
-		if(!isPrefix(n->name, "ig") && !isSuffix(n->name, "anno"))
+		if(!isPrefix(n->name, "ig") && !isSuffix(n->name, "anno") && cntRprojExprs < sizeRprojExprs)
 		{
 			newProjExpr = appendToTailOfList(newProjExpr, n);
+			cntRprojExprs = cntRprojExprs + 1;
 		}
 
 	}
@@ -1073,7 +1079,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 }
 
-*/
+
 static QueryOperator *
 rewriteIG_Projection (ProjectionOperator *op)
 {
@@ -1580,18 +1586,18 @@ rewriteIG_Projection (ProjectionOperator *op)
     LOG_RESULT("REORDETING TEST ----------------------", order);
 
     // This function creates hash maps and adds hamming distance functions
-//	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(order);
+	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(order);
 
 
 //	 This function adds the + expression to calculate the total distance
 //	ProjectionOperator *sumrows = rewriteIG_SumExprs(hammingvalue_op);
 
-//	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
-//	return (QueryOperator *) hammingvalue_op;
+	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
+	return (QueryOperator *) hammingvalue_op;
 
 
-	LOG_RESULT("Rewritten Projection Operator tree", order);
-	return (QueryOperator *) order;
+//	LOG_RESULT("Rewritten Projection Operator tree", order);
+//	return (QueryOperator *) order;
 
 }
 
