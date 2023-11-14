@@ -585,7 +585,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 		}
     }
 
-    int sizeLprojExprs = LIST_LENGTH(LprojExprs) / 2;
+    int sizeLprojExprs = LIST_LENGTH(LprojExprs) - 1 / 2;
     int cntLprojExprs = 0;
 	FOREACH(AttributeReference, n, LprojExprs)
 	{
@@ -597,6 +597,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 	}
 
+	cntLprojExprs = 0;
 	// creating case when statements here for integration
 	FOREACH(AttributeReference, n, LprojExprs)
 	{
@@ -628,12 +629,8 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 				CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
 
 				newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
+				cntLprojExprs = cntLprojExprs + 1;
 			}
-			// is this correct ? because there already is a case when statement so do we need the old ones ?
-//			else if(isA(n, CaseExpr))
-//			{
-//				newProjExpr = appendToTailOfList(newProjExpr, n);
-//			}
 			else
 			{
 				char *igAttr = STRING_VALUE(MAP_GET_STRING(nameToIgAttrNameL, n->name));
@@ -645,9 +642,12 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 
 				newProjExpr = appendToTailOfList(newProjExpr, ar);
+				cntLprojExprs = cntLprojExprs + 1;
 			}
+
 		}
-		else if(isA(n, CaseExpr))
+		// is this correct ? because there already is a case when statement so do we need the old ones ?
+		else if(isA(n, CaseExpr) && cntLprojExprs >= sizeLprojExprs)
 		{
 			newProjExpr = appendToTailOfList(newProjExpr, n);
 		}
@@ -655,10 +655,11 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 		{
 			newProjExpr = appendToTailOfList(newProjExpr, n);
 		}
+
 	}
 
 
-    int sizeRprojExprs = LIST_LENGTH(RprojExprs) / 2;
+    int sizeRprojExprs = LIST_LENGTH(RprojExprs) - 1 / 2;
     int cntRprojExprs = 0;
 	FOREACH(AttributeReference, n, RprojExprs)
 	{
@@ -670,6 +671,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 	}
 
+	cntRprojExprs = 0;
 	FOREACH(AttributeReference, n, RprojExprs)
 	{
 		if(!isPrefix(n->name, "ig") && !isSuffix(n->name, "anno") && !isA(n, CaseExpr))
@@ -703,6 +705,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 				CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
 
 				newProjExpr = appendToTailOfList(newProjExpr, caseExpr);
+				cntRprojExprs = cntRprojExprs + 1;
 			}
 			else
 			{
@@ -714,9 +717,10 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 						getAttrPos((QueryOperator *) newProj, igAttr), 0, DT_BIT15);
 
 				newProjExpr = appendToTailOfList(newProjExpr, ar);
+				cntRprojExprs = cntRprojExprs + 1;
 			}
 		}
-		else if(isA(n, CaseExpr))
+		else if(isA(n, CaseExpr) && cntRprojExprs >= sizeRprojExprs)
 		{
 			newProjExpr = appendToTailOfList(newProjExpr, n);
 		}
@@ -754,7 +758,6 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 
     ProjectionOperator *op1 = createProjectionOp(newProjExpr, NULL, NIL, attrNames);
-
     op1->op.schema->attrDefs = newProj->op.schema->attrDefs;
 
     addChildOperator((QueryOperator *) op1, (QueryOperator *) newProj);
@@ -812,9 +815,9 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 										isPrefix(attrName,"ig") ? DT_BIT15 : n->attrType);
 
 
-				CastExpr *castL;
-				castL = createCastExpr((Node *) ar, DT_STRING);
-				functioninput = appendToTailOfList(functioninput, castL);
+//				CastExpr *castL;
+//				castL = createCastExpr((Node *) ar, DT_STRING);
+				functioninput = appendToTailOfList(functioninput, ar);
 				tempName = n->name;
 				cnt ++;
 			}
@@ -834,9 +837,9 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 										getAttrPos((QueryOperator *) newProj, attrName),
 										0, isPrefix(attrName,"ig") ? DT_BIT15 : n->attrType);
 
-				CastExpr *castR;
-				castR = createCastExpr((Node *) ar, DT_STRING);
-				functioninput = appendToTailOfList(functioninput, castR);
+//				CastExpr *castR;
+//				castR = createCastExpr((Node *) ar, DT_STRING);
+				functioninput = appendToTailOfList(functioninput, ar);
 				cnt ++;
 			}
 		}
@@ -1076,7 +1079,6 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 
 	return hammingvalue_op;
-
 }
 
 
