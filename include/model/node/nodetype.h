@@ -72,6 +72,7 @@ NEW_ENUM_WITH_TO_STRING(NodeTag,
     T_ProjectionOperator,
     T_JoinOperator,
     T_AggregationOperator,
+	AggregationOperatorCube, // adding support foe cube
     T_ProvenanceComputation,
 	T_IGComputation,
     T_TableAccessOperator,

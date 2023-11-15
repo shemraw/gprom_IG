@@ -83,6 +83,15 @@ typedef struct AggregationOperator
     List *groupBy; // group by expressions
 } AggregationOperator;
 
+typedef struct AggregationOperatorCube
+{
+    QueryOperator op;
+    List *aggrs; // aggregation expressions, FunctionCall type
+    List *groupByCube; // group by expressions
+} AggregationOperatorCube;
+
+
+
 typedef struct SetOperator
 {
     QueryOperator op;
@@ -231,6 +240,10 @@ extern JoinOperator *createJoinOp (JoinType joinType, Node *cond, List *inputs,
         List *parents, List *attrNames);
 extern AggregationOperator *createAggregationOp (List *aggrs, List *groupBy,
         QueryOperator *input, List *parents, List *attrNames);
+extern AggregationOperatorCube *createAggregationOpCube (List *aggrs, List *groupBy,
+        QueryOperator *input, List *parents, List *attrNames);
+
+
 extern SetOperator *createSetOperator (SetOpType setOpType, List *inputs,
         List *parents, List *attrNames);
 extern DuplicateRemoval *createDuplicateRemovalOp (List *attrs,

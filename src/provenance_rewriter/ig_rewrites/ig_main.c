@@ -498,7 +498,6 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 //rewriteIG_HammingFunctions
 
 static ProjectionOperator *
-
 rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 {
     ASSERT(OP_LCHILD(newProj));
@@ -1090,6 +1089,41 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	return hammingvalue_op;
 }
 
+static ProjectionOperator *
+rewriteIG_CubeOperator (ProjectionOperator *sumrows)
+{
+
+	ASSERT(OP_LCHILD(sumrows));
+	DEBUG_LOG("REWRITE-IG - Projection");
+	DEBUG_LOG("Operator tree \n%s", nodeToString(sumrows));
+//	List *projExprs = NIL;
+	List *projNames = NIL;
+	List *cubeClauses = NIL;
+
+	FOREACH(AttributeDef, n, sumrows->op.schema->attrDefs)
+	{
+		if(!isPrefix(n->attrName, "ig") && !isPrefix(n->attrName, "value") &&
+		   !isPrefix(n->attrName, "Total") && !isPrefix(n->attrName, "Average") &&
+		   !isSuffix(n->attrName, "anno"))
+		{
+			cubeClauses = appendToTailOfList(cubeClauses,
+					 createFullAttrReference(n->attrName, 0,
+					 getAttrPos((QueryOperator *) sumrows, n->attrName), 0, n->dataType));
+
+			projNames = appendToTailOfList(projNames, n->attrName);
+
+		}
+	}
+
+//	AggregationOperator *ao = createAggregationOp(cubeClauses, cubeClauses, NULL, NIL, projNames);
+	ProjectionOperator *ao = createProjectionOp(cubeClauses, NULL, NIL, projNames);
+
+	addChildOperator((QueryOperator *) ao, (QueryOperator *) sumrows);
+	switchSubtrees((QueryOperator *) sumrows, (QueryOperator *) ao);
+
+	return ao;
+}
+
 
 static QueryOperator *
 rewriteIG_Projection (ProjectionOperator *op)
@@ -1606,11 +1640,13 @@ rewriteIG_Projection (ProjectionOperator *op)
 //	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
 //	return (QueryOperator *) hammingvalue_op;
 
+	ProjectionOperator *cube = rewriteIG_CubeOperator(sumrows);
 
-	LOG_RESULT("Rewritten Projection Operator tree", sumrows);
-	return (QueryOperator *) sumrows;
+	LOG_RESULT("Rewritten Projection Operator tree", cube);
+	return (QueryOperator *) cube;
 
 }
+
 
 static QueryOperator *
 rewriteIG_Join (JoinOperator *op)
