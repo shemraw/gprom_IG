@@ -723,32 +723,32 @@ createAggregationOp(List *aggrs, List *groupBy, QueryOperator *input,
     return aggr;
 }
 
-AggregationOperatorCube *
-createAggregationOpCube(List *aggrs, List *groupByCube, QueryOperator *input,
-        List *parents, List *attrNames)
-{
-	AggregationOperatorCube *aggr = makeNode(AggregationOperatorCube);
-
-    FOREACH(Node, func, aggrs)
-    {
-        aggr->aggrs = appendToTailOfList(aggr->aggrs, copyObject(func));
-    }
-    FOREACH(Node, expr, groupByCube)
-    {
-        aggr->groupByCube = appendToTailOfList(aggr->groupByCube, copyObject(expr));
-    }
-    if (input != NULL)
-        aggr->op.inputs = singleton(input);
-    else
-        aggr->op.inputs = NIL;
-
-    aggr->op.schema = schemaFromExpressions("AGG", attrNames,
-            concatTwoLists(copyList(aggrs),copyList(groupByCube)), singleton(input));
-    aggr->op.parents = parents;
-    aggr->op.provAttrs = NULL;
-
-    return aggr;
-}
+//AggregationOperatorCube *
+//createAggregationOpCube(List *aggrs, List *groupByCube, QueryOperator *input,
+//        List *parents, List *attrNames)
+//{
+//	AggregationOperatorCube *aggr = makeNode(AggregationOperatorCube);
+//
+//    FOREACH(Node, func, aggrs)
+//    {
+//        aggr->aggrs = appendToTailOfList(aggr->aggrs, copyObject(func));
+//    }
+//    FOREACH(Node, expr, groupByCube)
+//    {
+//        aggr->groupByCube = appendToTailOfList(aggr->groupByCube, copyObject(expr));
+//    }
+//    if (input != NULL)
+//        aggr->op.inputs = singleton(input);
+//    else
+//        aggr->op.inputs = NIL;
+//
+//    aggr->op.schema = schemaFromExpressions("AGG", attrNames,
+//            concatTwoLists(copyList(aggrs),copyList(groupByCube)), singleton(input));
+//    aggr->op.parents = parents;
+//    aggr->op.provAttrs = NULL;
+//
+//    return aggr;
+//}
 
 
 

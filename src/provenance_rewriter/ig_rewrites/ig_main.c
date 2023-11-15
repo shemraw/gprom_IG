@@ -1089,16 +1089,18 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	return hammingvalue_op;
 }
 
-static ProjectionOperator *
-rewriteIG_CubeOperator (ProjectionOperator *sumrows)
+static AggregationOperator *
+rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 {
 
 	ASSERT(OP_LCHILD(sumrows));
-	DEBUG_LOG("REWRITE-IG - Projection");
+	DEBUG_LOG("REWRITE-IG - Pattern Generation");
 	DEBUG_LOG("Operator tree \n%s", nodeToString(sumrows));
 //	List *projExprs = NIL;
 	List *projNames = NIL;
-	List *cubeClauses = NIL;
+	List *groupBy = NIL;
+	List *aggrs = NIL;
+	FunctionCall *sum = NULL;
 
 	FOREACH(AttributeDef, n, sumrows->op.schema->attrDefs)
 	{
@@ -1106,17 +1108,27 @@ rewriteIG_CubeOperator (ProjectionOperator *sumrows)
 		   !isPrefix(n->attrName, "Total") && !isPrefix(n->attrName, "Average") &&
 		   !isSuffix(n->attrName, "anno"))
 		{
-			cubeClauses = appendToTailOfList(cubeClauses,
+			groupBy = appendToTailOfList(groupBy,
 					 createFullAttrReference(n->attrName, 0,
 					 getAttrPos((QueryOperator *) sumrows, n->attrName), 0, n->dataType));
 
 			projNames = appendToTailOfList(projNames, n->attrName);
 
 		}
+
+		if(streq(n->attrName,"Total_Distance"))
+		{
+			AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+											getAttrPos((QueryOperator *) sumrows, n->attrName), 0, n->dataType);
+			sum = createFunctionCall("SUM", singleton(ar));
+			aggrs = appendToTailOfList(aggrs,sum);
+
+			projNames = appendToTailOfList(projNames, "patternIG");
+		}
 	}
 
-//	AggregationOperator *ao = createAggregationOp(cubeClauses, cubeClauses, NULL, NIL, projNames);
-	ProjectionOperator *ao = createProjectionOp(cubeClauses, NULL, NIL, projNames);
+	AggregationOperator *ao = createAggregationOp(aggrs, groupBy, NULL, NIL, projNames);
+	ao->isCube = TRUE;
 
 	addChildOperator((QueryOperator *) ao, (QueryOperator *) sumrows);
 	switchSubtrees((QueryOperator *) sumrows, (QueryOperator *) ao);
@@ -1294,7 +1306,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 			//getting then here and fixing the AttributePositions for then
 			then1 = (AttributeReference *) whenClause1->then;
-			then1->attrType = DT_INT;
+//			then1->attrType = DT_INT;
 			then1->attrPosition = getAttrPos((QueryOperator *) newProj, then1->name);
 
 			// getting else node from CaseExpr
@@ -1303,7 +1315,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 			AttributeReference *arce = (AttributeReference *) ce;
 			elsename1 = arce->name;
 			elseClause1 =  (Node *) createFullAttrReference(elsename1, 0,
-					getAttrPos((QueryOperator *) newProj, elsename1), 0, DT_INT);
+					getAttrPos((QueryOperator *) newProj, elsename1), 0, arce->attrType);
 
 			CaseExpr *caseExpr1 = createCaseExpr(NULL, singleton(whenClause1), elseClause1);
 			grabCaseExprs1 = appendToTailOfList(grabCaseExprs1, caseExpr1);
@@ -1640,10 +1652,10 @@ rewriteIG_Projection (ProjectionOperator *op)
 //	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
 //	return (QueryOperator *) hammingvalue_op;
 
-	ProjectionOperator *cube = rewriteIG_CubeOperator(sumrows);
+	AggregationOperator *patterns = rewriteIG_PatternGeneration(sumrows);
 
-	LOG_RESULT("Rewritten Projection Operator tree", cube);
-	return (QueryOperator *) cube;
+	LOG_RESULT("Rewritten Operator tree for patterns", patterns);
+	return (QueryOperator *) patterns;
 
 }
 

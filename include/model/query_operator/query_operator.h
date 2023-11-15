@@ -81,14 +81,15 @@ typedef struct AggregationOperator
     QueryOperator op;
     List *aggrs; // aggregation expressions, FunctionCall type
     List *groupBy; // group by expressions
+    boolean isCube; // cube operator
 } AggregationOperator;
 
-typedef struct AggregationOperatorCube
-{
-    QueryOperator op;
-    List *aggrs; // aggregation expressions, FunctionCall type
-    List *groupByCube; // group by expressions
-} AggregationOperatorCube;
+//typedef struct AggregationOperatorCube
+//{
+//    QueryOperator op;
+//    List *aggrs; // aggregation expressions, FunctionCall type
+//    List *groupByCube; // group by expressions
+//} AggregationOperatorCube;
 
 
 
@@ -240,8 +241,8 @@ extern JoinOperator *createJoinOp (JoinType joinType, Node *cond, List *inputs,
         List *parents, List *attrNames);
 extern AggregationOperator *createAggregationOp (List *aggrs, List *groupBy,
         QueryOperator *input, List *parents, List *attrNames);
-extern AggregationOperatorCube *createAggregationOpCube (List *aggrs, List *groupBy,
-        QueryOperator *input, List *parents, List *attrNames);
+//extern AggregationOperatorCube *createAggregationOpCube (List *aggrs, List *groupBy,
+//        QueryOperator *input, List *parents, List *attrNames);
 
 
 extern SetOperator *createSetOperator (SetOpType setOpType, List *inputs,
