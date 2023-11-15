@@ -1102,6 +1102,7 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	List *aggrs = NIL;
 	FunctionCall *sum = NULL;
 
+	projNames = appendToTailOfList(projNames, "patternIG");
 	FOREACH(AttributeDef, n, sumrows->op.schema->attrDefs)
 	{
 		if(!isPrefix(n->attrName, "ig") && !isPrefix(n->attrName, "value") &&
@@ -1123,7 +1124,6 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 			sum = createFunctionCall("SUM", singleton(ar));
 			aggrs = appendToTailOfList(aggrs,sum);
 
-			projNames = appendToTailOfList(projNames, "patternIG");
 		}
 	}
 

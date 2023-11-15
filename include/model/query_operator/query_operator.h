@@ -84,14 +84,6 @@ typedef struct AggregationOperator
     boolean isCube; // cube operator
 } AggregationOperator;
 
-//typedef struct AggregationOperatorCube
-//{
-//    QueryOperator op;
-//    List *aggrs; // aggregation expressions, FunctionCall type
-//    List *groupByCube; // group by expressions
-//} AggregationOperatorCube;
-
-
 
 typedef struct SetOperator
 {
