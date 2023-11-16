@@ -1293,18 +1293,65 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 			// Adding patern_IG in the new informProj
 			informExprs = appendToTailOfList(informExprs,
 						  createFullAttrReference(n->attrName, 0,
-						  pos, 0, DT_INT));
+						  0, 0, DT_INT));
 			informNames = appendToTailOfList(informNames, n->attrName);
 		}
 
 		pos++;
 	}
 
-//	// Adding patern_IG in the new informProj
-//	informExprs = appendToTailOfList(informExprs,
-//				  createFullAttrReference("pattern_IG", 0,
-//				  pos, 0, DT_INT));
-//	informNames = appendToTailOfList(informNames, "pattern_IG");
+
+	// ADDING INFORMATIVENESS
+	pos = 1;
+	List *sumExprs = NIL;
+	Node *sumExpr = NULL;
+
+	FOREACH(AttributeDef, n , ao->op.schema->attrDefs)
+	{
+		if(isPrefix(n->attrName, "i"))
+		{
+
+			AttributeReference *ar = createFullAttrReference(n->attrName, 0, pos, 0, n->dataType);
+			pos = pos + 1;
+
+			Node *cond = (Node *) createOpExpr(OPNAME_NOT, singleton(createIsNullExpr((Node *) ar)));
+			Node *then = (Node *) (createConstInt(1));
+			Node *els = (Node *) (createConstInt(0));
+
+
+			CaseWhen *caseWhen = createCaseWhen(cond, then);
+			CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
+
+			sumExprs = appendToTailOfList(sumExprs, caseExpr);
+
+		}
+
+	}
+
+	sumExpr = (Node *) (createOpExpr("+", sumExprs));
+	informExprs = appendToTailOfList(informExprs, sumExpr);
+	informNames = appendToTailOfList(informNames, "informativeness");
+
+	// ADDING COVERAGE
+	pos = 1;
+	List *countExprs = NIL;
+
+	FOREACH(AttributeDef, n, ao->op.schema->attrDefs)
+	{
+		if(isPrefix(n->attrName, "i"))
+		{
+
+			AttributeReference *ar = createFullAttrReference(n->attrName, 0, pos, 0, n->dataType);
+			pos = pos + 1;
+			countExprs = appendToTailOfList(countExprs, ar);
+
+		}
+
+	}
+
+	FunctionCall *count = createFunctionCall("count", countExprs);
+	informExprs = appendToTailOfList(informExprs, count);
+	informNames = appendToTailOfList(informNames, "coverage");
 
 
 	ProjectionOperator *inform = createProjectionOp(informExprs, NULL, NIL, informNames);
