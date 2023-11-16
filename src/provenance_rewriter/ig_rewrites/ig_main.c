@@ -1336,18 +1336,16 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	pos = 1;
 //	List *countExprs = NIL;
 //
-//	FOREACH(AttributeDef, n, ao->op.schema->attrDefs)
-//	{
-//		if(isPrefix(n->attrName, "i"))
-//		{
-//
-//			AttributeReference *ar = createFullAttrReference(n->attrName, 0, pos, 0, n->dataType);
-//			pos = pos + 1;
-//			countExprs = appendToTailOfList(countExprs, ar);
-//
-//		}
-//
-//	}
+	int num_i = 0;
+	// counting attributes
+	FOREACH(AttributeDef, n, ao->op.schema->attrDefs)
+	{
+		if(isPrefix(n->attrName, "i"))
+		{
+			num_i = num_i + 1;
+		}
+
+	}
 
 	Constant *countProv = createConstInt(1);
 	FunctionCall *count = createFunctionCall("COUNT", singleton(countProv));
@@ -1372,19 +1370,33 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 		removeNoGoodPattNames = appendToTailOfList(removeNoGoodPattNames, n->attrName);
 	}
 
-	List *input = NIL;
-	AttributeReference *a = createFullAttrReference("coverage", 0,
+	AttributeReference *cov = createFullAttrReference("coverage", 0,
 							getAttrPos((QueryOperator *) inform, "coverage"), 0, DT_INT);
 
-	Node *whereClause = (Node *) createOpExpr(OPNAME_GT, LIST_MAKE(a, createConstInt(1)));
+	//creating where condition coverage > 1
+	Node *whereClauseL = (Node *) createOpExpr(OPNAME_GT, LIST_MAKE(cov, createConstInt(1)));
+	SelectionOperator *soL = createSelectionOp(whereClauseL, (QueryOperator *) inform, NIL, removeNoGoodPattNames);
+	addChildOperator((QueryOperator *) soL, (QueryOperator *) inform);
+	switchSubtrees((QueryOperator *) inform, (QueryOperator *) soL);
 
-	SelectionOperator *so = createSelectionOp(whereClause, (QueryOperator *) inform, NIL, removeNoGoodPattNames);
-	addChildOperator((QueryOperator *) so, (QueryOperator *) inform);
-	switchSubtrees((QueryOperator *) inform, (QueryOperator *) so);
+	AttributeReference *inf = createFullAttrReference("informativeness", 0,
+								getAttrPos((QueryOperator *) inform, "coverage"), 0, DT_INT);
+	//creating where condition coverage = 1 AND informativeness = 5
+	Node *whereClauseR = (Node *) createOpExpr(OPNAME_AND, LIST_MAKE(
+						//this is to create coverage = 1
+						createOpExpr(OPNAME_EQ, LIST_MAKE(cov, createConstInt(1))),
+						// this is to make informativeness = 5
+						createOpExpr(OPNAME_EQ, LIST_MAKE(inf, createConstInt(num_i)))));
+	SelectionOperator *soR = createSelectionOp(whereClauseR, (QueryOperator *) inform, NIL, removeNoGoodPattNames);
+	addChildOperator((QueryOperator *) soR, (QueryOperator *) inform);
+	switchSubtrees((QueryOperator *) inform, (QueryOperator *) soR);
+
 
 	QueryOperator *unionOp = (QueryOperator *) createSetOperator(SETOP_UNION, removeNoGoodPatt, NIL, informNames);
-	addChildOperator((QueryOperator *) unionOp, (QueryOperator *) so);
-	switchSubtrees((QueryOperator *) so, (QueryOperator *) unionOp);
+
+	addChildOperator((QueryOperator *) unionOp, (QueryOperator *) inform);
+	switchSubtrees((QueryOperator *) inform, (QueryOperator *) unionOp);
+
 
 
 	return inform;
