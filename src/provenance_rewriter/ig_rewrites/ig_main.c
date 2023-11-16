@@ -1268,7 +1268,7 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 	int pos = 0;
 
-	FOREACH(AttributeDef, n, clean->op.schema->attrDefs)
+	FOREACH(AttributeDef, n, ao->op.schema->attrDefs)
 	{
 		if(isPrefix(n->attrName, "i"))
 		{
@@ -1277,28 +1277,34 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 //					  getAttrPos((QueryOperator *) clean, n->attrName), 0, n->dataType));
 			informExprs = appendToTailOfList(informExprs,
 					  createFullAttrReference(n->attrName, 0,
-					  pos, 0, n->dataType));
+							  pos, 0, n->dataType));
 			informNames = appendToTailOfList(informNames, n->attrName);
-			pos = pos + 1;
 		}
-//		else if(isPrefix(n->attrName, "pattern"))
-//		{
-//			// Adding patern_IG in the new informProj
-//			informExprs = appendToTailOfList(informExprs,
-//						  createFullAttrReference(n->attrName, 0,
-//						  getAttrPos((QueryOperator *) ao, n->attrName), 0, DT_INT));
-//			informNames = appendToTailOfList(informNames, n->attrName);
-//		}
 
+		pos = pos + 1;
 	}
 
-	//attribute ref name and child attrdef names are not the same: <pattern_IG> and <i_county>
+	pos = 0;
 
-	// Adding patern_IG in the new informProj
-	informExprs = appendToTailOfList(informExprs,
-				  createFullAttrReference("pattern_IG", 0,
-				  pos, 0, DT_INT));
-	informNames = appendToTailOfList(informNames, "pattern_IG");
+	FOREACH(AttributeDef, n, ao->op.schema->attrDefs)
+	{
+		if(isPrefix(n->attrName, "pattern"))
+		{
+			// Adding patern_IG in the new informProj
+			informExprs = appendToTailOfList(informExprs,
+						  createFullAttrReference(n->attrName, 0,
+						  pos, 0, DT_INT));
+			informNames = appendToTailOfList(informNames, n->attrName);
+		}
+
+		pos++;
+	}
+
+//	// Adding patern_IG in the new informProj
+//	informExprs = appendToTailOfList(informExprs,
+//				  createFullAttrReference("pattern_IG", 0,
+//				  pos, 0, DT_INT));
+//	informNames = appendToTailOfList(informNames, "pattern_IG");
 
 
 	ProjectionOperator *inform = createProjectionOp(informExprs, NULL, NIL, informNames);
