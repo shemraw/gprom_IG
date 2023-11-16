@@ -1334,22 +1334,23 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 	// ADDING COVERAGE
 	pos = 1;
-	List *countExprs = NIL;
+//	List *countExprs = NIL;
+//
+//	FOREACH(AttributeDef, n, ao->op.schema->attrDefs)
+//	{
+//		if(isPrefix(n->attrName, "i"))
+//		{
+//
+//			AttributeReference *ar = createFullAttrReference(n->attrName, 0, pos, 0, n->dataType);
+//			pos = pos + 1;
+//			countExprs = appendToTailOfList(countExprs, ar);
+//
+//		}
+//
+//	}
 
-	FOREACH(AttributeDef, n, ao->op.schema->attrDefs)
-	{
-		if(isPrefix(n->attrName, "i"))
-		{
-
-			AttributeReference *ar = createFullAttrReference(n->attrName, 0, pos, 0, n->dataType);
-			pos = pos + 1;
-			countExprs = appendToTailOfList(countExprs, ar);
-
-		}
-
-	}
-
-	FunctionCall *count = createFunctionCall("count", countExprs);
+	Constant *countProv = createConstInt(1);
+	FunctionCall *count = createFunctionCall("COUNT", singleton(countProv));
 	informExprs = appendToTailOfList(informExprs, count);
 	informNames = appendToTailOfList(informNames, "coverage");
 
