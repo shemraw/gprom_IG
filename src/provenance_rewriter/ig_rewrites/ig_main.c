@@ -1096,33 +1096,154 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	ASSERT(OP_LCHILD(sumrows));
 	DEBUG_LOG("REWRITE-IG - Pattern Generation");
 	DEBUG_LOG("Operator tree \n%s", nodeToString(sumrows));
-//	List *projExprs = NIL;
+
+
+	//CREATING PROJECTION TO CLEAN UP THE TABLE
+//	List *aggrs1;
+//	List *aggrNames;
+//	FOREACH(AttributeDef, n, sumrows->op.schema->attrDefs)
+//	{
+//		if(!isPrefix(n->attrName, "ig") && !isPrefix(n->attrName, "value") &&
+//		   !isPrefix(n->attrName, "Average") && !isSuffix(n->attrName, "anno"))
+//		{
+//			aggrs1 = appendToTailOfList(aggrs1,
+//					createFullAttrReference(n->attrName, 0,
+//					getAttrPos((QueryOperator *) sumrows, n->attrName), 0, n->dataType));
+//
+//			aggrNames = appendToTailOfList(aggrNames, n->attrName);
+//
+//		}
+//	}
+//
+//	ProjectionOperator *p = createProjectionOp(aggrs1, NULL, NIL, aggrNames);
+
+	int lenL = (LIST_LENGTH(attrL) - 1) / 2;
+	int lenR = (LIST_LENGTH(attrR) - 1) / 2;
+	int cntR = 0;
+	int cntL = 0;
+	List *Laggrs = NIL;;
+	List *Raggrs = NIL;
+	List *LaggrsNames = NIL;
+	List *RaggrsNames = NIL;
+
+	FOREACH(AttributeDef, n, attrL)
+	{
+
+		if(cntL < lenL)
+		{
+			Laggrs = appendToTailOfList(Laggrs, n);
+			LaggrsNames = appendToTailOfList(LaggrsNames, n->attrName);
+			cntL = cntL + 1;
+		}
+	}
+
+	FOREACH(AttributeDef, n, attrR)
+	{
+
+		if(cntR < lenR)
+		{
+			Raggrs = appendToTailOfList(Raggrs, n);
+			RaggrsNames = appendToTailOfList(RaggrsNames, n->attrName);
+			cntR = cntR + 1;
+		}
+	}
+
+
+	List *cleanExprs = NIL;
+	List *cleanNames = NIL;
+	//Creating Left Case when statements
+	FOREACH(AttributeDef, L, Laggrs)
+	{
+
+		if(searchListString(RaggrsNames, L->attrName) == TRUE)
+		{
+			FOREACH(AttributeDef, R, Raggrs)
+			{
+				List *functioninput = NIL;
+				if(strcmp(L->attrName, R->attrName) == 0)
+				{
+					AttributeReference * arL = createFullAttrReference(L->attrName, 0, getAttrPos((QueryOperator *) sumrows, L->attrName),0, L->dataType);
+					AttributeReference * arR = createFullAttrReference(R->attrName, 0, getAttrPos((QueryOperator *) sumrows, L->attrName),0, R->dataType);
+					functioninput = appendToTailOfList(functioninput, arL);
+					functioninput = appendToTailOfList(functioninput, arR);
+					Node *cond = (Node *)(createOpExpr("=",functioninput));
+
+					Node *then = (Node *) arL;
+
+					CaseWhen *caseWhen = createCaseWhen(cond, then);
+
+					CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), NULL);
+
+					cleanExprs = appendToTailOfList(cleanExprs, caseExpr);
+					cleanNames = appendToTailOfList(cleanNames, CONCAT_STRINGS("i_", L->attrName));
+
+				}
+
+			}
+		}
+		else
+		{
+			AttributeReference * arL = createFullAttrReference(L->attrName, 0, getAttrPos((QueryOperator *) sumrows, L->attrName),0, L->dataType);
+			cleanExprs = appendToTailOfList(cleanExprs, arL);
+			cleanNames = appendToTailOfList(cleanNames, CONCAT_STRINGS("i_", L->attrName));
+		}
+
+
+
+	}
+
+
+	FOREACH(AttributeDef, R, Raggrs)
+	{
+		if(searchListString(LaggrsNames, R->attrName) == FALSE)
+		{
+			AttributeReference * arR = createFullAttrReference(R->attrName, 0, getAttrPos((QueryOperator *) sumrows, R->attrName),0, R->dataType);
+			cleanExprs = appendToTailOfList(cleanExprs, arR);
+			cleanNames = appendToTailOfList(cleanNames, CONCAT_STRINGS("i_", R->attrName));
+
+		}
+	}
+
+	FOREACH(AttributeDef, n, sumrows->op.schema->attrDefs)
+	{
+		if(streq(n->attrName, "Total_Distance"))
+		{
+			AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+									 getAttrPos((QueryOperator *) sumrows, n->attrName), 0, n->dataType);
+			cleanExprs = appendToTailOfList(cleanExprs, ar);
+			cleanNames = appendToTailOfList(cleanNames, n->attrName);
+		}
+	}
+
+
+	ProjectionOperator *clean = createProjectionOp(cleanExprs, NULL, NIL, cleanNames);
+	addChildOperator((QueryOperator *) clean, (QueryOperator *) sumrows);
+	switchSubtrees((QueryOperator *) sumrows, (QueryOperator *) clean);
+
+
 	List *projNames = NIL;
 	List *groupBy = NIL;
 	List *aggrs = NIL;
 	FunctionCall *sum = NULL;
 
-	projNames = appendToTailOfList(projNames, "patternIG");
-	FOREACH(AttributeDef, n, sumrows->op.schema->attrDefs)
+	FOREACH(AttributeDef, n, clean->op.schema->attrDefs)
 	{
-		if(!isPrefix(n->attrName, "ig") && !isPrefix(n->attrName, "value") &&
-		   !isPrefix(n->attrName, "Total") && !isPrefix(n->attrName, "Average") &&
-		   !isSuffix(n->attrName, "anno"))
+		if(isPrefix(n->attrName, "i"))
 		{
 			groupBy = appendToTailOfList(groupBy,
-					 createFullAttrReference(n->attrName, 0,
-					 getAttrPos((QueryOperator *) sumrows, n->attrName), 0, n->dataType));
+					  createFullAttrReference(n->attrName, 0,
+					  getAttrPos((QueryOperator *) sumrows, n->attrName), 0, n->dataType));
 
 			projNames = appendToTailOfList(projNames, n->attrName);
 
 		}
-
-		if(streq(n->attrName,"Total_Distance"))
+		else if(streq(n->attrName,"Total_Distance"))
 		{
 			AttributeReference *ar = createFullAttrReference(n->attrName, 0,
-											getAttrPos((QueryOperator *) sumrows, n->attrName), 0, n->dataType);
+					   				 getAttrPos((QueryOperator *) sumrows, n->attrName), 0, n->dataType);
 			sum = createFunctionCall("SUM", singleton(ar));
 			aggrs = appendToTailOfList(aggrs,sum);
+			projNames = appendToTailOfList(projNames, "patternIG");
 
 		}
 	}
@@ -1130,8 +1251,9 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	AggregationOperator *ao = createAggregationOp(aggrs, groupBy, NULL, NIL, projNames);
 	ao->isCube = TRUE;
 
-	addChildOperator((QueryOperator *) ao, (QueryOperator *) sumrows);
-	switchSubtrees((QueryOperator *) sumrows, (QueryOperator *) ao);
+	addChildOperator((QueryOperator *) ao, (QueryOperator *) clean);
+	switchSubtrees((QueryOperator *) clean, (QueryOperator *) ao);
+
 
 	return ao;
 }
