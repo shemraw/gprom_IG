@@ -1359,6 +1359,34 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	addChildOperator((QueryOperator *) inform, (QueryOperator *) ao);
 	switchSubtrees((QueryOperator *) ao, (QueryOperator *) inform);
 
+	List *removeNoGoodPatt = NIL;
+	List *removeNoGoodPattNames = NIL;
+
+	FOREACH(AttributeReference, n, inform->projExprs)
+	{
+		removeNoGoodPatt = appendToTailOfList(informExprs, n);
+	}
+
+	FOREACH(AttributeDef, n, inform->op.schema->attrDefs)
+	{
+		removeNoGoodPattNames = appendToTailOfList(removeNoGoodPattNames, n->attrName);
+	}
+
+	List *input = NIL;
+	AttributeReference *a = createFullAttrReference("coverage", 0,
+							getAttrPos((QueryOperator *) inform, "coverage"), 0, DT_INT);
+
+	Node *whereClause = (Node *) createOpExpr(OPNAME_GT, LIST_MAKE(a, createConstInt(1)));
+
+	SelectionOperator *so = createSelectionOp(whereClause, (QueryOperator *) inform, NIL, removeNoGoodPattNames);
+	addChildOperator((QueryOperator *) so, (QueryOperator *) inform);
+	switchSubtrees((QueryOperator *) inform, (QueryOperator *) so);
+
+	QueryOperator *unionOp = (QueryOperator *) createSetOperator(SETOP_UNION, removeNoGoodPatt, NIL, informNames);
+	addChildOperator((QueryOperator *) unionOp, (QueryOperator *) so);
+	switchSubtrees((QueryOperator *) so, (QueryOperator *) unionOp);
+
+
 	return inform;
 }
 
