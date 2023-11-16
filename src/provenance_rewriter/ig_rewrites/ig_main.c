@@ -1089,7 +1089,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	return hammingvalue_op;
 }
 
-static AggregationOperator *
+static ProjectionOperator *
 rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 {
 
@@ -1097,25 +1097,6 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	DEBUG_LOG("REWRITE-IG - Pattern Generation");
 	DEBUG_LOG("Operator tree \n%s", nodeToString(sumrows));
 
-
-	//CREATING PROJECTION TO CLEAN UP THE TABLE
-//	List *aggrs1;
-//	List *aggrNames;
-//	FOREACH(AttributeDef, n, sumrows->op.schema->attrDefs)
-//	{
-//		if(!isPrefix(n->attrName, "ig") && !isPrefix(n->attrName, "value") &&
-//		   !isPrefix(n->attrName, "Average") && !isSuffix(n->attrName, "anno"))
-//		{
-//			aggrs1 = appendToTailOfList(aggrs1,
-//					createFullAttrReference(n->attrName, 0,
-//					getAttrPos((QueryOperator *) sumrows, n->attrName), 0, n->dataType));
-//
-//			aggrNames = appendToTailOfList(aggrNames, n->attrName);
-//
-//		}
-//	}
-//
-//	ProjectionOperator *p = createProjectionOp(aggrs1, NULL, NIL, aggrNames);
 
 	int lenL = (LIST_LENGTH(attrL) - 1) / 2;
 	int lenR = (LIST_LENGTH(attrR) - 1) / 2;
@@ -1204,14 +1185,32 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 		}
 	}
 
+	// position of Total_Distance
+	int posDistance = 0;
 	FOREACH(AttributeDef, n, sumrows->op.schema->attrDefs)
 	{
 		if(streq(n->attrName, "Total_Distance"))
 		{
-			AttributeReference *ar = createFullAttrReference(n->attrName, 0,
-									 getAttrPos((QueryOperator *) sumrows, n->attrName), 0, n->dataType);
-			cleanExprs = appendToTailOfList(cleanExprs, ar);
-			cleanNames = appendToTailOfList(cleanNames, n->attrName);
+			 break;
+		}
+		else
+		{
+			posDistance = posDistance + 1;
+		}
+	}
+
+	int distCounter = 0;
+	FOREACH(AttributeReference, n, sumrows->projExprs)
+	{
+		if(distCounter < posDistance)
+		{
+			distCounter = distCounter + 1;
+		}
+		else if (distCounter == posDistance)
+		{
+			cleanExprs = appendToTailOfList(cleanExprs, n);
+			cleanNames = appendToTailOfList(cleanNames, "Total_Distance");
+			break;
 		}
 	}
 
@@ -1226,36 +1225,87 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	List *aggrs = NIL;
 	FunctionCall *sum = NULL;
 
+	projNames = appendToTailOfList(projNames, "pattern_IG");
 	FOREACH(AttributeDef, n, clean->op.schema->attrDefs)
 	{
 		if(isPrefix(n->attrName, "i"))
 		{
 			groupBy = appendToTailOfList(groupBy,
 					  createFullAttrReference(n->attrName, 0,
-					  getAttrPos((QueryOperator *) sumrows, n->attrName), 0, n->dataType));
+					  getAttrPos((QueryOperator *) clean, n->attrName), 0, n->dataType));
 
 			projNames = appendToTailOfList(projNames, n->attrName);
 
 		}
-		else if(streq(n->attrName,"Total_Distance"))
+		//this one makes pattern_IG
+		else if(streq(n->attrName, "Total_Distance"))
 		{
 			AttributeReference *ar = createFullAttrReference(n->attrName, 0,
-					   				 getAttrPos((QueryOperator *) sumrows, n->attrName), 0, n->dataType);
+					   				 getAttrPos((QueryOperator *) clean, n->attrName), 0, n->dataType);
 			sum = createFunctionCall("SUM", singleton(ar));
 			aggrs = appendToTailOfList(aggrs,sum);
-			projNames = appendToTailOfList(projNames, "patternIG");
 
 		}
 	}
 
 	AggregationOperator *ao = createAggregationOp(aggrs, groupBy, NULL, NIL, projNames);
 	ao->isCube = TRUE;
+	FOREACH(AttributeDef, n, ao->op.schema->attrDefs)
+	{
+		if(isPrefix(n->attrName, "pattern_IG"))
+		{
+			n->dataType = DT_INT;
+			break;
+		}
 
+	}
 	addChildOperator((QueryOperator *) ao, (QueryOperator *) clean);
 	switchSubtrees((QueryOperator *) clean, (QueryOperator *) ao);
 
+	// Adding projection for Informativeness
+	List *informExprs = NIL;
+	List *informNames = NIL;
 
-	return ao;
+	int pos = 0;
+
+	FOREACH(AttributeDef, n, clean->op.schema->attrDefs)
+	{
+		if(isPrefix(n->attrName, "i"))
+		{
+//			informExprs = appendToTailOfList(informExprs,
+//					  createFullAttrReference(n->attrName, 0,
+//					  getAttrPos((QueryOperator *) clean, n->attrName), 0, n->dataType));
+			informExprs = appendToTailOfList(informExprs,
+					  createFullAttrReference(n->attrName, 0,
+					  pos, 0, n->dataType));
+			informNames = appendToTailOfList(informNames, n->attrName);
+			pos = pos + 1;
+		}
+//		else if(isPrefix(n->attrName, "pattern"))
+//		{
+//			// Adding patern_IG in the new informProj
+//			informExprs = appendToTailOfList(informExprs,
+//						  createFullAttrReference(n->attrName, 0,
+//						  getAttrPos((QueryOperator *) ao, n->attrName), 0, DT_INT));
+//			informNames = appendToTailOfList(informNames, n->attrName);
+//		}
+
+	}
+
+	//attribute ref name and child attrdef names are not the same: <pattern_IG> and <i_county>
+
+	// Adding patern_IG in the new informProj
+	informExprs = appendToTailOfList(informExprs,
+				  createFullAttrReference("pattern_IG", 0,
+				  pos, 0, DT_INT));
+	informNames = appendToTailOfList(informNames, "pattern_IG");
+
+
+	ProjectionOperator *inform = createProjectionOp(informExprs, NULL, NIL, informNames);
+	addChildOperator((QueryOperator *) inform, (QueryOperator *) ao);
+	switchSubtrees((QueryOperator *) ao, (QueryOperator *) inform);
+
+	return inform;
 }
 
 
@@ -1774,7 +1824,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 //	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
 //	return (QueryOperator *) hammingvalue_op;
 
-	AggregationOperator *patterns = rewriteIG_PatternGeneration(sumrows);
+	ProjectionOperator *patterns = rewriteIG_PatternGeneration(sumrows);
 
 	LOG_RESULT("Rewritten Operator tree for patterns", patterns);
 	return (QueryOperator *) patterns;
