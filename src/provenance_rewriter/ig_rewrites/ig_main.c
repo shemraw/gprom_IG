@@ -1089,7 +1089,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	return hammingvalue_op;
 }
 
-static ProjectionOperator *
+static QueryOperator *
 rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 {
 
@@ -1357,13 +1357,13 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	addChildOperator((QueryOperator *) inform, (QueryOperator *) ao);
 	switchSubtrees((QueryOperator *) ao, (QueryOperator *) inform);
 
-	List *removeNoGoodPatt = NIL;
+//	List *removeNoGoodPatt = NIL;
 	List *removeNoGoodPattNames = NIL;
 
-	FOREACH(AttributeReference, n, inform->projExprs)
-	{
-		removeNoGoodPatt = appendToTailOfList(informExprs, n);
-	}
+//	FOREACH(AttributeReference, n, inform->projExprs)
+//	{
+//		removeNoGoodPatt = appendToTailOfList(informExprs, n);
+//	}
 
 	FOREACH(AttributeDef, n, inform->op.schema->attrDefs)
 	{
@@ -1372,12 +1372,11 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 	AttributeReference *cov = createFullAttrReference("coverage", 0,
 							getAttrPos((QueryOperator *) inform, "coverage"), 0, DT_INT);
-
+	QueryOperator *so = (QueryOperator *) inform;
 	//creating where condition coverage > 1
 	Node *whereClauseL = (Node *) createOpExpr(OPNAME_GT, LIST_MAKE(cov, createConstInt(1)));
-	SelectionOperator *soL = createSelectionOp(whereClauseL, (QueryOperator *) inform, NIL, removeNoGoodPattNames);
-	addChildOperator((QueryOperator *) soL, (QueryOperator *) inform);
-	switchSubtrees((QueryOperator *) inform, (QueryOperator *) soL);
+	SelectionOperator *soL = createSelectionOp(whereClauseL, so, NIL, removeNoGoodPattNames);
+	so->parents = singleton(soL);
 
 	AttributeReference *inf = createFullAttrReference("informativeness", 0,
 								getAttrPos((QueryOperator *) inform, "coverage"), 0, DT_INT);
@@ -1387,19 +1386,18 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 						createOpExpr(OPNAME_EQ, LIST_MAKE(cov, createConstInt(1))),
 						// this is to make informativeness = 5
 						createOpExpr(OPNAME_EQ, LIST_MAKE(inf, createConstInt(num_i)))));
-	SelectionOperator *soR = createSelectionOp(whereClauseR, (QueryOperator *) inform, NIL, removeNoGoodPattNames);
-	addChildOperator((QueryOperator *) soR, (QueryOperator *) inform);
-	switchSubtrees((QueryOperator *) inform, (QueryOperator *) soR);
+	SelectionOperator *soR = createSelectionOp(whereClauseR, so, NIL, removeNoGoodPattNames);
+
+	QueryOperator *unionOp = (QueryOperator *) createSetOperator(SETOP_UNION, LIST_MAKE(soL, soR),
+							NIL, informNames);
+
+	OP_LCHILD(unionOp)->parents = OP_RCHILD(unionOp)->parents = singleton(unionOp);
+//	addChildOperator((QueryOperator *) unionOp, (QueryOperator *) inform);
+//	switchSubtrees((QueryOperator *) inform, (QueryOperator *) unionOp);
 
 
-	QueryOperator *unionOp = (QueryOperator *) createSetOperator(SETOP_UNION, removeNoGoodPatt, NIL, informNames);
 
-	addChildOperator((QueryOperator *) unionOp, (QueryOperator *) inform);
-	switchSubtrees((QueryOperator *) inform, (QueryOperator *) unionOp);
-
-
-
-	return inform;
+	return unionOp;
 }
 
 
@@ -1918,7 +1916,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 //	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
 //	return (QueryOperator *) hammingvalue_op;
 
-	ProjectionOperator *patterns = rewriteIG_PatternGeneration(sumrows);
+	QueryOperator *patterns = rewriteIG_PatternGeneration(sumrows);
 
 	LOG_RESULT("Rewritten Operator tree for patterns", patterns);
 	return (QueryOperator *) patterns;
