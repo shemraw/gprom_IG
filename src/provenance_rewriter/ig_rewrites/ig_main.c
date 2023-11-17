@@ -1089,7 +1089,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	return hammingvalue_op;
 }
 
-static ProjectionOperator *
+static QueryOperator *
 rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 {
 
@@ -1357,60 +1357,110 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	addChildOperator((QueryOperator *) inform, (QueryOperator *) ao);
 	switchSubtrees((QueryOperator *) ao, (QueryOperator *) inform);
 
-	List *soNames = NIL;
+//	List *soNames = NIL;
+//	AttributeReference *cov = NULL;
+//	AttributeReference *inf = NULL;
+//
+//	FOREACH(AttributeDef, n, inform->op.schema->attrDefs)
+//	{
+//		soNames = appendToTailOfList(soNames, n->attrName);
+//
+//		if(streq(n->attrName,"coverage"))
+//		{
+//			cov = createFullAttrReference(n->attrName, 0,
+//					getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
+//		}
+//
+//		if(streq(n->attrName,"informativeness"))
+//		{
+//			inf = createFullAttrReference(n->attrName, 0,
+//					getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
+//		}
+//	}
+//
+////	QueryOperator *so = (QueryOperator *) inform;
+//
+//	//creating where condition coverage > 1
+//	Node *whereClauseL = (Node *) createOpExpr(OPNAME_GT, LIST_MAKE(cov, createConstInt(1)));
+//	SelectionOperator *soL = createSelectionOp(whereClauseL, (QueryOperator *) inform, NIL, soNames);
+//	addParent((QueryOperator *) inform, (QueryOperator *) soL);
+//
+//	//creating where condition coverage = 1 AND informativeness = 5
+//	Node *cov1 = (Node *) createOpExpr(OPNAME_EQ, LIST_MAKE(cov, createConstInt(1)));
+//	Node *info5 = (Node *) createOpExpr(OPNAME_EQ, LIST_MAKE(inf, createConstInt(num_i)));
+//	Node *whereClauseR = (Node *) createOpExpr(OPNAME_AND, LIST_MAKE(cov1,info5));
+////						//this is to create coverage = 1
+////						createOpExpr(OPNAME_EQ, LIST_MAKE(cov, createConstInt(1))),
+////						// this is to make informativeness = 5
+////						createOpExpr(OPNAME_EQ, LIST_MAKE(inf, createConstInt(num_i)))));
+//
+//	SelectionOperator *soR = createSelectionOp(whereClauseR, (QueryOperator *) inform, NIL, soNames);
+//	addParent((QueryOperator *) inform, (QueryOperator *) soR);
+//
+//	// create union operator
+//	List *soLR = LIST_MAKE(soL, soR);
+//	SetOperator *unionOp = createSetOperator(SETOP_UNION, soLR, NIL, informNames);
+//
+//	OP_LCHILD(unionOp)->parents = OP_RCHILD(unionOp)->parents = singleton(unionOp);
+////	QueryOperator *result = (QueryOperator *) unionOp;
+//
+////	addChildOperator((QueryOperator *) unionOp, (QueryOperator *) inform);
+////	switchSubtrees((QueryOperator *) soL, unionOp);
+//
+//	List *removeNoGoodPatt = NIL;
+//	List *removeNoGoodPattNames = NIL;
+//
+//	FOREACH(AttributeReference, n, inform->projExprs)
+//	{
+//		removeNoGoodPatt = appendToTailOfList(removeNoGoodPatt, n);
+//	}
+//
+//	FOREACH(AttributeDef, n, inform->op.schema->attrDefs)
+//	{
+//		removeNoGoodPattNames = appendToTailOfList(removeNoGoodPattNames, n->attrName);
+//	}
+//
+//	ProjectionOperator *projUnion = createProjectionOp(removeNoGoodPatt,
+//			(QueryOperator *) unionOp, NIL, removeNoGoodPattNames);
+////	addChildOperator((QueryOperator *) projUnion, (QueryOperator *) unionOp);
+//	switchSubtrees((QueryOperator *) unionOp, (QueryOperator *) projUnion);
 
+
+	// remove no good patterns
+	List *soNames = NIL;
+	AttributeReference *cov = NULL;
+	AttributeReference *inf = NULL;
 
 	FOREACH(AttributeDef, n, inform->op.schema->attrDefs)
 	{
 		soNames = appendToTailOfList(soNames, n->attrName);
+
+		if(streq(n->attrName,"coverage"))
+		{
+			cov = createFullAttrReference(n->attrName, 0,
+					getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
+		}
+
+		if(streq(n->attrName,"informativeness"))
+		{
+			inf = createFullAttrReference(n->attrName, 0,
+					getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
+		}
 	}
 
-	AttributeReference *cov = createFullAttrReference("coverage", 0,
-							getAttrPos((QueryOperator *) inform, "coverage"), 0, DT_INT);
+	//creating where condition coverage > 1 OR (coverage = 1 AND informativeness = 5)
+	Node *covgt1 = (Node *) createOpExpr(OPNAME_GT, LIST_MAKE(cov, createConstInt(1)));
+	Node *cov1 = (Node *) createOpExpr(OPNAME_EQ, LIST_MAKE(cov, createConstInt(1)));
+	Node *info5 = (Node *) createOpExpr(OPNAME_EQ, LIST_MAKE(inf, createConstInt(num_i)));
 
-	QueryOperator *so = (QueryOperator *) inform;
-	//creating where condition coverage > 1
-	Node *whereClauseL = (Node *) createOpExpr(OPNAME_GT, LIST_MAKE(cov, createConstInt(1)));
-	SelectionOperator *soL = createSelectionOp(whereClauseL, so, NIL, soNames);
-	so->parents = singleton(soL);
+	Node *subcond = (Node *) createOpExpr(OPNAME_AND, LIST_MAKE(cov1,info5));
+	Node *cond = (Node *) createOpExpr(OPNAME_OR, LIST_MAKE(covgt1,subcond));
 
-	AttributeReference *inf = createFullAttrReference("informativeness", 0,
-								getAttrPos((QueryOperator *) inform, "coverage"), 0, DT_INT);
-	//creating where condition coverage = 1 AND informativeness = 5
-	Node *whereClauseR = (Node *) createOpExpr(OPNAME_AND, LIST_MAKE(
-						//this is to create coverage = 1
-						createOpExpr(OPNAME_EQ, LIST_MAKE(cov, createConstInt(1))),
-						// this is to make informativeness = 5
-						createOpExpr(OPNAME_EQ, LIST_MAKE(inf, createConstInt(num_i)))));
-	SelectionOperator *soR = createSelectionOp(whereClauseR, so, NIL, soNames);
+	SelectionOperator *so = createSelectionOp(cond, NULL, NIL, soNames);
+	addChildOperator((QueryOperator *) so, (QueryOperator *) inform);
+	switchSubtrees((QueryOperator *) inform, (QueryOperator *) so);
 
-	List *soLR = LIST_MAKE(soL, soR);
-	QueryOperator *unionOp = (QueryOperator *) createSetOperator(SETOP_UNION, soLR,
-							NIL, informNames);
-
-	OP_LCHILD(unionOp)->parents = OP_RCHILD(unionOp)->parents = singleton(unionOp);
-//	addChildOperator((QueryOperator *) unionOp, (QueryOperator *) inform);
-//	switchSubtrees((QueryOperator *) inform, (QueryOperator *) unionOp);
-
-	List *removeNoGoodPatt = NIL;
-	List *removeNoGoodPattNames = NIL;
-
-	FOREACH(AttributeReference, n, inform->projExprs)
-	{
-		removeNoGoodPatt = appendToTailOfList(removeNoGoodPatt, n);
-	}
-
-	FOREACH(AttributeDef, n, inform->op.schema->attrDefs)
-	{
-		removeNoGoodPattNames = appendToTailOfList(removeNoGoodPattNames, n);
-	}
-
-	ProjectionOperator *projUnion = createProjectionOp(removeNoGoodPatt, NULL, NIL, cleanNames);
-	addChildOperator((QueryOperator *) projUnion, (QueryOperator *) unionOp);
-	switchSubtrees((QueryOperator *) unionOp, (QueryOperator *) projUnion);
-
-
-	return projUnion;
+	return (QueryOperator *) so;
 }
 
 
@@ -1929,10 +1979,10 @@ rewriteIG_Projection (ProjectionOperator *op)
 //	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
 //	return (QueryOperator *) hammingvalue_op;
 
-	ProjectionOperator *patterns = rewriteIG_PatternGeneration(sumrows);
+	QueryOperator *patterns = rewriteIG_PatternGeneration(sumrows);
 
 	LOG_RESULT("Rewritten Operator tree for patterns", patterns);
-	return (QueryOperator *) patterns;
+	return patterns;
 
 }
 
