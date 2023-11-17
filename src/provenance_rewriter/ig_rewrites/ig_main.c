@@ -1194,34 +1194,6 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 		}
 	}
 
-//	// position of Total_Distance
-//	int posDistance = 0;
-//	FOREACH(AttributeDef, n, sumrows->op.schema->attrDefs)
-//	{
-//		if(streq(n->attrName, TOTAL_DIST))
-//		{
-//			 break;
-//		}
-//		else
-//		{
-//			posDistance = posDistance + 1;
-//		}
-//	}
-//
-//	int distCounter = 0;
-//	FOREACH(AttributeReference, n, sumrows->projExprs)
-//	{
-//		if(distCounter < posDistance)
-//		{
-//			distCounter = distCounter + 1;
-//		}
-//		else if (distCounter == posDistance)
-//		{
-//			cleanExprs = appendToTailOfList(cleanExprs, n);
-//			cleanNames = appendToTailOfList(cleanNames, strdup(TOTAL_DIST));
-//			break;
-//		}
-//	}
 
 	// add ig columns and rowIG
 	FOREACH(AttributeReference, n, sumrows->projExprs)
@@ -1509,39 +1481,6 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 //		if(streq(a->attrName, COVERAGE))
 //			a->dataType = DT_INT;
 
-	//Adding CODE FOR R^2 here for testing purposes this will move after JOIN/ get data
-//	List *analysisCorr = NIL;
-//	List *analysisCorrNames = NIL;
-//
-//	AttributeReference *arDist = createFullAttrReference("Total_Distance", 0,
-//							 getAttrPos((QueryOperator *) sumrows, "Total_Distance"), 0, DT_INT);
-//	FOREACH(AttributeDef, n, sumrows->op.schema->attrDefs)
-//	{
-//		if(isPrefix(n->attrName, "value"))
-//		{
-//			List *functioninput = NIL;
-//			AttributeReference *ar = createFullAttrReference(n->attrName, 0,
-//									 getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
-//
-//			functioninput = appendToTailOfList(functioninput, ar);
-//			functioninput = appendToTailOfList(functioninput, arDist);
-//			FunctionCall *r_2 = createFunctionCall("regr_r2", functioninput);
-//			analysisCorr = appendToTailOfList(analysisCorr, r_2);
-//
-//			int len = strlen(n->attrName) - 1;
-//			char *name = substr(n->attrName, 14, len);
-//			analysisCorrNames = appendToTailOfList(analysisCorrNames, CONCAT_STRINGS(name, "_r2"));
-//
-//
-//
-//		}
-//	}
-//
-//
-//	ProjectionOperator *test = createProjectionOp(analysisCorr, NULL, NIL, analysisCorrNames);
-//	addChildOperator((QueryOperator *) test, (QueryOperator *) so);
-//	switchSubtrees((QueryOperator *) so, (QueryOperator *) test);
-
 
 //	List *LJoinAttrs = NIL;
 //	List *RJoinAttrs = NIL;
@@ -1641,7 +1580,6 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	ProjectionOperator *po = createProjectionOp(projExprs, NULL, NIL, attrNames);
 	addChildOperator((QueryOperator *) po, (QueryOperator *) joinOp);
 	switchSubtrees((QueryOperator *) joinOp, (QueryOperator *) po);
-
 	SET_BOOL_STRING_PROP(po, PROP_MATERIALIZE);
 
 
@@ -1660,11 +1598,57 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	QueryOperator *dr = (QueryOperator *) createDuplicateRemovalOp(projExprs, (QueryOperator *) po, NIL, getAttrDefNames(attrDefs));
 	addParent((QueryOperator *) po,dr);
 	switchSubtrees((QueryOperator *) po, (QueryOperator *) dr);
-
 	SET_BOOL_STRING_PROP(dr, PROP_MATERIALIZE);
-	LOG_RESULT("Rewritten Pattern Generation tree for patterns", dr);
 
-	return (QueryOperator *) dr;
+	//Adding CODE FOR R^2 here for testing purposes this will move after JOIN/ get data
+	List *aggrsAnalysis = NIL;
+	List *groupByAnalysis = NIL;
+	List *analysisCorrNames = NIL;
+
+	AttributeReference *arDist = createFullAttrReference("Total_Distance", 0,
+							 getAttrPos(dr, "Total_Distance"), 0, DT_INT);
+
+	FOREACH(AttributeDef, n, dr->schema->attrDefs)
+	{
+		if(isPrefix(n->attrName, "value"))
+		{
+			int len = strlen(n->attrName) - 1;
+			char *name = substr(n->attrName, 14, len);
+			analysisCorrNames = appendToTailOfList(analysisCorrNames, CONCAT_STRINGS(name, "_r2"));
+		}
+	}
+
+	FOREACH(AttributeDef, n, dr->schema->attrDefs)
+	{
+		if(isPrefix(n->attrName, "value"))
+		{
+			List *functioninput = NIL;
+			AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+									 getAttrPos(dr, n->attrName), 0, n->dataType);
+
+			functioninput = appendToTailOfList(functioninput, ar);
+			functioninput = appendToTailOfList(functioninput, arDist);
+			FunctionCall *r_2 = createFunctionCall("regr_r2", functioninput);
+			FunctionCall *coalesce = createFunctionCall("COALESCE", LIST_MAKE(r_2, createConstInt(0)));
+			aggrsAnalysis = appendToTailOfList(aggrsAnalysis, coalesce);
+		}
+		else if(!isPrefix(n->attrName, "Total"))
+		{
+			AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+									 getAttrPos(dr, n->attrName), 0, n->dataType);
+			groupByAnalysis = appendToTailOfList(groupByAnalysis, ar);
+			analysisCorrNames = appendToTailOfList(analysisCorrNames, n->attrName);
+		}
+	}
+
+	AggregationOperator *analysisAggr = createAggregationOp(aggrsAnalysis, groupByAnalysis, NULL, NIL, analysisCorrNames);
+//	ProjectionOperator *test = createProjectionOp(analysisCorr, NULL, NIL, analysisCorrNames);
+	addChildOperator((QueryOperator *) analysisAggr, (QueryOperator *) dr);
+	switchSubtrees((QueryOperator *) dr, (QueryOperator *) analysisAggr);
+
+	LOG_RESULT("Rewritten Pattern Generation tree for patterns", analysisAggr);
+
+	return (QueryOperator *) analysisAggr;
 }
 
 
