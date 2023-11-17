@@ -957,7 +957,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	}
 
 //	FOREACH(AttributeReference, n, RprojExprs)
-	FOREACH(AttributeDef, n, LattrDefs)
+	FOREACH(AttributeDef, n, RattrDefs)
 	{
 		List *functioninput = NIL;
 		boolean flag = searchListString(joinNames, n->attrName);
