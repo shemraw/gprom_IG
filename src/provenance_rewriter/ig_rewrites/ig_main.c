@@ -448,7 +448,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 }
 
-
 //rewriteIG_SumExprs
 static ProjectionOperator *
 rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
@@ -503,9 +502,7 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 
 }
 
-
 //rewriteIG_HammingFunctions
-
 static ProjectionOperator *
 rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 {
@@ -1098,7 +1095,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	return hammingvalue_op;
 }
 
-static QueryOperator *
+static AggregationOperator *
 rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 {
 
@@ -1648,8 +1645,58 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 	LOG_RESULT("Rewritten Pattern Generation tree for patterns", analysisAggr);
 
-	return (QueryOperator *) analysisAggr;
+	return analysisAggr;
 }
+
+
+
+static ProjectionOperator *
+rewriteIG_analysis (AggregationOperator *patterns)
+{
+	List *projExprs = NIL;
+	List *projNames = NIL;
+	List *meanr2Exprs = NIL;
+	int pos = 0;
+
+
+	FOREACH(AttributeDef, n, patterns->op.schema->attrDefs)
+	{
+		if(isSuffix(n->attrName, "r2"))
+		{
+			AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+								pos, 0, n->dataType);
+			projExprs = appendToTailOfList(projExprs, ar);
+			meanr2Exprs = appendToTailOfList(meanr2Exprs, ar);
+			projNames = appendToTailOfList(projNames, n->attrName);
+			pos = pos + 1;
+		}
+	}
+
+	FOREACH(AttributeDef, n, patterns->op.schema->attrDefs)
+	{
+		if(!isSuffix(n->attrName, "r2"))
+		{
+			AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+								pos, 0, n->dataType);
+			projExprs = appendToTailOfList(projExprs, ar);
+			projNames = appendToTailOfList(projNames, n->attrName);
+			pos = pos + 1;
+		}
+	}
+
+	int l = LIST_LENGTH(meanr2Exprs);
+	Node *meanr2 = (Node *) (createOpExpr("/", LIST_MAKE(createOpExpr("+", meanr2Exprs), createConstInt(l))));
+	projExprs = appendToTailOfList(projExprs, meanr2);
+	projNames = appendToTailOfList(projNames, "mean_r2");
+
+	ProjectionOperator *po = createProjectionOp(projExprs, NULL, NIL, projNames);
+	addChildOperator((QueryOperator *) po, (QueryOperator *) patterns);
+	switchSubtrees((QueryOperator *) patterns, (QueryOperator *) po);
+
+	return po;
+
+}
+
 
 
 static QueryOperator *
@@ -2167,12 +2214,17 @@ rewriteIG_Projection (ProjectionOperator *op)
 //	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
 //	return (QueryOperator *) hammingvalue_op;
 
-	QueryOperator *patterns = rewriteIG_PatternGeneration(sumrows);
+	AggregationOperator *patterns = rewriteIG_PatternGeneration(sumrows);
 
-	LOG_RESULT("Rewritten Operator tree for patterns", patterns);
-	return patterns;
+	ProjectionOperator *analysis = rewriteIG_analysis(patterns);
+
+	LOG_RESULT("Rewritten Operator tree for patterns", analysis);
+	return (QueryOperator *) analysis;
 
 }
+
+
+
 
 static QueryOperator *
 rewriteIG_Join (JoinOperator *op)
