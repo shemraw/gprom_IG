@@ -41,6 +41,15 @@
         DEBUG_NODE_BEATIFY_LOG(mes,op); \
     } while(0)
 
+#define INDEX "i_"
+#define VALUE_IG "value_"
+#define PATTERN_IG "pattern_IG"
+#define TOTAL_DIST "Total_Distance"
+#define AVG_DIST "Average_Distance"
+#define COVERAGE "coverage"
+#define INFORMATIVENESS "informativeness"
+
+
 static QueryOperator *rewriteIG_Operator (QueryOperator *op);
 static QueryOperator *rewriteIG_Conversion (ProjectionOperator *op);
 static QueryOperator *rewriteIG_Projection(ProjectionOperator *op);
@@ -457,7 +466,7 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 
 	FOREACH(AttributeDef, a, hammingvalue_op->op.schema->attrDefs)
 	{
-		if(isPrefix(a->attrName, "value"))
+		if(isPrefix(a->attrName, VALUE_IG))
 		{
 			AttributeReference *ar = createFullAttrReference(a->attrName, 0, posV,0, a->dataType);
 			sumExprs = appendToTailOfList(sumExprs, ar);
@@ -477,12 +486,12 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 
 	sumExpr = (Node *) (createOpExpr("+", sumlist));
 	sumExprs = appendToTailOfList(sumExprs, sumExpr);
-	sumNames = appendToTailOfList(sumNames, "Total_Distance");
+	sumNames = appendToTailOfList(sumNames, strdup(TOTAL_DIST));
 
 	// Just tesing Average Expression Just in Case if we need it later in future
 	avgExpr = (Node *) (createOpExpr("/", LIST_MAKE(createOpExpr("+", sumlist), createConstInt(3))));
 	sumExprs = appendToTailOfList(sumExprs, avgExpr);
-	sumNames = appendToTailOfList(sumNames, "Average_Distance");
+	sumNames = appendToTailOfList(sumNames, strdup(AVG_DIST));
 
 	ProjectionOperator *sumrows = createProjectionOp(sumExprs, NULL, NIL, sumNames);
 	//LOG_RESULT("TESTING SUM_AVG_ROWS FUNCTION", sumrows);
@@ -501,7 +510,7 @@ static ProjectionOperator *
 rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 {
     ASSERT(OP_LCHILD(newProj));
-    DEBUG_LOG("REWRITE-IG - Projection");
+    DEBUG_LOG("REWRITE-IG - Hamming Computation");
     DEBUG_LOG("Operator tree \n%s", nodeToString(newProj));
 
     // Creating the HASH MAPS
@@ -1067,7 +1076,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 	FOREACH(AttributeDef, n, hammingvalue_op->op.schema->attrDefs)
 	{
-		if(isPrefix(n->attrName, "value"))
+		if(isPrefix(n->attrName, VALUE_IG))
 		{
 			n->dataType = DT_INT;
 		}
@@ -1075,7 +1084,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 	FOREACH(AttributeReference, n, hammingvalue_op->projExprs)
 	{
-		if(isPrefix(n->name, "value"))
+		if(isPrefix(n->name, VALUE_IG))
 		{
 			n->attrType = DT_INT;
 		}
@@ -1156,7 +1165,7 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 					CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), NULL);
 
 					cleanExprs = appendToTailOfList(cleanExprs, caseExpr);
-					cleanNames = appendToTailOfList(cleanNames, CONCAT_STRINGS("i_", L->attrName));
+					cleanNames = appendToTailOfList(cleanNames, CONCAT_STRINGS(INDEX, L->attrName));
 
 				}
 
@@ -1166,7 +1175,7 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 		{
 			AttributeReference * arL = createFullAttrReference(L->attrName, 0, getAttrPos((QueryOperator *) sumrows, L->attrName),0, L->dataType);
 			cleanExprs = appendToTailOfList(cleanExprs, arL);
-			cleanNames = appendToTailOfList(cleanNames, CONCAT_STRINGS("i_", L->attrName));
+			cleanNames = appendToTailOfList(cleanNames, CONCAT_STRINGS(INDEX, L->attrName));
 		}
 
 
@@ -1180,40 +1189,61 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 		{
 			AttributeReference * arR = createFullAttrReference(R->attrName, 0, getAttrPos((QueryOperator *) sumrows, R->attrName),0, R->dataType);
 			cleanExprs = appendToTailOfList(cleanExprs, arR);
-			cleanNames = appendToTailOfList(cleanNames, CONCAT_STRINGS("i_", R->attrName));
+			cleanNames = appendToTailOfList(cleanNames, CONCAT_STRINGS(INDEX, R->attrName));
 
 		}
 	}
 
-	// position of Total_Distance
-	int posDistance = 0;
-	FOREACH(AttributeDef, n, sumrows->op.schema->attrDefs)
-	{
-		if(streq(n->attrName, "Total_Distance"))
-		{
-			 break;
-		}
-		else
-		{
-			posDistance = posDistance + 1;
-		}
-	}
+//	// position of Total_Distance
+//	int posDistance = 0;
+//	FOREACH(AttributeDef, n, sumrows->op.schema->attrDefs)
+//	{
+//		if(streq(n->attrName, TOTAL_DIST))
+//		{
+//			 break;
+//		}
+//		else
+//		{
+//			posDistance = posDistance + 1;
+//		}
+//	}
+//
+//	int distCounter = 0;
+//	FOREACH(AttributeReference, n, sumrows->projExprs)
+//	{
+//		if(distCounter < posDistance)
+//		{
+//			distCounter = distCounter + 1;
+//		}
+//		else if (distCounter == posDistance)
+//		{
+//			cleanExprs = appendToTailOfList(cleanExprs, n);
+//			cleanNames = appendToTailOfList(cleanNames, strdup(TOTAL_DIST));
+//			break;
+//		}
+//	}
 
-	int distCounter = 0;
+	// add ig columns and rowIG
 	FOREACH(AttributeReference, n, sumrows->projExprs)
 	{
-		if(distCounter < posDistance)
+		if(isPrefix(n->name,"value_"))
 		{
-			distCounter = distCounter + 1;
-		}
-		else if (distCounter == posDistance)
-		{
-			cleanExprs = appendToTailOfList(cleanExprs, n);
-			cleanNames = appendToTailOfList(cleanNames, "Total_Distance");
-			break;
+			cleanExprs = appendToTailOfList(cleanExprs,n);
+			cleanNames = appendToTailOfList(cleanNames, n->name);
 		}
 	}
 
+	FOREACH(AttributeDef, a, sumrows->op.schema->attrDefs)
+	{
+		if(streq(a->attrName,TOTAL_DIST))
+		{
+			AttributeReference *ar = createFullAttrReference(a->attrName, 0,
+					getAttrPos((QueryOperator *) sumrows, a->attrName), 0, a->dataType);
+
+			cleanExprs = appendToTailOfList(cleanExprs,ar);
+			cleanNames = appendToTailOfList(cleanNames, ar->name);
+		}
+	}
 
 	ProjectionOperator *clean = createProjectionOp(cleanExprs, NULL, NIL, cleanNames);
 	addChildOperator((QueryOperator *) clean, (QueryOperator *) sumrows);
@@ -1225,10 +1255,10 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	List *aggrs = NIL;
 	FunctionCall *sum = NULL;
 
-	projNames = appendToTailOfList(projNames, "pattern_IG");
+	projNames = appendToTailOfList(projNames, strdup(PATTERN_IG));
 	FOREACH(AttributeDef, n, clean->op.schema->attrDefs)
 	{
-		if(isPrefix(n->attrName, "i"))
+		if(isPrefix(n->attrName, strdup(INDEX)))
 		{
 			groupBy = appendToTailOfList(groupBy,
 					  createFullAttrReference(n->attrName, 0,
@@ -1237,8 +1267,9 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 			projNames = appendToTailOfList(projNames, n->attrName);
 
 		}
+
 		//this one makes pattern_IG
-		else if(streq(n->attrName, "Total_Distance"))
+		if(streq(n->attrName, TOTAL_DIST))
 		{
 			AttributeReference *ar = createFullAttrReference(n->attrName, 0,
 					   				 getAttrPos((QueryOperator *) clean, n->attrName), 0, n->dataType);
@@ -1252,7 +1283,7 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	ao->isCube = TRUE;
 	FOREACH(AttributeDef, n, ao->op.schema->attrDefs)
 	{
-		if(isPrefix(n->attrName, "pattern_IG"))
+		if(isPrefix(n->attrName, strdup(PATTERN_IG)))
 		{
 			n->dataType = DT_INT;
 			break;
@@ -1270,7 +1301,7 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 	FOREACH(AttributeDef, n, ao->op.schema->attrDefs)
 	{
-		if(isPrefix(n->attrName, "i"))
+		if(isPrefix(n->attrName, INDEX))
 		{
 			informExprs = appendToTailOfList(informExprs,
 					  createFullAttrReference(n->attrName, 0,
@@ -1305,7 +1336,7 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 	FOREACH(AttributeDef, n , ao->op.schema->attrDefs)
 	{
-		if(isPrefix(n->attrName, "i"))
+		if(isPrefix(n->attrName, INDEX))
 		{
 
 			AttributeReference *ar = createFullAttrReference(n->attrName, 0, pos, 0, n->dataType);
@@ -1327,7 +1358,7 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 	sumExpr = (Node *) (createOpExpr("+", sumExprs));
 	informExprs = appendToTailOfList(informExprs, sumExpr);
-	informNames = appendToTailOfList(informNames, "informativeness");
+	informNames = appendToTailOfList(informNames, strdup(INFORMATIVENESS));
 
 	// ADDING COVERAGE
 	pos = 1;
@@ -1335,7 +1366,7 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	// counting attributes
 	FOREACH(AttributeDef, n, ao->op.schema->attrDefs)
 	{
-		if(isPrefix(n->attrName, "i"))
+		if(isPrefix(n->attrName, INDEX))
 		{
 			num_i = num_i + 1;
 		}
@@ -1345,12 +1376,21 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	Constant *countProv = createConstInt(1);
 	FunctionCall *count = createFunctionCall("COUNT", singleton(countProv));
 	informExprs = appendToTailOfList(informExprs, count);
-	informNames = appendToTailOfList(informNames, "coverage");
+	informNames = appendToTailOfList(informNames, strdup(COVERAGE));
 
 
 	ProjectionOperator *inform = createProjectionOp(informExprs, NULL, NIL, informNames);
 	addChildOperator((QueryOperator *) inform, (QueryOperator *) ao);
 	switchSubtrees((QueryOperator *) ao, (QueryOperator *) inform);
+
+	SET_BOOL_STRING_PROP(inform, PROP_MATERIALIZE);
+	DEBUG_NODE_BEATIFY_LOG("Generate Patterns While Computing Informativeness and Coverage: ", inform);
+
+//	// TODO: fix coverage datatype
+//	FOREACH(AttributeDef, a, inform->op.schema->attrDefs)
+//		if(streq(a->attrName, COVERAGE))
+//			a->dataType = DT_INT;
+
 
 //	List *soNames = NIL;
 //	AttributeReference *cov = NULL;
@@ -1422,26 +1462,26 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 
 	// remove no good patterns
-	List *soNames = NIL;
-	AttributeReference *cov = NULL;
-	AttributeReference *inf = NULL;
+//	List *soNames = NIL;
+	AttributeReference *cov = getAttrRefByName((QueryOperator *) inform, COVERAGE);
+	AttributeReference *inf = getAttrRefByName((QueryOperator *) inform, INFORMATIVENESS);
 
-	FOREACH(AttributeDef, n, inform->op.schema->attrDefs)
-	{
-		soNames = appendToTailOfList(soNames, n->attrName);
-
-		if(streq(n->attrName,"coverage"))
-		{
-			cov = createFullAttrReference(n->attrName, 0,
-					getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
-		}
-
-		if(streq(n->attrName,"informativeness"))
-		{
-			inf = createFullAttrReference(n->attrName, 0,
-					getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
-		}
-	}
+//	FOREACH(AttributeDef, n, inform->op.schema->attrDefs)
+//	{
+////		soNames = appendToTailOfList(soNames, n->attrName);
+//
+//		if(streq(n->attrName,"coverage"))
+//		{
+//			cov = createFullAttrReference(n->attrName, 0,
+//					getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
+//		}
+//
+//		if(streq(n->attrName,"informativeness"))
+//		{
+//			inf = createFullAttrReference(n->attrName, 0,
+//					getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
+//		}
+//	}
 
 	//creating where condition coverage > 1 OR (coverage = 1 AND informativeness = 5)
 	Node *covgt1 = (Node *) createOpExpr(OPNAME_GT, LIST_MAKE(cov, createConstInt(1)));
@@ -1451,10 +1491,23 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	Node *subcond = (Node *) createOpExpr(OPNAME_AND, LIST_MAKE(cov1,info5));
 	Node *cond = (Node *) createOpExpr(OPNAME_OR, LIST_MAKE(covgt1,subcond));
 
-	SelectionOperator *so = createSelectionOp(cond, NULL, NIL, soNames);
+	SelectionOperator *so = createSelectionOp(cond, NULL, NIL, getAttrNames(inform->op.schema));
 	addChildOperator((QueryOperator *) so, (QueryOperator *) inform);
 	switchSubtrees((QueryOperator *) inform, (QueryOperator *) so);
 
+//	SET_BOOL_STRING_PROP(so, PROP_MATERIALIZE);
+
+	// TODO: fix datatype
+	FORBOTH(AttributeDef, al, ar, so->op.schema->attrDefs, inform->op.schema->attrDefs)
+		if(al->dataType != ar->dataType)
+			al->dataType = ar->dataType;
+
+	DEBUG_NODE_BEATIFY_LOG("Remove No Good Patterns: ", so);
+
+//	// TODO: fix coverage datatype
+//	FOREACH(AttributeDef, a, so->op.schema->attrDefs)
+//		if(streq(a->attrName, COVERAGE))
+//			a->dataType = DT_INT;
 
 	//Adding CODE FOR R^2 here for testing purposes this will move after JOIN/ get data
 //	List *analysisCorr = NIL;
@@ -1496,34 +1549,34 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	List *joinList = NIL;
 	Node *joinCondt = NULL;
 
-	// getting all the patterns from removeNoGoodPatt OR so L
-	FOREACH(AttributeDef, n, so->op.schema->attrDefs)
-	{
-//		AttributeReference *ar = createFullAttrReference(n->attrName, 0,
-//								 getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
-//		LJoinAttrs = appendToTailOfList(LJoinAttrs, ar);
-		JoinAttrNames = appendToTailOfList(JoinAttrNames, n->attrName);
-	}
-
-	//getting all the data from rowIG OR clean R
-	FOREACH(AttributeDef, n, clean->op.schema->attrDefs)
-	{
-//		AttributeReference *ar = createFullAttrReference(n->attrName, 0,
-//								 getAttrPos((QueryOperator *) clean, n->attrName), 0, n->dataType);
-//		RJoinAttrs = appendToTailOfList(RJoinAttrs, ar);
-		JoinAttrNames = appendToTailOfList(JoinAttrNames, n->attrName);
-	}
+//	// getting all the patterns from removeNoGoodPatt OR so L
+//	FOREACH(AttributeDef, n, so->op.schema->attrDefs)
+//	{
+////		AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+////								 getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
+////		LJoinAttrs = appendToTailOfList(LJoinAttrs, ar);
+//		JoinAttrNames = appendToTailOfList(JoinAttrNames, n->attrName);
+//	}
+//
+//	//getting all the data from rowIG OR clean R
+//	FOREACH(AttributeDef, n, clean->op.schema->attrDefs)
+//	{
+////		AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+////								 getAttrPos((QueryOperator *) clean, n->attrName), 0, n->dataType);
+////		RJoinAttrs = appendToTailOfList(RJoinAttrs, ar);
+//		JoinAttrNames = appendToTailOfList(JoinAttrNames, n->attrName);
+//	}
 
 	FOREACH(AttributeDef, L, so->op.schema->attrDefs)
 	{
 		FOREACH(AttributeDef, R, clean->op.schema->attrDefs)
 		{
-			if(strcmp(L->attrName, R->attrName) == 0)
+			if(streq(L->attrName, R->attrName))
 			{
 				AttributeReference *arL = createFullAttrReference(L->attrName, 0,
-										 getAttrPos((QueryOperator *) inform, L->attrName), 0, L->dataType);
-				AttributeReference *arR = createFullAttrReference(R->attrName, 0,
-												 getAttrPos((QueryOperator *) clean, R->attrName), 0, R->dataType);
+							getAttrPos((QueryOperator *) so, L->attrName), 0, L->dataType);
+				AttributeReference *arR = createFullAttrReference(R->attrName, 1,
+							getAttrPos((QueryOperator *) clean, R->attrName), 0, R->dataType);
 
 				//creating is null expression for left side
 				Node *condN = (Node *) createIsNullExpr((Node *) arL);
@@ -1544,12 +1597,74 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 //	List *inputs = CONCAT_LISTS(so, clean);
 
 //	QueryOperator *joinOp = (QueryOperator *) createJoinOp(JOIN_FULL_OUTER, joinCondt, inputs, NIL, JoinAttrNames);
-	QueryOperator *joinOp = (QueryOperator *) createJoinOp(JOIN_FULL_OUTER, joinCondt, LIST_MAKE(so, clean), NIL, JoinAttrNames);
-	LOG_RESULT("Rewritten Pattern Generation tree for patterns", joinOp);
-	addChildOperator((QueryOperator *) joinOp, (QueryOperator *) so);
-	switchSubtrees((QueryOperator *) so, (QueryOperator *) joinOp);
 
-	return (QueryOperator *) joinOp;
+	QueryOperator *copyClean = copyObject(clean);
+	List *allInput = LIST_MAKE((QueryOperator *) so, copyClean);
+	JoinAttrNames = CONCAT_LISTS(getAttrNames(inform->op.schema), getAttrNames(clean->op.schema));
+	QueryOperator *joinOp = (QueryOperator *) createJoinOp(JOIN_INNER, joinCondt, allInput, NIL, JoinAttrNames);
+
+	makeAttrNamesUnique((QueryOperator *) joinOp);
+	SET_BOOL_STRING_PROP(joinOp, PROP_MATERIALIZE);
+
+	addParent(copyClean, joinOp);
+	addParent((QueryOperator *) so, joinOp);
+
+	switchSubtrees((QueryOperator *) so, (QueryOperator *) joinOp);
+	DEBUG_NODE_BEATIFY_LOG("Join Patterns with Data: ", joinOp);
+
+
+	// Add projection to exclude unnecessary attributes
+	List *projExprs = NIL;
+	List *attrNames = NIL;
+	List *origAttr = NIL;
+
+	FOREACH(AttributeDef, a, joinOp->schema->attrDefs)
+	{
+		if(isPrefix(a->attrName,INDEX) && isSuffix(a->attrName,"1"))
+		{
+			origAttr = appendToTailOfList(origAttr, a->attrName);
+		}
+	}
+
+	FOREACH(AttributeDef, a, joinOp->schema->attrDefs)
+	{
+		if(!searchListString(origAttr,a->attrName))
+		{
+			AttributeReference *ar = createFullAttrReference(a->attrName, 0,
+					getAttrPos((QueryOperator *) joinOp, a->attrName), 0, a->dataType);
+
+			projExprs = appendToTailOfList(projExprs,ar);
+			attrNames = appendToTailOfList(attrNames,ar->name);
+		}
+	}
+
+	ProjectionOperator *po = createProjectionOp(projExprs, NULL, NIL, attrNames);
+	addChildOperator((QueryOperator *) po, (QueryOperator *) joinOp);
+	switchSubtrees((QueryOperator *) joinOp, (QueryOperator *) po);
+
+	SET_BOOL_STRING_PROP(po, PROP_MATERIALIZE);
+
+
+	// Adding duplicate elimination
+	projExprs = NIL;
+	List *attrDefs = po->op.schema->attrDefs;
+
+	FOREACH(AttributeDef, a, attrDefs)
+	{
+		AttributeReference *ar = createFullAttrReference(a->attrName, 0,
+				getAttrPos((QueryOperator *) po, a->attrName), 0, a->dataType);
+
+		projExprs = appendToTailOfList(projExprs,ar);
+	}
+
+	QueryOperator *dr = (QueryOperator *) createDuplicateRemovalOp(projExprs, (QueryOperator *) po, NIL, getAttrDefNames(attrDefs));
+	addParent((QueryOperator *) po,dr);
+	switchSubtrees((QueryOperator *) po, (QueryOperator *) dr);
+
+	SET_BOOL_STRING_PROP(dr, PROP_MATERIALIZE);
+	LOG_RESULT("Rewritten Pattern Generation tree for patterns", dr);
+
+	return (QueryOperator *) dr;
 }
 
 
