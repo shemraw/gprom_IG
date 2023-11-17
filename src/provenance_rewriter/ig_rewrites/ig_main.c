@@ -1272,9 +1272,6 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	{
 		if(isPrefix(n->attrName, "i"))
 		{
-//			informExprs = appendToTailOfList(informExprs,
-//					  createFullAttrReference(n->attrName, 0,
-//					  getAttrPos((QueryOperator *) clean, n->attrName), 0, n->dataType));
 			informExprs = appendToTailOfList(informExprs,
 					  createFullAttrReference(n->attrName, 0,
 							  pos, 0, n->dataType));
@@ -1334,8 +1331,6 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 	// ADDING COVERAGE
 	pos = 1;
-//	List *countExprs = NIL;
-//
 	int num_i = 0;
 	// counting attributes
 	FOREACH(AttributeDef, n, ao->op.schema->attrDefs)
@@ -1460,7 +1455,101 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	addChildOperator((QueryOperator *) so, (QueryOperator *) inform);
 	switchSubtrees((QueryOperator *) inform, (QueryOperator *) so);
 
-	return (QueryOperator *) so;
+
+	//Adding CODE FOR R^2 here for testing purposes this will move after JOIN/ get data
+//	List *analysisCorr = NIL;
+//	List *analysisCorrNames = NIL;
+//
+//	AttributeReference *arDist = createFullAttrReference("Total_Distance", 0,
+//							 getAttrPos((QueryOperator *) sumrows, "Total_Distance"), 0, DT_INT);
+//	FOREACH(AttributeDef, n, sumrows->op.schema->attrDefs)
+//	{
+//		if(isPrefix(n->attrName, "value"))
+//		{
+//			List *functioninput = NIL;
+//			AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+//									 getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
+//
+//			functioninput = appendToTailOfList(functioninput, ar);
+//			functioninput = appendToTailOfList(functioninput, arDist);
+//			FunctionCall *r_2 = createFunctionCall("regr_r2", functioninput);
+//			analysisCorr = appendToTailOfList(analysisCorr, r_2);
+//
+//			int len = strlen(n->attrName) - 1;
+//			char *name = substr(n->attrName, 14, len);
+//			analysisCorrNames = appendToTailOfList(analysisCorrNames, CONCAT_STRINGS(name, "_r2"));
+//
+//
+//
+//		}
+//	}
+//
+//
+//	ProjectionOperator *test = createProjectionOp(analysisCorr, NULL, NIL, analysisCorrNames);
+//	addChildOperator((QueryOperator *) test, (QueryOperator *) so);
+//	switchSubtrees((QueryOperator *) so, (QueryOperator *) test);
+
+
+//	List *LJoinAttrs = NIL;
+//	List *RJoinAttrs = NIL;
+	List *JoinAttrNames = NIL;
+	List *joinList = NIL;
+	Node *joinCondt = NULL;
+
+	// getting all the patterns from removeNoGoodPatt OR so L
+	FOREACH(AttributeDef, n, so->op.schema->attrDefs)
+	{
+//		AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+//								 getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
+//		LJoinAttrs = appendToTailOfList(LJoinAttrs, ar);
+		JoinAttrNames = appendToTailOfList(JoinAttrNames, n->attrName);
+	}
+
+	//getting all the data from rowIG OR clean R
+	FOREACH(AttributeDef, n, clean->op.schema->attrDefs)
+	{
+//		AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+//								 getAttrPos((QueryOperator *) clean, n->attrName), 0, n->dataType);
+//		RJoinAttrs = appendToTailOfList(RJoinAttrs, ar);
+		JoinAttrNames = appendToTailOfList(JoinAttrNames, n->attrName);
+	}
+
+	FOREACH(AttributeDef, L, so->op.schema->attrDefs)
+	{
+		FOREACH(AttributeDef, R, clean->op.schema->attrDefs)
+		{
+			if(strcmp(L->attrName, R->attrName) == 0)
+			{
+				AttributeReference *arL = createFullAttrReference(L->attrName, 0,
+										 getAttrPos((QueryOperator *) inform, L->attrName), 0, L->dataType);
+				AttributeReference *arR = createFullAttrReference(R->attrName, 0,
+												 getAttrPos((QueryOperator *) clean, R->attrName), 0, R->dataType);
+
+				//creating is null expression for left side
+				Node *condN = (Node *) createIsNullExpr((Node *) arL);
+				//creating left and right expression for both left and right side
+				Node *condEq = (Node *) createOpExpr(OPNAME_EQ, LIST_MAKE(arL, arR));
+				// creating the OR condition
+				Node *cond = (Node *) createOpExpr(OPNAME_OR, LIST_MAKE(condN, condEq));
+
+				joinList = appendToTailOfList(joinList, cond);
+			}
+		}
+	}
+
+//	joinCondt = (Node *) createOpExpr(OPNAME_AND, joinList);
+	joinCondt = (Node *) createOpExpr(OPNAME_AND, joinList);
+
+//	List *inputs = CONCAT_LISTS(LJoinAttrs,RJoinAttrs);
+//	List *inputs = CONCAT_LISTS(so, clean);
+
+//	QueryOperator *joinOp = (QueryOperator *) createJoinOp(JOIN_FULL_OUTER, joinCondt, inputs, NIL, JoinAttrNames);
+	QueryOperator *joinOp = (QueryOperator *) createJoinOp(JOIN_FULL_OUTER, joinCondt, LIST_MAKE(so, clean), NIL, JoinAttrNames);
+	LOG_RESULT("Rewritten Pattern Generation tree for patterns", joinOp);
+	addChildOperator((QueryOperator *) joinOp, (QueryOperator *) so);
+	switchSubtrees((QueryOperator *) so, (QueryOperator *) joinOp);
+
+	return (QueryOperator *) joinOp;
 }
 
 
@@ -1985,7 +2074,6 @@ rewriteIG_Projection (ProjectionOperator *op)
 	return patterns;
 
 }
-
 
 static QueryOperator *
 rewriteIG_Join (JoinOperator *op)
