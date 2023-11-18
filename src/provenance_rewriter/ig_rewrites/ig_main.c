@@ -1717,13 +1717,13 @@ rewriteIG_analysis (AggregationOperator *patterns)
 		sumExprs = appendToTailOfList(sumExprs, ar);
 		prodExprs = appendToTailOfList(prodExprs, ar);
 		}
-		else if(streq(n->attrName, "informativeness"))
-		{
-			AttributeReference *ar = createFullAttrReference("informativeness", 0,
-								getAttrPos((QueryOperator *) analysis, "informativeness"), 0, n->dataType);
-			sumExprs = appendToTailOfList(sumExprs, ar);
-			prodExprs = appendToTailOfList(prodExprs, ar);
-		}
+//		else if(streq(n->attrName, "informativeness"))
+//		{
+//			AttributeReference *ar = createFullAttrReference("informativeness", 0,
+//								getAttrPos((QueryOperator *) analysis, "informativeness"), 0, n->dataType);
+//			sumExprs = appendToTailOfList(sumExprs, ar);
+//			prodExprs = appendToTailOfList(prodExprs, ar);
+//		}
 	}
 
 	FOREACH(AttributeDef, n, analysis->op.schema->attrDefs)
