@@ -1687,13 +1687,73 @@ rewriteIG_analysis (AggregationOperator *patterns)
 	int l = LIST_LENGTH(meanr2Exprs);
 	Node *meanr2 = (Node *) (createOpExpr("/", LIST_MAKE(createOpExpr("+", meanr2Exprs), createConstInt(l))));
 	projExprs = appendToTailOfList(projExprs, meanr2);
-	projNames = appendToTailOfList(projNames, "mean_r2");
+	projNames = appendToTailOfList(projNames, "mean_r^2");
 
-	ProjectionOperator *po = createProjectionOp(projExprs, NULL, NIL, projNames);
-	addChildOperator((QueryOperator *) po, (QueryOperator *) patterns);
-	switchSubtrees((QueryOperator *) patterns, (QueryOperator *) po);
+	ProjectionOperator *analysis = createProjectionOp(projExprs, NULL, NIL, projNames);
+	addChildOperator((QueryOperator *) analysis, (QueryOperator *) patterns);
+	switchSubtrees((QueryOperator *) patterns, (QueryOperator *) analysis);
 
-	return po;
+
+	List *fscoreExprs = NIL;
+	List *fscoreNames = NIL;
+	List *sumExprs = NIL;
+	List *prodExprs = NIL;
+
+	FOREACH(AttributeDef, n, analysis->op.schema->attrDefs)
+	{
+		AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+							getAttrPos((QueryOperator *) analysis, n->attrName), 0, n->dataType);
+
+		fscoreExprs = appendToTailOfList(fscoreExprs, ar);
+		fscoreNames = appendToTailOfList(fscoreNames, n->attrName);
+	}
+
+	FOREACH(AttributeDef, n, analysis->op.schema->attrDefs)
+	{
+		if(!isPrefix(n->attrName, "i") && !isSuffix(n->attrName, "r2"))
+		{
+		AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+							getAttrPos((QueryOperator *) analysis, n->attrName), 0, n->dataType);
+		sumExprs = appendToTailOfList(sumExprs, ar);
+		prodExprs = appendToTailOfList(prodExprs, ar);
+		}
+		else if(streq(n->attrName, "informativeness"))
+		{
+			AttributeReference *ar = createFullAttrReference("informativeness", 0,
+								getAttrPos((QueryOperator *) analysis, "informativeness"), 0, n->dataType);
+			sumExprs = appendToTailOfList(sumExprs, ar);
+			prodExprs = appendToTailOfList(prodExprs, ar);
+		}
+	}
+
+	FOREACH(AttributeDef, n, analysis->op.schema->attrDefs)
+	{
+		if(streq(n->attrName, "informativeness"))
+		{
+			AttributeReference *ar = createFullAttrReference("informativeness", 0,
+								getAttrPos((QueryOperator *) analysis, "informativeness"), 0, n->dataType);
+			sumExprs = appendToTailOfList(sumExprs, ar);
+			prodExprs = appendToTailOfList(prodExprs, ar);
+		}
+	}
+
+	int fCount = LIST_LENGTH(prodExprs);
+	prodExprs = appendToTailOfList(prodExprs, createConstInt(fCount));
+	Node *prod = (Node *) (createOpExpr("*", prodExprs));
+	Node *sumOp = (Node *) (createOpExpr("+", sumExprs));
+
+	Node *f_score = (Node *) (createOpExpr("/", LIST_MAKE(prod, sumOp)));
+
+	fscoreExprs = appendToTailOfList(fscoreExprs, f_score);
+	fscoreNames = appendToTailOfList(fscoreNames, "f_score");
+
+	ProjectionOperator *fscore = createProjectionOp(fscoreExprs, NULL, NIL, fscoreNames);
+	addChildOperator((QueryOperator *) fscore, (QueryOperator *) analysis);
+	switchSubtrees((QueryOperator *) analysis, (QueryOperator *) fscore);
+
+
+
+	return fscore;
 
 }
 
