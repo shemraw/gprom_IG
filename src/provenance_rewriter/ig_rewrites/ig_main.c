@@ -181,7 +181,6 @@ rewriteIG_Selection (SelectionOperator *op) //where clause
     rewriteIG_Operator(child);
 //  switchSubtrees((QueryOperator *) op, child); // child here has join property
 
-
     List *tempExpr = NIL;
     List *tempNames = NIL;
     int posTemp = 0;
@@ -195,19 +194,66 @@ rewriteIG_Selection (SelectionOperator *op) //where clause
  		posTemp++;
  	}
 
- 	ProjectionOperator *tempProj = createProjectionOp(tempExpr, NULL, NIL, tempNames);
- 	op->op.schema->attrDefs = tempProj->op.schema->attrDefs;
+    // update selection
+	Operator *cond = (Operator *) op->cond;
+//	boolean isConds = FALSE;
 
- 	// comment it out and check
- 	addChildOperator((QueryOperator *) tempProj, (QueryOperator *) op);
- 	switchSubtrees((QueryOperator *) op, (QueryOperator *) tempProj);
+	FOREACH(Node, n, cond->args)
+	{
+		if(isA(n,AttributeReference))
+		{
+			AttributeReference *ar = (AttributeReference *) n;
+			int attrPos = getAttrPos(child, ar->name);
+			ar->attrPosition = attrPos;
+		}
 
-    LOG_RESULT("Rewritten Selection Operator tree", tempProj);
-    return (QueryOperator *) tempProj;
+		if(isA(n,Operator))
+		{
+			Operator *o = (Operator *) n;
+			FOREACH(Node, n, o->args)
+			{
+				if(isA(n,AttributeReference))
+				{
+					AttributeReference *ar = (AttributeReference *) n;
+					int attrPos = getAttrPos(child, ar->name);
+					ar->attrPosition = attrPos;
+				}
+			}
+//			else
+//			{
+//				FATAL_LOG("!! Not yet implemented !!", nodeToString(op));
+//			}
+		}
+	}
 
+	op->op.schema->attrDefs = child->schema->attrDefs;
+
+//	SelectionOperator *so = createSelectionOp((Node *) cond, child, NIL, getAttrNames(child->schema));
+//	addParent(child, (QueryOperator *) so);
+
+	// if there is PROP_JOIN_ATTRS_FOR_HAMMING set then copy over the properties to the new proj op
+	if(HAS_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING))
+	{
+		SET_STRING_PROP(op, PROP_JOIN_ATTRS_FOR_HAMMING,
+				copyObject(GET_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING)));
+	}
+
+// 	ProjectionOperator *tempProj = createProjectionOp(tempExpr, NULL, NIL, tempNames);
+//// 	op->op.schema->attrDefs = tempProj->op.schema->attrDefs;
 //
-//    LOG_RESULT("Rewritten Selection Operator tree", op);
-//    return (QueryOperator *) op;
+// 	// comment it out and check
+// 	addChildOperator((QueryOperator *) tempProj, (QueryOperator *) op);
+// 	switchSubtrees((QueryOperator *) op, (QueryOperator *) tempProj);
+
+// 	// if there is PROP_JOIN_ATTRS_FOR_HAMMING set then copy over the properties to the new proj op
+//	if(HAS_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING))
+//	{
+//		SET_STRING_PROP(tempProj, PROP_JOIN_ATTRS_FOR_HAMMING,
+//				copyObject(GET_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING)));
+//	}
+
+    LOG_RESULT("Rewritten Selection Operator tree", op);
+    return (QueryOperator *) op;
 }
 
 //rewriteIG_Conversion
@@ -2222,9 +2268,16 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 				//TODO: find the partner attribute
 				char *attrName = CONCAT_STRINGS(ar->name,"1");
-				AttributeReference *arr = getAttrRefByName((QueryOperator *) child, attrName);
-//				AttributeReference *arr = createFullAttrReference(attrName, 0,
-//						getAttrPos((QueryOperator *) child, attrName), 0, ar->attrType);
+				AttributeReference *arr = NULL;
+
+				if(isA((Node *) child, SelectionOperator))
+				{
+					QueryOperator *grandChild = OP_LCHILD(child);
+					arr = createFullAttrReference(attrName, 0,
+							getAttrPos((QueryOperator *) grandChild, attrName), 0, ar->attrType);
+				}
+				else
+					arr = getAttrRefByName((QueryOperator *) child, attrName);
 
 				// common value
 				Node *cond = (Node *) createOpExpr(OPNAME_EQ, LIST_MAKE(ar,arr));
@@ -2404,7 +2457,7 @@ rewriteIG_Projection (ProjectionOperator *op)
     		// change the datatype in attrDef to original datatype
     		AttributeDef *a = getAttrDefByPos((QueryOperator *) newProj,pos);
     		QueryOperator *child = (QueryOperator *) getHeadOfListP(newProj->op.inputs);
-    		AttributeDef *childa = getAttrDefByPos(child,pos);
+    		AttributeDef *childa = getAttrDefByName(child,a->attrName);
     		a->dataType = childa->dataType;
 
     		// apply cast to coalesce
