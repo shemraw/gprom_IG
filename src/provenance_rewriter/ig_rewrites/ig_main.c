@@ -431,18 +431,17 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	ProjectionOperator *addPo = createProjectionOp(projExprs, NULL, NIL, newNames);;
 
 	// Getting Table name and length of table name here
-	char *tblName = "";
+	char *tblName = NULL;
 	FOREACH(AttributeReference, n, addPo->projExprs)
 	{
-		if(isPrefix(n->name, "ig"))
+		if(isPrefix(n->name, IG_PREFIX))
 		{
 			int len1 = strlen(n->name);
 			int len2 = strlen(strrchr(n->name, '_'));
 			int len = len1 - len2 - 1;
 			tblName = substr(n->name, 8, len);
-			break;
+//			break;
 		}
-
 	}
 
 	int temp = 0;
@@ -469,15 +468,17 @@ rewriteIG_Conversion (ProjectionOperator *op)
 			newProjExpr = appendToTailOfList(newProjExpr, createConstString(tblName));
 			temp++;
 		}
-		else if (isPrefix(n->name, "ig"))
+		else if (isPrefix(n->name, IG_PREFIX))
 		{
 			CastExpr *cast;
 			cast = createCastExpr((Node *) n, DT_STRING);
 			newProjExpr = appendToTailOfList(newProjExpr, cast);
 
 			//this adds first 3 letter for the variable in concat
+			int end = strlen(strrchr(n->name, '_'));
+
 			newProjExpr = appendToTailOfList(newProjExpr,
-					createConstString((substr(n->name, 9 + tblLen, 9 + tblLen + 2))));
+					createConstString((substr(n->name, 9 + tblLen, 9 + tblLen + end - 2))));
 		}
 	}
 
@@ -2513,16 +2514,16 @@ rewriteIG_Projection (ProjectionOperator *op)
 
     FOREACH(Node, n, op->projExprs)
     {
-		AttributeReference *ar = (AttributeReference *) n;
-
-    	if(!isA(n, CaseExpr) || !isPrefix(ar->name,IG_PREFIX))
+    	if(!isA(n, CaseExpr))
+//    			|| !isPrefix(ar->name,IG_PREFIX))
     	{
-    		char *igName = CONCAT_STRINGS("ig_conv_",
-    									MAP_HAS_STRING_KEY(attrLNames, ar->name) ? tblNameL : tblNameR,
-    									ar->name);
+    		AttributeReference *ar = (AttributeReference *) n;
 
     		//TODO: remove unique number in the attr from shared
-    		igName = replaceSubstr(igName,"1","");
+    		char *origAttrName = replaceSubstr(ar->name,gprom_itoa(1),"");
+
+    		char *igName = CONCAT_STRINGS("ig_conv_",
+    									MAP_HAS_STRING_KEY(attrLNames, origAttrName) ? tblNameL : tblNameR, origAttrName);
 
     		if(MAP_HAS_STRING_KEY(igAttrs, igName))
     		{
