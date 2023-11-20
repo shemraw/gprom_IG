@@ -2362,12 +2362,25 @@ rewriteIG_Projection (ProjectionOperator *op)
 							}
 						}
 					}
+
+					if(isA(n, AttributeReference))
+					{
+						FOREACH(AttributeReference, ar, whenArgs)
+						{
+							ar->attrPosition = getAttrPos((QueryOperator *) child,ar->name);
+						}
+					}
 				}
 
 				// then
 				AttributeReference *then = (AttributeReference *) cw->then;
 				then->attrPosition = getAttrPos((QueryOperator *) child, then->name);
 			}
+
+			// else
+			AttributeReference *els = (AttributeReference *) ce->elseRes;
+			els->attrPosition = getAttrPos((QueryOperator *) child, els->name);
+
 
 			newProjExpr = appendToTailOfList(newProjExpr, n);
 		}
@@ -2386,7 +2399,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	FOREACH(Node, n, newProjExpr)
 	{
-		if(!isA(n, CaseExpr) || !isA(n, Operator))
+		if(!isA(n, CaseExpr) && !isA(n, Operator))
 		{
 			AttributeReference *ar = (AttributeReference *) n;
 			if(MAP_HAS_STRING_KEY(attrLNames, ar->name) &&
@@ -2454,7 +2467,26 @@ rewriteIG_Projection (ProjectionOperator *op)
 		}
 		else
 		{
-			FunctionCall *coalesce = createFunctionCall("COALESCE", LIST_MAKE(n, createConstInt(0)));
+			FunctionCall *coalesce = NULL;
+//			FunctionCall *coalesce = createFunctionCall("COALESCE", LIST_MAKE(n, createConstInt(0)));
+
+
+			if(isA(n,CaseExpr))
+			{
+				CaseExpr *ce = (CaseExpr *) n;
+				AttributeReference *els = (AttributeReference *) ce->elseRes;
+
+				if(els->attrType == DT_STRING || els->attrType == DT_VARCHAR2)
+					coalesce = createFunctionCall("COALESCE", LIST_MAKE(n, (Node *) createConstString("na")));
+
+				if(els->attrType == DT_INT || els->attrType == DT_FLOAT || els->attrType == DT_LONG)
+					coalesce = createFunctionCall("COALESCE", LIST_MAKE(n, (Node *) createConstInt(0)));
+			}
+			else
+			{
+				FATAL_LOG("!! Under Construction !!");
+			}
+
 			newProjExprWithCaseWhen = appendToTailOfList(newProjExprWithCaseWhen, (Node *) coalesce);
 		}
 	}
@@ -2610,6 +2642,13 @@ rewriteIG_Projection (ProjectionOperator *op)
     		//TODO: then can be an expression.
 			FOREACH(CaseWhen, cw, ce->whenClauses)
 			{
+//				List *args = (List *) ((Operator *) cw->when)->args;
+//
+//				FOREACH(AttributeReference, ar, args)
+//				{
+//					ar->attrPosition = getAttrPos(OP_LCHILD(op),ar->name);
+//				}
+
 				ar = (AttributeReference *) cw->then;
 				igName = CONCAT_STRINGS("ig_conv_", MAP_HAS_STRING_KEY(attrLNames, ar->name) ? tblNameL : tblNameR, ar->name);
 
@@ -2622,9 +2661,14 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 			//TODO: else can be an expression.
 			ar = (AttributeReference *) el;
+			char *origAttrName = ar->name;
+
 			igName = CONCAT_STRINGS("ig_conv_",
-										MAP_HAS_STRING_KEY(attrLNames, ar->name) ? tblNameL : tblNameR,
-										ar->name);
+										MAP_HAS_STRING_KEY(attrLNames, origAttrName) ? tblNameL : tblNameR,
+												origAttrName);
+
+    		char *attrNameAfterReplace = replaceSubstr(ar->name,gprom_itoa(1),"");
+    		igName = replaceSubstr(igName, origAttrName, attrNameAfterReplace);
 
 			if(MAP_HAS_STRING_KEY(igAttrs, igName))
 			{
