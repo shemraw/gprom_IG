@@ -177,6 +177,9 @@ rewriteIG_Selection (SelectionOperator *op) //where clause
 
 //    addSCOptionToChild((QueryOperator *) op,child);
 
+    // store the join query
+    SET_STRING_PROP(op, PROP_JOIN_OP_IG, OP_LCHILD(op));
+
     // rewrite child first
     rewriteIG_Operator(child);
 //  switchSubtrees((QueryOperator *) op, child); // child here has join property
@@ -549,6 +552,11 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 
 	addChildOperator((QueryOperator *) sumrows, (QueryOperator *) hammingvalue_op);
 	switchSubtrees((QueryOperator *) hammingvalue_op, (QueryOperator *) sumrows);
+
+    // store the join query
+	SET_STRING_PROP(sumrows, PROP_JOIN_OP_IG,
+			copyObject(GET_STRING_PROP(hammingvalue_op, PROP_JOIN_OP_IG)));
+
 
 	return sumrows;
 
@@ -1299,6 +1307,12 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 				copyObject(GET_STRING_PROP(newProj, IG_PROP_ORIG_ATTR)));
 	}
 
+    // store the join query
+	SET_STRING_PROP(hamming_op, PROP_JOIN_OP_IG,
+			copyObject(GET_STRING_PROP(newProj, PROP_JOIN_OP_IG)));
+
+
+
 //    SET_BOOL_STRING_PROP(hamming_op, PROP_MATERIALIZE);
 
 
@@ -1387,6 +1401,11 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 				copyObject(GET_STRING_PROP(hamming_op, IG_PROP_ORIG_ATTR)));
 	}
 
+    // store the join query
+	SET_STRING_PROP(hammingvalue_op, PROP_JOIN_OP_IG,
+			copyObject(GET_STRING_PROP(hamming_op, PROP_JOIN_OP_IG)));
+
+
 	return hammingvalue_op;
 }
 
@@ -1399,6 +1418,8 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	DEBUG_LOG("REWRITE-IG - Pattern Generation");
 	DEBUG_LOG("Operator tree \n%s", nodeToString(sumrows));
 
+//	// retrieve the join operator
+//	QueryOperator * origJoinOp = (QueryOperator *) GET_STRING_PROP(sumrows, PROP_JOIN_OP_IG);
 
 	int lenL = (LIST_LENGTH(attrL) - 1) / 2;
 	int lenR = (LIST_LENGTH(attrR) - 1) / 2;
@@ -1459,6 +1480,9 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 						LAttrName = CONCAT_STRINGS(L->attrName,gprom_itoa(1));
 						arL->name = LAttrName;
 						arL->attrPosition = getAttrPos((QueryOperator *) sumrows, LAttrName);
+
+//						if(arL->attrPosition == -1)
+//							arL->attrPosition = getAttrPos((QueryOperator *) origJoinOp, LAttrName);
 					}
 
 //					AttributeReference * arR = createFullAttrReference(R->attrName, 0,
@@ -1474,9 +1498,11 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 //
 //					CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), NULL);
 
-					cleanExprs = appendToTailOfList(cleanExprs, arL);
-					cleanNames = appendToTailOfList(cleanNames, CONCAT_STRINGS(INDEX, LAttrName));
-
+					if(arL->attrPosition != -1)
+					{
+						cleanExprs = appendToTailOfList(cleanExprs, arL);
+						cleanNames = appendToTailOfList(cleanNames, CONCAT_STRINGS(INDEX, LAttrName));
+					}
 				}
 
 			}
@@ -2160,6 +2186,16 @@ rewriteIG_Projection (ProjectionOperator *op)
     // store original attributes in the input query
     List *origAttrs = op->projExprs;
 
+    // store the join query
+    if(HAS_STRING_PROP(OP_LCHILD(op), PROP_JOIN_OP_IG))
+	{
+		SET_STRING_PROP(OP_LCHILD(op), PROP_JOIN_OP_IG,
+				copyObject(GET_STRING_PROP(OP_LCHILD(op), PROP_JOIN_OP_IG)));
+	}
+    else
+    	SET_STRING_PROP(op, PROP_JOIN_OP_IG, OP_LCHILD(op));
+
+
     // temporary expression list to grab the case when from the input
     List *grabCaseExprs = NIL;
 
@@ -2240,7 +2276,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 
     FOREACH(AttributeDef, n, attrL)
 	{
-		if(isPrefix(n->attrName, "ig"))
+		if(isPrefix(n->attrName, IG_PREFIX))
 		{
 			int len1 = strlen(n->attrName);
 			int len2 = strlen(strrchr(n->attrName, '_'));
@@ -2256,7 +2292,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 	char *tblNameR = "";
 	FOREACH(AttributeDef, n, attrR)
 	{
-		if(isPrefix(n->attrName, "ig"))
+		if(isPrefix(n->attrName, IG_PREFIX))
 		{
 			int len1 = strlen(n->attrName);
 			int len2 = strlen(strrchr(n->attrName, '_'));
@@ -2512,6 +2548,9 @@ rewriteIG_Projection (ProjectionOperator *op)
     	}
     }
 
+    // adding ig attribute after the integration
+//    QueryOperator *origJoinOp = (QueryOperator *) GET_STRING_PROP(op, PROP_JOIN_OP_IG);
+
     FOREACH(Node, n, op->projExprs)
     {
     	if(!isA(n, CaseExpr))
@@ -2520,10 +2559,13 @@ rewriteIG_Projection (ProjectionOperator *op)
     		AttributeReference *ar = (AttributeReference *) n;
 
     		//TODO: remove unique number in the attr from shared
-    		char *origAttrName = replaceSubstr(ar->name,gprom_itoa(1),"");
+    		char *origAttrName = ar->name;
 
     		char *igName = CONCAT_STRINGS("ig_conv_",
     									MAP_HAS_STRING_KEY(attrLNames, origAttrName) ? tblNameL : tblNameR, origAttrName);
+
+    		char *attrNameAfterReplace = replaceSubstr(ar->name,gprom_itoa(1),"");
+    		igName = replaceSubstr(igName, origAttrName, attrNameAfterReplace);
 
     		if(MAP_HAS_STRING_KEY(igAttrs, igName))
     		{
@@ -2595,13 +2637,21 @@ rewriteIG_Projection (ProjectionOperator *op)
     	}
     }
 
+
+//	{
+//		AttributeReference *ar = getAttrRefByName(origJoinOp, igName);
+//
+//		addIgExprs = appendToTailOfList(addIgExprs, ar);
+//		addIgAttrs = appendToTailOfList(addIgAttrs, CONCAT_STRINGS(igName,INTEG_SUFFIX));
+//	}
+
+
     List *allExprs = CONCAT_LISTS(newProjExprWithCaseWhen,addIgExprs);
     List *allAttrs = CONCAT_LISTS(newAttrNames,addIgAttrs);
 
 	ProjectionOperator *newProj = createProjectionOp(allExprs, NULL, NIL, allAttrs);
     addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
     switchSubtrees((QueryOperator *) op, (QueryOperator *) newProj);
-
 
     // TODO: coalesce becomes DT_STRING
     int pos = 0;
@@ -2646,6 +2696,10 @@ rewriteIG_Projection (ProjectionOperator *op)
     SET_STRING_PROP(newProj, IG_PROP_NON_JOIN_COMMON_ATTR_R, commonAttrNamesR);
 
     SET_STRING_PROP(newProj, IG_PROP_ORIG_ATTR, origAttrs);
+
+    // store the join query
+	SET_STRING_PROP(newProj, PROP_JOIN_OP_IG,
+			copyObject(GET_STRING_PROP(op, PROP_JOIN_OP_IG)));
 
     INFO_OP_LOG("Rewritten Operator tree for all IG attributes", newProj);
 

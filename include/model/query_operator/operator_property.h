@@ -31,6 +31,7 @@
 #define PROP_USER_PROV_ATTRS "USER_PROV_ATTRS"              // list of user selected provenance attribtues
 #define PROP_USER_IG_ATTRS "USER_IG_ATTRS"
 #define PROP_JOIN_ATTRS_FOR_HAMMING "JOIN_ATTRS_FOR_HAMMING" // list of join attributes needed for hamming function
+#define PROP_JOIN_OP_IG "PROP_JOIN_OP_IG"
 
 #define PROP_PROV_REL_NAME "PROVENANCE_REL_NAME"            // in provenance attributes refer to subquery as this name
 #define PROP_IG_REL_NAME "IG_REL_NAME"
