@@ -51,6 +51,7 @@
 #define AVG_DIST "Average_Distance"
 #define COVERAGE "coverage"
 #define INFORMATIVENESS "informativeness"
+#define PATTERNIG "pattern_IG"
 #define FSCORE "f_score"
 
 
@@ -1410,7 +1411,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 }
 
 
-static AggregationOperator *
+static SelectionOperator *
 rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 {
 
@@ -1788,77 +1789,80 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 
 	// remove no good patterns
-//	List *soNames = NIL;
 	AttributeReference *cov = getAttrRefByName((QueryOperator *) inform, COVERAGE);
 	AttributeReference *inf = getAttrRefByName((QueryOperator *) inform, INFORMATIVENESS);
-
-//	FOREACH(AttributeDef, n, inform->op.schema->attrDefs)
-//	{
-////		soNames = appendToTailOfList(soNames, n->attrName);
-//
-//		if(streq(n->attrName,"coverage"))
-//		{
-//			cov = createFullAttrReference(n->attrName, 0,
-//					getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
-//		}
-//
-//		if(streq(n->attrName,"informativeness"))
-//		{
-//			inf = createFullAttrReference(n->attrName, 0,
-//					getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
-//		}
-//	}
+	AttributeReference *pattIG = getAttrRefByName((QueryOperator *) inform, PATTERNIG);
 
 	//creating where condition coverage > 1 OR (coverage = 1 AND informativeness = 5)
+	//coverage > 1
 	Node *covgt1 = (Node *) createOpExpr(OPNAME_GT, LIST_MAKE(cov, createConstInt(1)));
+
+	//coverage = 1
 	Node *cov1 = (Node *) createOpExpr(OPNAME_EQ, LIST_MAKE(cov, createConstInt(1)));
+
+	//informativeness = 5
 	Node *info5 = (Node *) createOpExpr(OPNAME_EQ, LIST_MAKE(inf, createConstInt(num_i)));
 
+	//coverage = 1 AND informativeness = 5
 	Node *subcond = (Node *) createOpExpr(OPNAME_AND, LIST_MAKE(cov1,info5));
+
+	//coverage > 1 OR (coverage = 1 AND informativeness = 5)
 	Node *cond = (Node *) createOpExpr(OPNAME_OR, LIST_MAKE(covgt1,subcond));
 
-	SelectionOperator *so = createSelectionOp(cond, NULL, NIL, getAttrNames(inform->op.schema));
+	//creating patternIG > 0
+	Node *pattCondt = (Node *) createOpExpr(OPNAME_GT, LIST_MAKE(pattIG, createConstInt(0)));
+
+	//patternIG > 0 AND coverage > 1 OR (coverage = 1 AND informativeness = 5)
+	Node *finalCond = (Node *) createOpExpr(OPNAME_AND, LIST_MAKE(pattCondt, cond));
+
+	// this one has removeNoGoodPatt
+	SelectionOperator *so = createSelectionOp(finalCond, NULL, NIL, getAttrNames(inform->op.schema));
 	addChildOperator((QueryOperator *) so, (QueryOperator *) inform);
 	switchSubtrees((QueryOperator *) inform, (QueryOperator *) so);
 
-//	SET_BOOL_STRING_PROP(so, PROP_MATERIALIZE);
-
-	// TODO: fix datatype
 	FORBOTH(AttributeDef, al, ar, so->op.schema->attrDefs, inform->op.schema->attrDefs)
 		if(al->dataType != ar->dataType)
 			al->dataType = ar->dataType;
 
 	DEBUG_NODE_BEATIFY_LOG("Remove No Good Patterns: ", so);
 
-//	// TODO: fix coverage datatype
-//	FOREACH(AttributeDef, a, so->op.schema->attrDefs)
-//		if(streq(a->attrName, COVERAGE))
-//			a->dataType = DT_INT;
+	//creating topKPattConstPlac
+	//where coverage > 1 and informativeness < 5
+
+	//informativeness < 5
+	Node *infoLess = (Node *) createOpExpr(OPNAME_LT, LIST_MAKE(inf, createConstInt(num_i)));
+
+	//coverage > 1 and informativeness < 5
+	Node *condtopKPattConstPlac = (Node *) createOpExpr(OPNAME_AND, LIST_MAKE(covgt1, infoLess));
+
+	//creating topKPattConstPlac
+	SelectionOperator *topKPattConstPlac = createSelectionOp(condtopKPattConstPlac, NULL, NIL, getAttrNames(inform->op.schema));
+	addChildOperator((QueryOperator *) topKPattConstPlac, (QueryOperator *) so);
+	switchSubtrees((QueryOperator *) so, (QueryOperator *) topKPattConstPlac);
+
+	FORBOTH(AttributeDef, al, ar, topKPattConstPlac->op.schema->attrDefs, inform->op.schema->attrDefs)
+		if(al->dataType != ar->dataType)
+			al->dataType = ar->dataType;
+
+	//creating topKPattOnlyConst
+	//subcond : coverage = 1 AND informativeness = 5
+	SelectionOperator *topKPattOnlyConst = createSelectionOp(subcond, NULL, NIL, getAttrNames(inform->op.schema));
+	addChildOperator((QueryOperator *) topKPattOnlyConst, (QueryOperator *) topKPattConstPlac);
+	switchSubtrees((QueryOperator *) topKPattConstPlac, (QueryOperator *) topKPattOnlyConst);
+
+	FORBOTH(AttributeDef, al, ar, topKPattOnlyConst->op.schema->attrDefs, inform->op.schema->attrDefs)
+		if(al->dataType != ar->dataType)
+			al->dataType = ar->dataType;
+
+	// creating fscoreTopK
 
 
-//	List *LJoinAttrs = NIL;
-//	List *RJoinAttrs = NIL;
+
+/*
+
 	List *JoinAttrNames = NIL;
 	List *joinList = NIL;
 	Node *joinCondt = NULL;
-
-//	// getting all the patterns from removeNoGoodPatt OR so L
-//	FOREACH(AttributeDef, n, so->op.schema->attrDefs)
-//	{
-////		AttributeReference *ar = createFullAttrReference(n->attrName, 0,
-////								 getAttrPos((QueryOperator *) inform, n->attrName), 0, n->dataType);
-////		LJoinAttrs = appendToTailOfList(LJoinAttrs, ar);
-//		JoinAttrNames = appendToTailOfList(JoinAttrNames, n->attrName);
-//	}
-//
-//	//getting all the data from rowIG OR clean R
-//	FOREACH(AttributeDef, n, clean->op.schema->attrDefs)
-//	{
-////		AttributeReference *ar = createFullAttrReference(n->attrName, 0,
-////								 getAttrPos((QueryOperator *) clean, n->attrName), 0, n->dataType);
-////		RJoinAttrs = appendToTailOfList(RJoinAttrs, ar);
-//		JoinAttrNames = appendToTailOfList(JoinAttrNames, n->attrName);
-//	}
 
 	FOREACH(AttributeDef, L, so->op.schema->attrDefs)
 	{
@@ -2011,7 +2015,9 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 			functioninput = appendToTailOfList(functioninput, arDist);
 			FunctionCall *r_2 = createFunctionCall("regr_r2", functioninput);
 			FunctionCall *coalesce = createFunctionCall("COALESCE", LIST_MAKE(r_2, createConstInt(0)));
-			aggrsAnalysis = appendToTailOfList(aggrsAnalysis, coalesce);
+			Node *input = (Node *) createOpExpr("+", LIST_MAKE(createConstInt(1), coalesce));
+			aggrsAnalysis = appendToTailOfList(aggrsAnalysis, input);
+//			aggrsAnalysis = appendToTailOfList(aggrsAnalysis, coalesce);
 		}
 		else if(!isPrefix(n->attrName, "Total"))
 		{
@@ -2029,10 +2035,13 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 	LOG_RESULT("Rewritten Pattern Generation tree for patterns", analysisAggr);
 
-	return analysisAggr;
+	*/
+
+//	return analysisAggr;
+	return topKPattOnlyConst;
 }
 
-
+/*
 
 static QueryOperator *
 rewriteIG_Analysis (AggregationOperator *patterns)
@@ -2174,6 +2183,8 @@ rewriteIG_Analysis (AggregationOperator *patterns)
 
 }
 
+
+*/
 
 
 static QueryOperator *
@@ -3153,12 +3164,13 @@ rewriteIG_Projection (ProjectionOperator *op)
 //	LOG_RESULT("Rewritten Projection Operator tree", hammingvalue_op);
 //	return (QueryOperator *) hammingvalue_op;
 
-	AggregationOperator *patterns = rewriteIG_PatternGeneration(sumrows);
+//	AggregationOperator *patterns = rewriteIG_PatternGeneration(sumrows);
+	SelectionOperator *patterns = rewriteIG_PatternGeneration(sumrows);
 
-	QueryOperator *analysis = rewriteIG_Analysis(patterns);
+//	QueryOperator *analysis = rewriteIG_Analysis(patterns);
 
-	INFO_OP_LOG("Rewritten Operator tree for patterns", analysis);
-	return analysis;
+	INFO_OP_LOG("Rewritten Operator tree for patterns", (QueryOperator *) patterns);
+	return (QueryOperator *) patterns;
 
 }
 
