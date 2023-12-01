@@ -1854,7 +1854,119 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 		if(al->dataType != ar->dataType)
 			al->dataType = ar->dataType;
 
-	// creating fscoreTopK
+	List *topKattr = NIL;
+	List *topKattrNames = NIL;
+	List *inputTopK = NIL;
+	int topKpos = 0;
+	//pattern_IG | informativeness | coverage
+	FOREACH(AttributeDef, n, topKPattOnlyConst->op.schema->attrDefs)
+	{
+		if((strcmp(n->attrName, "informativeness") != 0) &&
+		   (strcmp(n->attrName, "coverage") != 0) &&
+		   (strcmp(n->attrName, "pattern_IG") != 0))
+		{
+		AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+						topKpos, 0, n->dataType);
+		topKattr = appendToTailOfList(topKattr, ar);
+		topKattrNames = appendToTailOfList(topKattrNames, n->attrName);
+		topKpos = topKpos + 1;
+		}
+
+		else if(strcmp(n->attrName, "informativeness") == 0)
+		{
+			AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+						topKpos, 0, n->dataType);
+			topKattr = appendToTailOfList(topKattr, ar);
+			topKattrNames = appendToTailOfList(topKattrNames, n->attrName);
+			inputTopK = appendToTailOfList(inputTopK, ar);
+			topKpos = topKpos + 1;
+		}
+		else if(strcmp(n->attrName, "coverage") == 0)
+		{
+			AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+						topKpos, 0, n->dataType);
+			topKattr = appendToTailOfList(topKattr, ar);
+			topKattrNames = appendToTailOfList(topKattrNames, n->attrName);
+			inputTopK = appendToTailOfList(inputTopK, ar);
+			topKpos = topKpos + 1;
+		}
+		else if(strcmp(n->attrName, "pattern_IG") == 0)
+		{
+			AttributeReference *ar = createFullAttrReference(n->attrName, 0,
+						topKpos, 0, n->dataType);
+			topKattr = appendToTailOfList(topKattr, ar);
+			topKattrNames = appendToTailOfList(topKattrNames, n->attrName);
+			inputTopK = appendToTailOfList(inputTopK, ar);
+			topKpos = topKpos + 1;
+		}
+	}
+
+	//patternIG * coverage * informativeness
+	Node *prodK = (Node *) (createOpExpr("*", inputTopK));
+
+	//3 * patternIG * coverage * informativeness
+	Node *prod3K = (Node *) (createOpExpr("*", LIST_MAKE(createConstInt(3), prodK)));
+
+	//patternIG + coverage + informativeness
+	Node *sumOpK = (Node *) (createOpExpr("+", inputTopK));
+
+	//3 * (patternIG * coverage * informativeness) / (patternIG + coverage + informativeness)
+	Node *fscoreTopK = (Node *) (createOpExpr("/", LIST_MAKE(prod3K, sumOpK)));
+
+	topKattr = appendToTailOfList(topKattr, fscoreTopK);
+	topKattrNames = appendToTailOfList(topKattrNames, "fscoreTopK");
+
+
+	//fscoreTopK
+	ProjectionOperator *orderByOp = createProjectionOp(topKattr, NULL, NIL, topKattrNames);
+	addChildOperator((QueryOperator *) orderByOp, (QueryOperator *) topKPattConstPlac);
+//	switchSubtrees((QueryOperator *) topKPattConstPlac, (QueryOperator *) orderByOp);
+
+	AttributeReference *orderByAr = createFullAttrReference("fscoreTopK", 0,
+					topKpos, 0, DT_FLOAT);
+
+	List *orderBy = NIL;
+	orderBy = appendToTailOfList(orderBy, orderByAr);
+
+	//this needs to be parents of topKPattConstPlac
+	//creating fscoreTopK
+	QueryOperator *fscoreTopKOp = (QueryOperator *) createWindowOp(NULL, NIL, orderBy, NULL, NULL,
+							(QueryOperator *) orderByOp, NIL);
+	addChildOperator((QueryOperator *) fscoreTopKOp, (QueryOperator *) topKPattConstPlac);
+	switchSubtrees((QueryOperator *) topKPattConstPlac, (QueryOperator *) fscoreTopKOp);
+
+	//this needs to be parents of topKPattOnlyConst
+	//creating fscoreTopKOnlyCons
+
+	//fscoreTopKOnlyConst
+	ProjectionOperator *fscoreTopKOnlyConsOp = createProjectionOp(topKattr, NULL, NIL, topKattrNames);
+	addChildOperator((QueryOperator *) fscoreTopKOnlyConsOp, (QueryOperator *) topKPattOnlyConst);
+//	switchSubtrees((QueryOperator *) topKPattOnlyConst, (QueryOperator *) fscoreTopKOnlyConsOp);
+
+	//creating fscoreTopKOnlyConstSamp
+	//creating SELECT MIN(fscoreTopK) FROM fscoreTopK
+	//this needs to be parents of fscoreTopK(orderByOp)
+	List *minExpr = NIL;
+	List *minName = NIL;
+	AttributeReference *minAr = createFullAttrReference("fscoreTopK", 0,
+						topKpos, 0, DT_FLOAT);
+	minExpr = appendToTailOfList(minExpr, createFunctionCall("MIN", singleton(minAr)));
+	minName = appendToTailOfList(minName, "minfscoreTopK");
+	ProjectionOperator *minfscore = createProjectionOp(minExpr, NULL, NIL, minName);
+	addChildOperator((QueryOperator *) minfscore, (QueryOperator *) orderByOp);
+
+
+	//creating fscoreTopK > (SELECT MIN(fscoreTopK) FROM fscoreTopK)
+	//creating fscoreTopKOnlyConstSamp
+	//this needs to be parents of fscoreTopKOnlyConst
+
+	Node *mincond = (Node *) createOpExpr(OPNAME_GT, LIST_MAKE(minAr,minfscore));
+	List *minNametest = appendToTailOfList(minName, "testName");
+	SelectionOperator *fscoreTopKOnlyConstSamp = createSelectionOp(mincond, NULL, NIL, minNametest);
+	addChildOperator((QueryOperator *) fscoreTopKOnlyConstSamp, (QueryOperator *) fscoreTopKOnlyConsOp);
+
+
+
 
 
 
@@ -2038,7 +2150,8 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	*/
 
 //	return analysisAggr;
-	return topKPattOnlyConst;
+	LOG_RESULT("Rewritten Pattern Generation tree for patterns", fscoreTopKOnlyConstSamp);
+	return fscoreTopKOnlyConstSamp;
 }
 
 /*
