@@ -1930,6 +1930,8 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 	//this needs to be parents of topKPattConstPlac
 	//creating fscoreTopK
+	//test order by
+
 	QueryOperator *fscoreTopKOp = (QueryOperator *) createWindowOp(NULL, NIL, orderBy, NULL, NULL,
 							(QueryOperator *) orderByOp, NIL);
 	addChildOperator((QueryOperator *) fscoreTopKOp, (QueryOperator *) topKPattConstPlac);
