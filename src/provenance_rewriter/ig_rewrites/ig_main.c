@@ -1708,17 +1708,20 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	informNames = appendToTailOfList(informNames, strdup(COVERAGE));
 
 
-	ProjectionOperator *inform = createProjectionOp(informExprs, NULL, NIL, informNames);
-	addChildOperator((QueryOperator *) inform, (QueryOperator *) ao);
+	ProjectionOperator *inform = createProjectionOp(informExprs, (QueryOperator *) ao, NIL, informNames);
+//	ao->op.parents = singleton(inform);
+	addParent((QueryOperator *) ao, (QueryOperator *) inform);
+
+//	addChildOperator((QueryOperator *) inform, (QueryOperator *) ao);
 	switchSubtrees((QueryOperator *) ao, (QueryOperator *) inform);
 
 	SET_BOOL_STRING_PROP(inform, PROP_MATERIALIZE);
 	INFO_OP_LOG("Generate Patterns While Computing Informativeness and Coverage: ", inform);
 
-	// TODO: fix coverage datatype
-	FOREACH(AttributeDef, a, inform->op.schema->attrDefs)
-		if(streq(a->attrName, COVERAGE))
-			a->dataType = DT_FLOAT;
+//	// TODO: fix coverage datatype
+//	FOREACH(AttributeDef, a, inform->op.schema->attrDefs)
+//		if(streq(a->attrName, COVERAGE))
+//			a->dataType = DT_FLOAT;
 
 
 //	List *soNames = NIL;
@@ -1818,13 +1821,17 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	Node *finalCond = (Node *) createOpExpr(OPNAME_AND, LIST_MAKE(pattCondt, cond));
 
 	// this one has removeNoGoodPatt
-	QueryOperator *removeNoGoodPatt = (QueryOperator *) createSelectionOp(finalCond, NULL, NIL, getAttrNames(inform->op.schema));
-	addChildOperator((QueryOperator *) removeNoGoodPatt, (QueryOperator *) inform);
+	QueryOperator *removeNoGoodPatt = (QueryOperator *) createSelectionOp(finalCond,
+			(QueryOperator *) inform, NIL, getAttrNames(inform->op.schema));
+
+//	inform->op.parents  = singleton(removeNoGoodPatt);
+	addParent((QueryOperator *) inform, (QueryOperator *) removeNoGoodPatt);
+//	addChildOperator((QueryOperator *) removeNoGoodPatt, (QueryOperator *) inform);
 	switchSubtrees((QueryOperator *) inform, (QueryOperator *) removeNoGoodPatt);
 
-	FORBOTH(AttributeDef, al, ar, removeNoGoodPatt->schema->attrDefs, inform->op.schema->attrDefs)
-		if(al->dataType != ar->dataType)
-			al->dataType = ar->dataType;
+//	FORBOTH(AttributeDef, al, ar, removeNoGoodPatt->schema->attrDefs, inform->op.schema->attrDefs)
+//		if(al->dataType != ar->dataType)
+//			al->dataType = ar->dataType;
 
 	INFO_OP_LOG("Remove No Good Patterns: ", removeNoGoodPatt);
 
@@ -1838,24 +1845,34 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	Node *condtopKPattConstPlac = (Node *) createOpExpr(OPNAME_AND, LIST_MAKE(covgt1, infoLess));
 
 	//creating topKPattConstPlac
-	SelectionOperator *topKPattConstPlac = createSelectionOp(condtopKPattConstPlac, NULL, NIL, getAttrNames(inform->op.schema));
-	addChildOperator((QueryOperator *) topKPattConstPlac, (QueryOperator *) copyObject(removeNoGoodPatt));
+	QueryOperator *qo = (QueryOperator *) copyObject(removeNoGoodPatt);
+
+	SelectionOperator *topKPattConstPlac = createSelectionOp(condtopKPattConstPlac, qo, NIL, getAttrNames(inform->op.schema));
+	qo->parents = singleton(topKPattConstPlac);
+	removeNoGoodPatt->parents = singleton(topKPattConstPlac);
+
+//	addParent(removeNoGoodPatt, (QueryOperator *) topKPattConstPlac);
+//	addChildOperator((QueryOperator *) topKPattConstPlac, (QueryOperator *) copyObject(removeNoGoodPatt));
 //	switchSubtrees((QueryOperator *) so, (QueryOperator *) topKPattConstPlac);
 
-	FORBOTH(AttributeDef, al, ar, topKPattConstPlac->op.schema->attrDefs, inform->op.schema->attrDefs)
-		if(al->dataType != ar->dataType)
-			al->dataType = ar->dataType;
+//	FORBOTH(AttributeDef, al, ar, topKPattConstPlac->op.schema->attrDefs, inform->op.schema->attrDefs)
+//		if(al->dataType != ar->dataType)
+//			al->dataType = ar->dataType;
 
 	INFO_OP_LOG("Patterns with Constants and Placeholders: ", topKPattConstPlac);
 
 	//creating topKPattOnlyConst
 	//subcond : coverage = 1 AND informativeness = 5
-	SelectionOperator *topKPattOnlyConst = createSelectionOp(subcond, NULL, NIL, getAttrNames(inform->op.schema));
-	addChildOperator((QueryOperator *) topKPattOnlyConst, (QueryOperator *) copyObject(removeNoGoodPatt));
+	SelectionOperator *topKPattOnlyConst = createSelectionOp(subcond, qo, NIL, getAttrNames(inform->op.schema));
+	qo->parents = singleton(topKPattOnlyConst);
+	removeNoGoodPatt->parents = singleton(topKPattOnlyConst);
 
-	FORBOTH(AttributeDef, al, ar, topKPattOnlyConst->op.schema->attrDefs, inform->op.schema->attrDefs)
-		if(al->dataType != ar->dataType)
-			al->dataType = ar->dataType;
+//	addParent((QueryOperator *) copyObject(removeNoGoodPatt), (QueryOperator *) topKPattOnlyConst);
+//	addChildOperator((QueryOperator *) topKPattOnlyConst, (QueryOperator *) copyObject(removeNoGoodPatt));
+
+//	FORBOTH(AttributeDef, al, ar, topKPattOnlyConst->op.schema->attrDefs, inform->op.schema->attrDefs)
+//		if(al->dataType != ar->dataType)
+//			al->dataType = ar->dataType;
 
 	INFO_OP_LOG("Patterns with Only Placeholders: ", topKPattOnlyConst);
 
@@ -1923,16 +1940,16 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	topKattrNames = appendToTailOfList(topKattrNames, FSCORETOPK);
 
 	//fscoreTopK
-	ProjectionOperator *fscoreTopKOp = createProjectionOp(topKattr, (QueryOperator *) topKPattConstPlac, NIL, topKattrNames);
+	ProjectionOperator *fscoreTopKOp = createProjectionOp(topKattr,
+			(QueryOperator *) topKPattConstPlac, NIL, topKattrNames);
+
 	addParent((QueryOperator *) topKPattConstPlac, (QueryOperator *) fscoreTopKOp);
 //	addChildOperator((QueryOperator *) fscoreTopKOp, (QueryOperator *) topKPattConstPlac);
 
-	//TODO: why fscoreTopK appears as string?
-	FOREACH(AttributeDef, a, fscoreTopKOp->op.schema->attrDefs)
-	{
-		if(streq(a->attrName, FSCORETOPK))
-			a->dataType = DT_FLOAT;
-	}
+//	//TODO: why fscoreTopK appears as string?
+//	FOREACH(AttributeDef, a, fscoreTopKOp->op.schema->attrDefs)
+//		if(streq(a->attrName, FSCORETOPK))
+//			a->dataType = DT_FLOAT;
 
 
 	//order by fscoreTopK
@@ -1960,10 +1977,18 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	//creating fscoreTopKOnlyCons
 
 	//fscoreTopKOnlyConst
-	ProjectionOperator *fscoreTopKOnlyConsOp = createProjectionOp(topKattr, NULL, NIL, topKattrNames);
-	addChildOperator((QueryOperator *) fscoreTopKOnlyConsOp, (QueryOperator *) topKPattOnlyConst);
-	INFO_OP_LOG("Top-k patterns containing only constants with fscore: ", fscoreTopKOnlyConsOp);
+	ProjectionOperator *fscoreTopKOnlyConsOp = createProjectionOp(topKattr,
+			(QueryOperator *) topKPattOnlyConst, NIL, topKattrNames);
 
+	addParent((QueryOperator *) topKPattOnlyConst, (QueryOperator *) fscoreTopKOnlyConsOp);
+//	addChildOperator((QueryOperator *) fscoreTopKOnlyConsOp, (QueryOperator *) topKPattOnlyConst);
+
+//	//TODO: why fscoreTopK appears as string?
+//		FOREACH(AttributeDef, a, fscoreTopKOnlyConsOp->op.schema->attrDefs)
+//			if(streq(a->attrName, FSCORETOPK))
+//				a->dataType = DT_FLOAT;
+
+	DEBUG_OP_LOG("Top-k patterns containing only constants with fscore: ", fscoreTopKOnlyConsOp);
 
 	//creating fscoreTopKOnlyConstSamp
 	//creating SELECT MIN(fscoreTopK) FROM fscoreTopK
@@ -2047,19 +2072,24 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	addChildOperator((QueryOperator *) fscoreTopKOnlyConstSamp, (QueryOperator *) gtmin);
 
 	// add LIMIT top-k
-	SelectionOperator *limitConstSamp = createSelectionOp(limitCond, NULL, NIL, getAttrNames(fscoreTopKOrderBy->op.schema));
-	addChildOperator((QueryOperator *) limitConstSamp, (QueryOperator *) fscoreTopKOnlyConstSamp);
+	SelectionOperator *limitConstSamp = createSelectionOp(limitCond,
+			(QueryOperator *) fscoreTopKOnlyConstSamp, NIL, getAttrNames(fscoreTopKOnlyConstSamp->op.schema));
+//	addChildOperator((QueryOperator *) limitConstSamp, (QueryOperator *) fscoreTopKOnlyConstSamp);
+	fscoreTopKOnlyConstSamp->op.parents = singleton(limitConstSamp);
+
 	INFO_OP_LOG("Top-k patterns containing only constants whose fscores are "
 			"larger than minimum of fscore of top-k patterns: ", limitConstSamp);
 
 
 	// UNION top-k patterns
 	List *allInput = LIST_MAKE(fscoreTopKOrderByLimit, limitConstSamp);
-	QueryOperator *unionOp = (QueryOperator *) createSetOperator(SETOP_UNION, allInput, NIL, getAttrNames(fscoreTopKOrderBy->op.schema));
+	QueryOperator *unionOp = (QueryOperator *) createSetOperator(SETOP_UNION, allInput,
+			NIL, getAttrNames(fscoreTopKOnlyConstSamp->op.schema));
 	OP_LCHILD(unionOp)->parents = OP_RCHILD(unionOp)->parents = singleton(unionOp);
 
 	// make top-k patterns as rewritten query (replacing removeNoGoodPatt)
-	switchSubtreeWithExisting(removeNoGoodPatt, (QueryOperator *) unionOp);
+	switchSubtrees(removeNoGoodPatt, (QueryOperator *) unionOp);
+//	switchSubtreeWithExisting(removeNoGoodPatt, (QueryOperator *) unionOp);
 
 
 /*
