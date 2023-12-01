@@ -2092,20 +2092,21 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 //	switchSubtreeWithExisting(removeNoGoodPatt, (QueryOperator *) unionOp);
 
 
-/*
+	//------------------------------------------------
 
 	List *JoinAttrNames = NIL;
 	List *joinList = NIL;
 	Node *joinCondt = NULL;
 
-	FOREACH(AttributeDef, L, so->op.schema->attrDefs)
+//	FOREACH(AttributeDef, L, so->op.schema->attrDefs)
+	FOREACH(AttributeDef, L, unionOp->schema->attrDefs)
 	{
 		FOREACH(AttributeDef, R, clean->op.schema->attrDefs)
 		{
 			if(streq(L->attrName, R->attrName))
 			{
 				AttributeReference *arL = createFullAttrReference(L->attrName, 0,
-							getAttrPos((QueryOperator *) so, L->attrName), 0, L->dataType);
+							getAttrPos((QueryOperator *) unionOp, L->attrName), 0, L->dataType);
 				AttributeReference *arR = createFullAttrReference(R->attrName, 1,
 							getAttrPos((QueryOperator *) clean, R->attrName), 0, R->dataType);
 
@@ -2130,23 +2131,23 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 //	QueryOperator *joinOp = (QueryOperator *) createJoinOp(JOIN_FULL_OUTER, joinCondt, inputs, NIL, JoinAttrNames);
 
 	QueryOperator *copyClean = copyObject(clean);
-	List *allInput = LIST_MAKE((QueryOperator *) so, copyClean);
+	List *allInputJoin = LIST_MAKE((QueryOperator *) unionOp, copyClean);
 	JoinAttrNames = CONCAT_LISTS(getAttrNames(inform->op.schema), getAttrNames(clean->op.schema));
-	QueryOperator *joinOp = (QueryOperator *) createJoinOp(JOIN_INNER, joinCondt, allInput, NIL, JoinAttrNames);
+	QueryOperator *joinOp = (QueryOperator *) createJoinOp(JOIN_INNER, joinCondt, allInputJoin, NIL, JoinAttrNames);
 
 	makeAttrNamesUnique((QueryOperator *) joinOp);
 	SET_BOOL_STRING_PROP(joinOp, PROP_MATERIALIZE);
 
 	addParent(copyClean, joinOp);
-	addParent((QueryOperator *) so, joinOp);
+	addParent((QueryOperator *) unionOp, joinOp);
 
-	switchSubtrees((QueryOperator *) so, (QueryOperator *) joinOp);
+	switchSubtrees((QueryOperator *) unionOp, (QueryOperator *) joinOp);
 	DEBUG_NODE_BEATIFY_LOG("Join Patterns with Data: ", joinOp);
 
 
 	// Add projection to exclude unnecessary attributes
-	List *projExprs = NIL;
-	List *attrNames = NIL;
+	List *projExprsClean = NIL;
+	List *attrNamesClean = NIL;
 	List *allAttrs = NIL;
 	List *unNecAttr = NIL;
 	int beginPos = 0;
@@ -2191,19 +2192,19 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 			AttributeReference *ar = createFullAttrReference(a->attrName, 0,
 					getAttrPos((QueryOperator *) joinOp, a->attrName), 0, a->dataType);
 
-			projExprs = appendToTailOfList(projExprs,ar);
-			attrNames = appendToTailOfList(attrNames,ar->name);
+			projExprsClean = appendToTailOfList(projExprsClean,ar);
+			attrNamesClean = appendToTailOfList(attrNamesClean,ar->name);
 		}
 	}
 
-	ProjectionOperator *po = createProjectionOp(projExprs, NULL, NIL, attrNames);
+	ProjectionOperator *po = createProjectionOp(projExprsClean, NULL, NIL, attrNamesClean);
 	addChildOperator((QueryOperator *) po, (QueryOperator *) joinOp);
 	switchSubtrees((QueryOperator *) joinOp, (QueryOperator *) po);
 	SET_BOOL_STRING_PROP(po, PROP_MATERIALIZE);
 
 
 	// Adding duplicate elimination
-	projExprs = NIL;
+	projExprsClean = NIL;
 	List *attrDefs = po->op.schema->attrDefs;
 
 	FOREACH(AttributeDef, a, attrDefs)
@@ -2211,10 +2212,10 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 		AttributeReference *ar = createFullAttrReference(a->attrName, 0,
 				getAttrPos((QueryOperator *) po, a->attrName), 0, a->dataType);
 
-		projExprs = appendToTailOfList(projExprs,ar);
+		projExprsClean = appendToTailOfList(projExprsClean,ar);
 	}
 
-	QueryOperator *dr = (QueryOperator *) createDuplicateRemovalOp(projExprs, (QueryOperator *) po, NIL, getAttrDefNames(attrDefs));
+	QueryOperator *dr = (QueryOperator *) createDuplicateRemovalOp(projExprsClean, (QueryOperator *) po, NIL, getAttrDefNames(attrDefs));
 	addParent((QueryOperator *) po,dr);
 	switchSubtrees((QueryOperator *) po, (QueryOperator *) dr);
 	SET_BOOL_STRING_PROP(dr, PROP_MATERIALIZE);
@@ -2267,14 +2268,11 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	addChildOperator((QueryOperator *) analysisAggr, (QueryOperator *) dr);
 	switchSubtrees((QueryOperator *) dr, (QueryOperator *) analysisAggr);
 
-	LOG_RESULT("Rewritten Pattern Generation tree for patterns", analysisAggr);
-
-	*/
-
+//	LOG_RESULT("Rewritten Pattern Generation tree for patterns", analysisAggr);
 //	return analysisAggr;
 
-	LOG_RESULT("Rewritten tree for pattern generation", unionOp);
-	return (QueryOperator *) unionOp;
+	LOG_RESULT("Rewritten tree for pattern generation", analysisAggr);
+	return (QueryOperator *) analysisAggr;
 }
 
 /*
