@@ -629,7 +629,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 
     // create provenance columns using case when
-//    List *commonAttrNames = (List *) GET_STRING_PROP((QueryOperator *) newProj, IG_PROP_NON_JOIN_COMMON_ATTR);
+    List *commonAttrNames = (List *) GET_STRING_PROP((QueryOperator *) newProj, IG_PROP_NON_JOIN_COMMON_ATTR);
     List *commonAttrNamesR = (List *) GET_STRING_PROP((QueryOperator *) newProj, IG_PROP_NON_JOIN_COMMON_ATTR_R);
 	List *joinAttrNames = (List *) GET_STRING_PROP((QueryOperator *) newProj, IG_PROP_JOIN_ATTR);
 	List *joinAttrNamesR = (List *) GET_STRING_PROP((QueryOperator *) newProj, IG_PROP_JOIN_ATTR_R);
@@ -1177,28 +1177,47 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 //				AttributeReference *arR = getAttrRefByName((QueryOperator *) newProj, attrIgNameR);
 
-				CastExpr *castL;
-				CastExpr *castR;
+				//confirm whether join attr or common attr
+				AttributeDef *origAttrDef = getAttrDefByName((QueryOperator *) newProj, origNameOfInteg);
 
-				castL = createCastExpr((Node *) attrIgL, DT_STRING);
-				castR = createCastExpr((Node *) attrIgR, DT_STRING);
+				if(!searchListNode(commonAttrNames, (Node *) origAttrDef) &&
+						!searchListNode(joinAttrNames, (Node *) origAttrDef) &&
+							searchListNode(attrR, (Node *) origAttrDef))
+				{
+					CastExpr *castL;
+					castL = createCastExpr((Node *) attrIgL, DT_STRING);
+					cast = LIST_MAKE(castL, createConstString("0000000000"));
 
-				cast = appendToTailOfList(cast, castL);
-				cast = appendToTailOfList(cast, castR);
+					FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
+					exprs = appendToTailOfList(exprs,hammingdist);
+					atNames = appendToTailOfList(atNames, CONCAT_STRINGS(HAMMING_PREFIX, n->attrName));
+				}
+				else
+				{
+					CastExpr *castL;
+					CastExpr *castR;
 
-				functioninput = appendToTailOfList(functioninput, attrIgL);
-				functioninput = appendToTailOfList(functioninput, attrIgR);
+					castL = createCastExpr((Node *) attrIgL, DT_STRING);
+					castR = createCastExpr((Node *) attrIgR, DT_STRING);
 
-				FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
-				Node *cond = (Node *)(createOpExpr("=",functioninput));
-				Node *then = (Node *)(createConstString("0000000000"));
-				Node *els  = (Node *) hammingdist;
+					cast = appendToTailOfList(cast, castL);
+					cast = appendToTailOfList(cast, castR);
 
-				CaseWhen *caseWhen = createCaseWhen(cond, then);
-				CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
+					functioninput = appendToTailOfList(functioninput, attrIgL);
+					functioninput = appendToTailOfList(functioninput, attrIgR);
 
-				exprs = appendToTailOfList(exprs,caseExpr);
-				atNames = appendToTailOfList(atNames, CONCAT_STRINGS(HAMMING_PREFIX, n->attrName));
+					FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
+					Node *cond = (Node *)(createOpExpr("=",functioninput));
+					Node *then = (Node *)(createConstString("0000000000"));
+					Node *els  = (Node *) hammingdist;
+
+					CaseWhen *caseWhen = createCaseWhen(cond, then);
+					CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
+
+					exprs = appendToTailOfList(exprs,caseExpr);
+					atNames = appendToTailOfList(atNames, CONCAT_STRINGS(HAMMING_PREFIX, n->attrName));
+				}
+
 //				x++;
 			}
 
