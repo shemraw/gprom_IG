@@ -1291,6 +1291,174 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 //		}
 //	}
 
+
+
+
+	/*
+
+
+		///// SHEMON FIX ////////////////////////////////////////////////////////////////////////////////////
+
+		int lenL = (LIST_LENGTH(attrL) - 1) / 2;
+		int lenR = (LIST_LENGTH(attrR) - 1) / 2;
+		int cntR = 0;
+		int cntL = 0;
+		List *Laggrs = NIL;;
+		List *Raggrs = NIL;
+		List *LaggrsNames = NIL;
+		List *RaggrsNames = NIL;
+
+		FOREACH(AttributeDef, n, attrL)
+		{
+
+			if(cntL < lenL)
+	//		if(!isPrefix(n->attrName,IG_PREFIX) && !isSuffix(n->attrName,"_anno"))
+			{
+				Laggrs = appendToTailOfList(Laggrs, n);
+				LaggrsNames = appendToTailOfList(LaggrsNames, n->attrName);
+				cntL = cntL + 1;
+			}
+		}
+
+		FOREACH(AttributeDef, n, attrR)
+		{
+
+			if(cntR < lenR)
+	//		if(!isPrefix(n->attrName,IG_PREFIX) && !isSuffix(n->attrName,"_anno"))
+			{
+				Raggrs = appendToTailOfList(Raggrs, n);
+				RaggrsNames = appendToTailOfList(RaggrsNames, n->attrName);
+				cntR = cntR + 1;
+			}
+		}
+
+
+		//LEFT SIDE FUNCTIONS
+		//Creating Left Case when statements
+		FOREACH(AttributeDef, L, Laggrs)
+		{
+
+			if(searchListString(RaggrsNames, L->attrName))
+			{
+				FOREACH(AttributeDef, R, Raggrs)
+				{
+					if(streq(L->attrName, R->attrName))
+					{
+
+						List *cast = NIL;
+						List *functioninput = NIL;
+
+						AttributeReference * arL = createFullAttrReference(L->attrName, 0,
+								getAttrPos((QueryOperator *) newProj, L->attrName),0, L->dataType);
+
+						AttributeReference * arR = createFullAttrReference(R->attrName, 0,
+											getAttrPos((QueryOperator *) newProj, R->attrName),0, R->dataType);
+
+
+
+						CastExpr *castL;
+						CastExpr *castR;
+
+						castL = createCastExpr((Node *) arL, DT_STRING);
+						castR = createCastExpr((Node *) arR, DT_STRING);
+
+						cast = appendToTailOfList(cast, castL);
+						cast = appendToTailOfList(cast, castR);
+
+						functioninput = appendToTailOfList(functioninput, arL);
+						functioninput = appendToTailOfList(functioninput, arR);
+
+						FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
+						Node *cond = (Node *)(createOpExpr("=",functioninput));
+						Node *then = (Node *)(createConstString("0000000000"));
+						Node *els  = (Node *) hammingdist;
+
+						CaseWhen *caseWhen = createCaseWhen(cond, then);
+						CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
+
+						exprs = appendToTailOfList(exprs,caseExpr);
+						atNames = appendToTailOfList(atNames, CONCAT_STRINGS(HAMMING_PREFIX, L->attrName));
+
+					}
+
+				}
+			}
+			else
+			{
+				List *cast = NIL;
+				List *functioninput = NIL;
+				AttributeReference * arL = createFullAttrReference(L->attrName, 0,
+						getAttrPos((QueryOperator *) newProj, L->attrName),0, L->dataType);
+
+				AttributeReference * arR = createFullAttrReference(L->attrName, 0,
+									getAttrPos((QueryOperator *) newProj, L->attrName),0, L->dataType);
+
+				CastExpr *castL;
+				CastExpr *castR;
+
+				castL = createCastExpr((Node *) arL, DT_STRING);
+				castR = createCastExpr((Node *) arR, DT_STRING);
+
+				cast = appendToTailOfList(cast, castL);
+				cast = appendToTailOfList(cast, castR);
+
+				functioninput = appendToTailOfList(functioninput, arL);
+				functioninput = appendToTailOfList(functioninput, arR);
+
+				FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
+				Node *cond = (Node *)(createOpExpr("=",functioninput));
+				Node *then = (Node *)(createConstString("0000000000"));
+				Node *els  = (Node *) hammingdist;
+
+				CaseWhen *caseWhen = createCaseWhen(cond, then);
+				CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
+
+				exprs = appendToTailOfList(exprs,caseExpr);
+				atNames = appendToTailOfList(atNames, CONCAT_STRINGS(HAMMING_PREFIX, L->attrName));
+			}
+		}
+
+
+
+
+		//RIGHT SIDE FUNCTIONS
+		FOREACH(AttributeDef, R, Raggrs)
+		{
+			if(!searchListString(LaggrsNames, R->attrName))
+			{
+				List *functioninput = NIL;
+
+				AttributeReference * arR = createFullAttrReference(R->attrName, 0,
+						getAttrPos((QueryOperator *) newProj, R->attrName),0, R->dataType);
+
+
+	//			AttributeReference *attrIgR = getAttrRefByName((QueryOperator *) newProj, origNameOfInteg);
+
+				CastExpr *castR;
+				castR = createCastExpr((Node *) arR, DT_STRING);
+
+
+				functioninput = appendToTailOfList(functioninput, castR);
+				functioninput = appendToTailOfList(functioninput, createConstString("0000000000"));
+
+				FunctionCall *hammingdist = createFunctionCall("hammingdist", functioninput);
+
+				exprs = appendToTailOfList(exprs, hammingdist);
+				atNames = appendToTailOfList(atNames, CONCAT_STRINGS(HAMMING_PREFIX, R->attrName));
+
+			}
+		}
+
+
+
+
+
+		////////////////////////////////////////////////////////////////////////////////////
+
+
+	*/
+
+
 	ProjectionOperator *hamming_op = createProjectionOp(exprs, NULL, NIL, atNames);
 
 	FOREACH(AttributeDef, n, hamming_op->op.schema->attrDefs)
