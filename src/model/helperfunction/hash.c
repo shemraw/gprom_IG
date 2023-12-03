@@ -765,6 +765,7 @@ hashAggregationOperator (uint64_t cur, AggregationOperator *node)
     HASH_QO();
     HASH_NODE(aggrs);
     HASH_NODE(groupBy);
+    HASH_NODE(isCubeTestList);
 
     HASH_RETURN();
 }

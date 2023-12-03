@@ -172,6 +172,7 @@ freeAggregationOperator (AggregationOperator *node)
 
     FREE_NODE_FIELD(aggrs);
     FREE_NODE_FIELD(groupBy);
+    FREE_NODE_FIELD(isCubeTestList);
 
     FINISH_FREE();
 }

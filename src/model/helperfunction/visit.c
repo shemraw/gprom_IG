@@ -293,6 +293,7 @@ visit (Node *node, boolean (*checkNode) (), void *state)
                 VISIT_OPERATOR_FIELDS();
                 VISIT(aggrs);
                 VISIT(groupBy);
+                VISIT(isCubeTestList);
             }
             break;
         case T_ProvenanceComputation:
@@ -660,6 +661,7 @@ mutate (Node *node, Node *(*modifyNode) (), void *state)
         		MUTATE_OPERATOR();
         		MUTATE(List, aggrs);
         		MUTATE(List, groupBy);
+        		MUTATE(Node, isCubeTestList);
         	}
         	break;
         case T_ProvenanceComputation:
@@ -1017,6 +1019,7 @@ visitWithPointers (Node *node, boolean (*userVisitor) (), void **parentLink, voi
                 VISIT_OPERATOR_FIELDS_P();
                 VISIT_P(aggrs);
                 VISIT_P(groupBy);
+                VISIT_P(isCubeTestList);
             }
             break;
         case T_ProvenanceComputation:

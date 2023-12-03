@@ -702,6 +702,7 @@ createAggregationOp(List *aggrs, List *groupBy, QueryOperator *input,
 {
     AggregationOperator *aggr = makeNode(AggregationOperator);
 
+
     FOREACH(Node, func, aggrs)
     {
         aggr->aggrs = appendToTailOfList(aggr->aggrs, copyObject(func));

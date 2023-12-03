@@ -769,6 +769,7 @@ equalAggregationOperator(AggregationOperator *a, AggregationOperator *b, HashMap
     COMPARE_QUERY_OP();
     COMPARE_NODE_FIELD(aggrs);
     COMPARE_NODE_FIELD(groupBy);
+    COMPARE_NODE_FIELD(isCubeTestList);
 
     return TRUE;
 }

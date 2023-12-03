@@ -194,6 +194,7 @@ opToDot(StringInfo str, QueryOperator *op, Set *nodeDone)
             {
                 StringInfo aggLabel = makeStringInfo ();
                 StringInfo groupLabel = makeStringInfo ();
+                StringInfo isCubeTestListLabel = makeStringInfo ();
 
                 FOREACH(Node,agg,a->aggrs)
                 {
@@ -209,10 +210,19 @@ opToDot(StringInfo str, QueryOperator *op, Set *nodeDone)
                             FOREACH_HAS_MORE(g) ? "," : "");
                 }
 
-                appendStringInfo(str, "\t%s [label=\"&#945;\",color="
+                appendStringInfo(isCubeTestListLabel, "%s%s",
+						exprToLatex(a->isCubeTestList),
+						"_");
+
+
+                appendStringInfo(str,
+                		"\t%s [label=\"&#945;\",color="
                         COLOR_DARK_RED ",fillcolor="
                         COLOR_LIGHT_RED ",texlbl=\"$_{%s}\\alpha_{%s}$\"];\n",
-                        opName, groupLabel->data, aggLabel->data);
+                        opName,
+						groupLabel->data,
+						aggLabel->data,
+						isCubeTestListLabel->data);
             }
             else
                 appendStringInfo(str, "\t%s [label=\"&#945;\",color="

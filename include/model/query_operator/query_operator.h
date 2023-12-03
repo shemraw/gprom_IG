@@ -38,6 +38,10 @@ typedef struct QueryOperator
     List *parents; // direct parents of the operator node, QueryOperator type
     List *provAttrs; // positions of provenance attributes in the operator's schema
     List *igAttrs;
+    boolean isCubeQO; // cube operator
+    List *isCubeList;
+    char *isCubeTestChar; // cube operator
+	Node *isCubeTestNode; // cube operator
     Node *properties; // generic node to store flexible list or map of properties (KeyValue) for query operators
 } QueryOperator; // common fields that all operators have
 
@@ -82,6 +86,7 @@ typedef struct AggregationOperator
     List *aggrs; // aggregation expressions, FunctionCall type
     List *groupBy; // group by expressions
     boolean isCube; // cube operator
+    Node *isCubeTestList; // cube operator
 } AggregationOperator;
 
 

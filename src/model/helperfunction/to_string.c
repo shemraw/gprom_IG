@@ -1002,6 +1002,8 @@ outAggregationOperator(StringInfo str, AggregationOperator *node)
 
     WRITE_NODE_FIELD(aggrs);
     WRITE_NODE_FIELD(groupBy);
+    WRITE_NODE_FIELD(isCubeTestList);
+
 }
 
 static void
@@ -1894,6 +1896,7 @@ operatorToOverviewInternal(StringInfo str, QueryOperator *op, int indent, HashMa
             appendStringInfoString(params, exprToSQL((Node *) o->aggrs, NULL));
             appendStringInfoString(params, o->groupBy ? "] GROUP BY [" : "");
             appendStringInfoString(params, exprToSQL((Node *) o->groupBy, NULL));
+            appendStringInfoString(params, exprToSQL((Node *) o->isCubeTestList, NULL));
             appendStringInfoChar(params, ']');
 			WRITE_OP_PARAM(params);
         }
