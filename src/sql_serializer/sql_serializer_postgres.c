@@ -324,7 +324,8 @@ serializeProjectionAndAggregation (QueryBlockMatch *m, StringInfo select,
             {
                 appendStringInfoString (groupBy, "\nGROUP BY ");
 
-                if(agg->isCube)
+//                if(agg->isCube)
+				if(agg->isCubeTestList != NULL)
                 {
                 	appendStringInfoString (groupBy, "CUBE (");
                 }
@@ -346,6 +347,7 @@ serializeProjectionAndAggregation (QueryBlockMatch *m, StringInfo select,
 
         // close parentheses
         if(agg->isCube)
+//        if(agg->isCubeTestList != NULL)
         	appendStringInfoString (groupBy, ")");
 
         DEBUG_LOG("group by attributes are %s", stringListToString(groupBys));

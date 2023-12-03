@@ -1622,6 +1622,7 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 	AggregationOperator *ao = createAggregationOp(aggrs, groupBy, (QueryOperator *) clean, NIL, projNames);
 	ao->isCube = TRUE;
+	ao->isCubeTestList = (Node *) createConstInt(1);
 
 
 	FOREACH(AttributeDef, n, ao->op.schema->attrDefs)
@@ -2061,7 +2062,35 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	addParent((QueryOperator *) topKPattOnlyConst, (QueryOperator *) fscoreTopKOnlyConsOp);
 	switchSubtrees((QueryOperator *) topKPattOnlyConst, (QueryOperator *) fscoreTopKOnlyConsOp);
 
-	INFO_OP_LOG("Top-k patterns containing only constants with fscore: ", fscoreTopKOnlyConsOp);
+	// add projection for order by
+	List *ocoExprs = NIL;
+	int ocoPos = 0;
+
+	FOREACH(AttributeDef, a, fscoreTopKOnlyConsOp->op.schema->attrDefs)
+	{
+		AttributeReference *ar = createFullAttrReference(a->attrName, 0, ocoPos, 0, a->dataType);
+		ocoExprs = appendToTailOfList(ocoExprs, ar);
+
+		ocoPos++;
+	}
+
+	ProjectionOperator *OcOrderPo = createProjectionOp(ocoExprs,
+			(QueryOperator *) fscoreTopKOnlyConsOp, NIL, getAttrNames(fscoreTopKOnlyConsOp->op.schema));
+
+	addParent((QueryOperator *) fscoreTopKOnlyConsOp, (QueryOperator *) OcOrderPo);
+	switchSubtrees((QueryOperator *) fscoreTopKOnlyConsOp, (QueryOperator *) OcOrderPo);
+
+
+	//order by fscoreTopKOnlyConst
+	AttributeReference *orderByArOnlyCons = getAttrRefByName((QueryOperator *) OcOrderPo, FSCORETOPK);
+	OrderExpr *ordExprOnlyCons = createOrderExpr((Node *) orderByArOnlyCons, SORT_DESC, SORT_NULLS_LAST);
+	OrderOperator *fscoreTopKOnlyConsOrderBy =
+			createOrderOp(singleton(ordExprOnlyCons), (QueryOperator *) OcOrderPo, NIL);
+
+	addParent((QueryOperator *) OcOrderPo, (QueryOperator *) fscoreTopKOnlyConsOrderBy);
+	switchSubtrees((QueryOperator *) OcOrderPo, (QueryOperator *) fscoreTopKOnlyConsOrderBy);
+
+	INFO_OP_LOG("Top-k patterns containing only constants with fscore: ", fscoreTopKOnlyConsOrderBy);
 
 
 	//creating fscoreTopKOnlyConstSamp
@@ -2122,8 +2151,8 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 
 	// create cross product
-	List *inputs = LIST_MAKE(fscoreTopKOnlyConsOp, minfscorePO);
-	List *attrNames = CONCAT_LISTS(getAttrNames(fscoreTopKOnlyConsOp->op.schema), singleton(MINFSCORETOPK));
+	List *inputs = LIST_MAKE(fscoreTopKOnlyConsOrderBy, minfscorePO);
+	List *attrNames = CONCAT_LISTS(getAttrNames(fscoreTopKOnlyConsOrderBy->op.schema), singleton(MINFSCORETOPK));
 
 //	// create selection comparison min fscore with fscore of patterns with only constants
 //	AttributeReference *fscoreTopKar = getAttrRefByName((QueryOperator *) fscoreTopKOnlyConsOp, FSCORETOPK);
@@ -2138,10 +2167,10 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	makeAttrNamesUnique((QueryOperator *) cp);
 
 //	OP_LCHILD(cp)->parents = OP_RCHILD(cp)->parents = singleton(cp);
-	addParent((QueryOperator *) fscoreTopKOnlyConsOp, (QueryOperator *) cp);
+	addParent((QueryOperator *) fscoreTopKOnlyConsOrderBy, (QueryOperator *) cp);
 	addParent((QueryOperator *) minfscorePO, (QueryOperator *) cp);
 
-	switchSubtrees((QueryOperator *) fscoreTopKOnlyConsOp, (QueryOperator *) cp);
+	switchSubtrees((QueryOperator *) fscoreTopKOnlyConsOrderBy, (QueryOperator *) cp);
 
 
 	// create selection comparison min fscore with fscore of patterns with only constants

@@ -1002,6 +1002,7 @@ outAggregationOperator(StringInfo str, AggregationOperator *node)
 
     WRITE_NODE_FIELD(aggrs);
     WRITE_NODE_FIELD(groupBy);
+    WRITE_BOOL_FIELD(isCube);
     WRITE_NODE_FIELD(isCubeTestList);
 
 }

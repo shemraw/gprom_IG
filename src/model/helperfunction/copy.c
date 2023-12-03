@@ -717,7 +717,7 @@ copyAggregationOperator(AggregationOperator *from, OperatorMap **opMap)
     COPY_OPERATOR();
     COPY_NODE_FIELD(aggrs);
     COPY_NODE_FIELD(groupBy);
-//  COPY_NODE_FIELD(isCube);
+    COPY_SCALAR_FIELD(isCube);
     COPY_NODE_FIELD(isCubeTestList);
 
     return new;
