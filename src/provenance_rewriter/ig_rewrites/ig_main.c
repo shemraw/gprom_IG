@@ -2450,7 +2450,8 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	List *joinList = NIL;
 	Node *joinCondt = NULL;
 
-//	FOREACH(AttributeDef, L, so->op.schema->attrDefs)
+
+// for new unionOp is topK
 	FOREACH(AttributeDef, L, unionOp->schema->attrDefs)
 	{
 		FOREACH(AttributeDef, R, clean->op.schema->attrDefs)
@@ -2474,17 +2475,10 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 		}
 	}
 
-//	joinCondt = (Node *) createOpExpr(OPNAME_AND, joinList);
 	joinCondt = (Node *) createOpExpr(OPNAME_AND, joinList);
-
-//	List *inputs = CONCAT_LISTS(LJoinAttrs,RJoinAttrs);
-//	List *inputs = CONCAT_LISTS(so, clean);
-
-//	QueryOperator *joinOp = (QueryOperator *) createJoinOp(JOIN_FULL_OUTER, joinCondt, inputs, NIL, JoinAttrNames);
 
 	QueryOperator *copyClean = copyObject(clean);
 	List *allInputJoin = LIST_MAKE((QueryOperator *) unionOp, copyClean);
-//	JoinAttrNames = CONCAT_LISTS(getAttrNames(inform->op.schema), getAttrNames(clean->op.schema));
 	JoinAttrNames = CONCAT_LISTS(getAttrNames(unionOp->schema), getAttrNames(clean->op.schema));
 	QueryOperator *joinOp = (QueryOperator *) createJoinOp(JOIN_INNER, joinCondt, allInputJoin, NIL, JoinAttrNames);
 
@@ -2496,6 +2490,52 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 	switchSubtrees((QueryOperator *) unionOp, (QueryOperator *) joinOp);
 	DEBUG_NODE_BEATIFY_LOG("Join Patterns with Data: ", joinOp);
+
+
+
+
+//------------------------------------------------
+	//  for naive removeNoGoodPatt has removeNoGoodPatt
+//	FOREACH(AttributeDef, L, removeNoGoodPatt->op.schema->attrDefs)
+//	{
+//		FOREACH(AttributeDef, R, clean->op.schema->attrDefs)
+//		{
+//			if(streq(L->attrName, R->attrName))
+//			{
+//				AttributeReference *arL = createFullAttrReference(L->attrName, 0,
+//							getAttrPos((QueryOperator *) removeNoGoodPatt, L->attrName), 0, L->dataType);
+//				AttributeReference *arR = createFullAttrReference(R->attrName, 1,
+//							getAttrPos((QueryOperator *) clean, R->attrName), 0, R->dataType);
+//
+//				//creating is null expression for left side
+//				Node *condN = (Node *) createIsNullExpr((Node *) arL);
+//				//creating left and right expression for both left and right side
+//				Node *condEq = (Node *) createOpExpr(OPNAME_EQ, LIST_MAKE(arL, arR));
+//				// creating the OR condition
+//				Node *cond = (Node *) createOpExpr(OPNAME_OR, LIST_MAKE(condN, condEq));
+//
+//				joinList = appendToTailOfList(joinList, cond);
+//			}
+//		}
+//	}
+//
+//	joinCondt = (Node *) createOpExpr(OPNAME_AND, joinList);
+//
+//	QueryOperator *copyClean = copyObject(clean);
+//	List *allInputJoin = LIST_MAKE((QueryOperator *) removeNoGoodPatt, copyClean);
+//	JoinAttrNames = CONCAT_LISTS(getAttrNames(removeNoGoodPatt->op.schema), getAttrNames(clean->op.schema));
+//	QueryOperator *joinOp = (QueryOperator *) createJoinOp(JOIN_INNER, joinCondt, allInputJoin, NIL, JoinAttrNames);
+//
+//	makeAttrNamesUnique((QueryOperator *) joinOp);
+//	SET_BOOL_STRING_PROP(joinOp, PROP_MATERIALIZE);
+//
+//	addParent(copyClean, joinOp);
+//	addParent((QueryOperator *) removeNoGoodPatt, joinOp);
+//
+//	switchSubtrees((QueryOperator *) removeNoGoodPatt, (QueryOperator *) joinOp);
+//	DEBUG_NODE_BEATIFY_LOG("Join Patterns with Data: ", joinOp);
+
+	//------------------------------------------------
 
 
 	// Add projection to exclude unnecessary attributes
