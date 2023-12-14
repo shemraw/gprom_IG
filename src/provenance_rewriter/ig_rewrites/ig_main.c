@@ -14,7 +14,7 @@
 #include "instrumentation/timing_instrumentation.h"
 #include "provenance_rewriter/pi_cs_rewrites/pi_cs_main.h"
 #include "provenance_rewriter/ig_rewrites/ig_main.h"
-#include "provenance_rewriter/ig_rewrites/ig_functions.h" //------------------
+#include "provenance_rewriter/ig_rewrites/ig_functions.h"
 #include "provenance_rewriter/prov_utility.h"
 #include "utility/string_utils.h"
 #include "model/query_operator/query_operator.h"
@@ -33,7 +33,6 @@
 #include "provenance_rewriter/semiring_combiner/sc_main.h"
 #include "provenance_rewriter/coarse_grained/coarse_grained_rewrite.h"
 
-//#include "src/provenance_rewriter/ig_rewrites/ig_functions.c"
 
 #define LOG_RESULT(mes,op) \
     do { \
@@ -178,14 +177,11 @@ rewriteIG_Selection (SelectionOperator *op) //where clause
     //add semiring options
     QueryOperator *child = OP_LCHILD(op);
 
-//    addSCOptionToChild((QueryOperator *) op,child);
-
     // store the join query
     SET_STRING_PROP(op, PROP_JOIN_OP_IG, OP_LCHILD(op));
 
     // rewrite child first
     rewriteIG_Operator(child);
-//  switchSubtrees((QueryOperator *) op, child); // child here has join property
 
     List *tempExpr = NIL;
     List *tempNames = NIL;
@@ -202,7 +198,6 @@ rewriteIG_Selection (SelectionOperator *op) //where clause
 
     // update selection
 	Operator *cond = (Operator *) op->cond;
-//	boolean isConds = FALSE;
 
 	FOREACH(Node, n, cond->args)
 	{
@@ -225,17 +220,10 @@ rewriteIG_Selection (SelectionOperator *op) //where clause
 					ar->attrPosition = attrPos;
 				}
 			}
-//			else
-//			{
-//				FATAL_LOG("!! Not yet implemented !!", nodeToString(op));
-//			}
 		}
 	}
 
 	op->op.schema->attrDefs = child->schema->attrDefs;
-
-//	SelectionOperator *so = createSelectionOp((Node *) cond, child, NIL, getAttrNames(child->schema));
-//	addParent(child, (QueryOperator *) so);
 
 	// if there is PROP_JOIN_ATTRS_FOR_HAMMING set then copy over the properties to the new proj op
 	if(HAS_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING))
@@ -244,19 +232,6 @@ rewriteIG_Selection (SelectionOperator *op) //where clause
 				copyObject(GET_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING)));
 	}
 
-// 	ProjectionOperator *tempProj = createProjectionOp(tempExpr, NULL, NIL, tempNames);
-//// 	op->op.schema->attrDefs = tempProj->op.schema->attrDefs;
-//
-// 	// comment it out and check
-// 	addChildOperator((QueryOperator *) tempProj, (QueryOperator *) op);
-// 	switchSubtrees((QueryOperator *) op, (QueryOperator *) tempProj);
-
-// 	// if there is PROP_JOIN_ATTRS_FOR_HAMMING set then copy over the properties to the new proj op
-//	if(HAS_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING))
-//	{
-//		SET_STRING_PROP(tempProj, PROP_JOIN_ATTRS_FOR_HAMMING,
-//				copyObject(GET_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING)));
-//	}
 
     LOG_RESULT("Rewritten Selection Operator tree", op);
     return (QueryOperator *) op;
@@ -269,32 +244,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	List *newProjExprs = NIL;
 	List *attrNames = NIL;
 
-	FOREACH(AttributeReference, a, op->projExprs)
-	{
-		if(isPrefix(a->name,"ig"))
-		{
-			if (a->attrType == DT_STRING)
-			{
-				StringToArray *toArray;
-				Unnest *tounnest;
-				Ascii *toAscii;
-
-				toArray = createStringToArrayExpr((Node *) a, "NULL");
-				tounnest = createUnnestExpr((Node *) toArray);
-				toAscii = createAsciiExpr((Node *) tounnest);
-				newProjExprs = appendToTailOfList(newProjExprs, toAscii);
-			}
-			else
-			{
-				newProjExprs = appendToTailOfList(newProjExprs, a);
-			}
-		}
-		else
-		{
-			newProjExprs = appendToTailOfList(newProjExprs, a);
-		}
-	}
-
+	newProjExprs = toAsciiList(op);
 	op->projExprs = newProjExprs;
 
 	// CREATING a projection to not feed ascii expression into aggregation
@@ -323,12 +273,12 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	// Switch the subtree with this newly created projection operator.
 	switchSubtrees((QueryOperator *) op, (QueryOperator *) po);
 
+	attrNames = NIL;
 	List *aggrs = NIL;
 	List *groupBy = NIL;
 	List *newNames = NIL;
 	List *aggrNames = NIL;
 	List *groupByNames = NIL;
-	attrNames = NIL;
 	int i = 0;
 
 	FOREACH(Node,n,newProjExprs)
@@ -336,9 +286,9 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		if(isA(n,Ascii))
 		{
 			char *attrName = getAttrNameByPos((QueryOperator *) po, i);
-			AttributeReference *ar = createAttrsRefByName((QueryOperator *) po, attrName);
-			FunctionCall *sum = createFunctionCall("SUM", singleton(ar));
-			aggrs = appendToTailOfList(aggrs,sum);
+//			AttributeReference *ar = createAttrsRefByName((QueryOperator *) po, attrName);
+//			FunctionCall *sum = createFunctionCall("SUM", singleton(ar));
+//			aggrs = appendToTailOfList(aggrs,sum);
 			aggrNames = appendToTailOfList(aggrNames,attrName);
 		}
 		else
@@ -363,7 +313,12 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	}
 
 	newNames = CONCAT_LISTS(aggrNames, groupByNames);
-	AggregationOperator *ao = createAggregationOp(aggrs, groupBy, NULL, NIL, newNames);
+
+	//testing a function here
+	aggrs = getAsciiAggrs(newProjExprs, po);
+
+//	AsciiAggrs *a = getAsciiAggrs(newProjExprs, po);
+	AggregationOperator *ao = createAggregationOp(aggrs , groupBy, NULL, NIL, newNames);
 
 	addChildOperator((QueryOperator *) ao, (QueryOperator *) po);
 	// Switch the subtree with this newly created projection operator.
@@ -504,6 +459,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 
 }
+
 
 //rewriteIG_SumExprs
 static ProjectionOperator *
@@ -3799,7 +3755,6 @@ rewriteIG_Projection (ProjectionOperator *op)
 	return result;
 
 }
-
 
 
 
