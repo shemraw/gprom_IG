@@ -10,5 +10,6 @@
 //static ProjectionOperator *rewriteIG_SumExprs(ProjectionOperator *op);
 //static ProjectionOperator *rewriteIG_HammingFunctions(ProjectionOperator *op);
 //static QueryOperator *rewriteIG_Conversion (ProjectionOperator *op);
+extern QueryOperator *rewriteIG_test (QueryOperator *op);
 
 #endif /* IG_FUNCTIONS_H_ */

@@ -5,13 +5,19 @@
  *
  */
 
-//
-//#include "src/provenance_rewriter/ig_rewrites/ig_main.c"
-//#include "provenance_rewriter/ig_rewrites/ig_main.h"
+#include "provenance_rewriter/ig_rewrites/ig_main.h"
 
 //static ProjectionOperator *rewriteIG_SumExprs(ProjectionOperator *op);
 //static ProjectionOperator *rewriteIG_HammingFunctions(ProjectionOperator *op);
 //static QueryOperator *rewriteIG_Conversion (ProjectionOperator *op);
+extern QueryOperator *rewriteIG_test(QueryOperator *);
+
+
+
+QueryOperator *rewriteIG_test(QueryOperator *input)
+{
+	return input;
+}
 
 
 /*

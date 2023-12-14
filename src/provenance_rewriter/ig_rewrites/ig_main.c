@@ -3792,8 +3792,11 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 	QueryOperator *analysis = rewriteIG_Analysis(patterns);
 
-	INFO_OP_LOG("Rewritten Operator tree for patterns", (QueryOperator *) analysis);
-	return analysis;
+	// example of using a function in ig_function.c
+	QueryOperator *result = rewriteIG_test(analysis);
+
+	INFO_OP_LOG("Rewritten Operator tree for patterns", (QueryOperator *) result);
+	return result;
 
 }
 
