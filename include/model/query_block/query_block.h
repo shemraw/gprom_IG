@@ -91,6 +91,7 @@ typedef struct ProvenanceStmt
     List *options;
     List *sumOpts;
     boolean igFlag;
+    boolean explFlag;
     boolean inJoinCondt;
 //    char *summaryType;
 //    List *userQuestion;

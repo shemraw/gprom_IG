@@ -344,11 +344,18 @@ processInput(char *input)
 {
     char *q = NULL;
     Node *parse;
-
+//    int explFlag = 0;
     TRY
     {
         NEW_AND_ACQUIRE_MEMCONTEXT(QUERY_MEM_CONTEXT);
         parse = parseFromString(input);
+
+        //we can grab the flag from here now we need to send it to ig_main.c
+//        ProvenanceComputation *op = (ProvenanceComputation *) parse;
+//        explFlag = getExplFlag(op);
+        //op->igFlag = TRUE;
+
+        // expl flag and ig flag exists here in parse
         q = rewriteParserOutput(parse, isRewriteOptionActivated(OPTION_OPTIMIZE_OPERATOR_MODEL));
         execute(q);
         FREE_AND_RELEASE_CUR_MEM_CONTEXT();
@@ -548,7 +555,6 @@ rewriteParserOutput (Node *parse, boolean applyOptimizations)
 
 //    if(!getBoolOption(OPTION_INPUTDB))
 //    	summarizationPlan(parse);
-
     START_TIMER("translation");
     oModel = translateParse(parse);
     DEBUG_NODE_BEATIFY_LOG("translator returned:", oModel);

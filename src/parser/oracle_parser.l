@@ -112,6 +112,7 @@ postgrescast    "::"
 (?i:SET)			UPCASE_TOK(SET)
 (?i:PROVENANCE)		UPCASE_TOK(PROVENANCE)
 (?i:IG)             UPCASE_TOK(IG)
+(?i:IGEXPL)         UPCASE_TOK(IGEXPL)
 (?i:OF)				UPCASE_TOK(OF)
 (?i:FROM)			UPCASE_TOK(FROM)
 (?i:AS)				UPCASE_TOK(AS)

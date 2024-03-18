@@ -762,7 +762,7 @@ createDuplicateRemovalOp(List *attrs, QueryOperator *input, List *parents,
 }
 
 ProvenanceComputation *
-createProvenanceComputOp(ProvenanceType provType, List *inputs, List *parents, List *attrNames, List *dts, Node *asOf, boolean igFlag)
+createProvenanceComputOp(ProvenanceType provType, List *inputs, List *parents, List *attrNames, List *dts, Node *asOf, boolean igFlag, boolean explFlag)
 {
     ProvenanceComputation *p = makeNode(ProvenanceComputation);
 
@@ -771,12 +771,23 @@ createProvenanceComputOp(ProvenanceType provType, List *inputs, List *parents, L
 
 	// Check if it computes Provenance or IG
 	if(igFlag)
+	{
 		p->op.schema = createSchemaFromLists("IG", attrNames, dts);
+	}
+	else if(explFlag)
+	{
+		p->op.schema = createSchemaFromLists("IGEXPL", attrNames, dts);
+	}
 	else
+	{
 		p->op.schema = createSchemaFromLists("PROVENANCE", attrNames, dts);
+	}
 
     p->provType = provType;
     p->asOf = asOf;
+    p->igFlag = igFlag;
+    p->explFlag = explFlag;
+
 
     return p;
 }

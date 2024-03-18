@@ -44,6 +44,13 @@
 static QueryOperator *findProvenanceComputations (QueryOperator *op, Set *haveSeen);
 static QueryOperator *rewriteProvenanceComputation (ProvenanceComputation *op);
 
+
+//int *
+//getExplFlag (ProvenanceComputation *op)
+//{
+//	return op->explFlag;
+//}
+
 /* function definitions */
 Node *
 provRewriteQBModel (Node *qbModel)
@@ -177,7 +184,7 @@ rewriteProvenanceComputation (ProvenanceComputation *op)
                 result =  rewritePI_CSComposable(op);
             else
                 result = rewritePI_CS(op);
-            removeParent(result, (QueryOperator *) op);
+            	removeParent(result, (QueryOperator *) op);
 
             //semiring comb operations
             if(isCombinerActivated)

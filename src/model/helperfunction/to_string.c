@@ -666,6 +666,7 @@ outProvenanceStmt (StringInfo str, ProvenanceStmt *node)
     WRITE_NODE_FIELD(options);
     WRITE_NODE_FIELD(sumOpts);
     WRITE_BOOL_FIELD(igFlag);
+    WRITE_BOOL_FIELD(explFlag);
     WRITE_BOOL_FIELD(inJoinCondt);
 }
 

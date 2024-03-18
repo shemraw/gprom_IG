@@ -1036,6 +1036,7 @@ equalProvenanceStmt(ProvenanceStmt *a, ProvenanceStmt *b, HashMap *seenOps, MemC
     COMPARE_NODE_FIELD(options);
     COMPARE_NODE_FIELD(sumOpts);
     COMPARE_SCALAR_FIELD(igFlag);
+    COMPARE_SCALAR_FIELD(explFlag);
     COMPARE_SCALAR_FIELD(inJoinCondt);
     return TRUE;
 }

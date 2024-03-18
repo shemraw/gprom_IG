@@ -70,7 +70,8 @@ static Node *asOf;
 static RelCount *nameState;
 List *attrL = NIL;
 List *attrR = NIL;
-
+boolean explFlag;
+boolean igFlag;
 
 QueryOperator *
 rewriteIG (ProvenanceComputation  *op)
@@ -87,6 +88,10 @@ rewriteIG (ProvenanceComputation  *op)
 
     QueryOperator *newRoot = OP_LCHILD(op);
     DEBUG_NODE_BEATIFY_LOG("rewRoot is:", newRoot);
+
+    igFlag = op->igFlag;
+    explFlag = op->explFlag;
+
 
     // cache asOf
     asOf = op->asOf;
@@ -2273,6 +2278,7 @@ rewriteIG_Join (JoinOperator *op)
 
     attrL = copyObject(lAttrDefs);
     attrR = copyObject(rAttrDefs);
+
 
     List *newAttrDefs = CONCAT_LISTS(lAttrDefs,rAttrDefs);
     op->op.schema->attrDefs = copyObject(newAttrDefs);

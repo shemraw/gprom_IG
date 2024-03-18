@@ -64,6 +64,7 @@ Node *oracleParseResult = NULL;
 %token <stringVal> SEQUENCED TEMPORAL TIME
 %token <stringVal> PROVENANCE OF BASERELATION SCN TIMESTAMP HAS TABLE ONLY UPDATED SHOW INTERMEDIATE USE TUPLE VERSIONS STATEMENT ANNOTATIONS NO REENACT OPTIONS SEMIRING COMBINER MULT UNCERTAIN URANGE
 %token <stringVal> IG
+%token <stringVal> IGEXPL
 %token <stringVal> TIP INCOMPLETE XTABLE RADB UADB
 %token <stringVal> CAPTURE COARSE GRAINED FRAGMENT PAGE RANGESA RANGESB
 %token <stringVal> FROM
@@ -126,6 +127,7 @@ Node *oracleParseResult = NULL;
  */
 %type <node> stmt provStmt dmlStmt queryStmt ddlStmt reenactStmtWithOptions
 %type <node> igStmt
+%type <node> igExplStmt
 %type <node> createTableStmt alterTableStmt alterTableCommand
 %type <list> tableElemList optTableElemList attrElemList
 %type <node> tableElement attr
@@ -310,10 +312,11 @@ dmlStmt:
  */
 queryStmt:
 		'(' queryStmt ')'	{ RULELOG("queryStmt::bracketedQuery"); $$ = $2; }
-		| selectQuery        { RULELOG("queryStmt::selectQuery");}
-		| provStmt        { RULELOG("queryStmt::provStmt");}
+		| selectQuery       { RULELOG("queryStmt::selectQuery");}
+		| provStmt        	{ RULELOG("queryStmt::provStmt");}
         | igStmt            { RULELOG("queryStmt::igStmt");}
-		| setOperatorQuery        { RULELOG("queryStmt::setOperatorQuery");}
+        | igExplStmt		{ RULELOG("queryStmt::igExplStmt");}
+		| setOperatorQuery  { RULELOG("queryStmt::setOperatorQuery");}
     ;
 
 withQuery:
@@ -492,7 +495,8 @@ provStmt:
         }
     ;
     
-    
+/* ----------------------------------------- */
+
 /*
 * Rule to parse a query asking for IG
 */
@@ -501,15 +505,14 @@ igStmt:
 	IG optionalProvAsOf optionalProvWith OF '(' stmt ')' optionalTranslate
         {
             RULELOG("igStmt::stmt");
-//            INFO_LOG("111111111111111 igstmt");
             Node *stmt = $6;
 	    	ProvenanceStmt *p = createProvenanceStmt(stmt);
 		    p->inputType = isQBUpdate(stmt) ? PROV_INPUT_UPDATE : PROV_INPUT_QUERY;
 		    p->provType = IG_PI_CS;
 		    p->asOf = (Node *) $2;
-//          p->options = $3;
             p->options = concatLists($3,$8);
             p->igFlag = TRUE;
+            p->explFlag = FALSE;
             p->inJoinCondt = FALSE;
             $$ = (Node *) p;
         }
@@ -520,72 +523,48 @@ igStmt:
 			p->inputType = PROV_INPUT_UPDATE_SEQUENCE;
 			p->provType = IG_PI_CS;
 			p->asOf = (Node *) $2;
-//			p->options = concatLists(listMake($1),$3);
 			p->options = $3;
 			p->igFlag = TRUE;
+			p->explFlag = FALSE;
+			p->inJoinCondt = FALSE;
+			$$ = (Node *) p;
+		}
+    ;
+
+/*
+* Rule to parse a query asking for IGEXPL
+*/
+
+igExplStmt:
+	IGEXPL optionalProvAsOf optionalProvWith OF '(' stmt ')' optionalTranslate
+        {
+            RULELOG("igExplStmt::stmt");
+            Node *stmt = $6;
+	    	ProvenanceStmt *p = createProvenanceStmt(stmt);
+		    p->inputType = isQBUpdate(stmt) ? PROV_INPUT_UPDATE : PROV_INPUT_QUERY;
+		    p->provType = IG_PI_CS;
+		    p->asOf = (Node *) $2;
+            p->options = concatLists($3,$8);
+            p->igFlag = TRUE;
+            p->explFlag = TRUE;
+            p->inJoinCondt = FALSE;
+            $$ = (Node *) p;
+        }
+		| IGEXPL optionalProvAsOf optionalProvWith OF '(' stmtList ')'
+		{
+			RULELOG("igExplStmt::stmtlist");
+			ProvenanceStmt *p = createProvenanceStmt((Node *) $6);
+			p->inputType = PROV_INPUT_UPDATE_SEQUENCE;
+			p->provType = IG_PI_CS;
+			p->asOf = (Node *) $2;
+			p->options = $3;
+			p->igFlag = TRUE;
+			p->explFlag = TRUE;
 			p->inJoinCondt = FALSE;
 			$$ = (Node *) p;
 		}
 
-//        IG optionalIGAsOf optionalIGWith OF '(' stmt ')' optionalTranslate
-//        {
-//            RULELOG("igStmt::stmt");
-//            Node *stmt = $6;
-//            IGStmt *p = create(stmt);
-//            p->inputType = isQBUpdate(stmt) ? IG_INPUT_UPDATE : IG_INPUT_QUERY;
-//            p->IGType = IG_PI_CS;
-//            p->asOf = (Node *) $2;
-//            // p->options = $3;
-//            p->options = concatTwoLists($3, $8);
-//            $$ = (Node *) p;
-//        }
-//        | IG optionalIGAsOf optionalIGWith OF '(' stmtList ')'
-//        {
-//            RULELOG("igStmt::stmtlist");
-//            IGStmt *p = createIGStmt((Node *) $6);
-//            p->inputType = IG_INPUT_UPDATE_SEQUENCE;
-//            p->IGType = IG_PI_CS;
-//            p->asOf = (Node *) $2;
-//            p->options = $3;
-//            $$ = (Node *) p;
-//        }
-//        | IG optionalIGAsOf optionalIGWith OF TRANSACTION stringConst
-//        {
-//            RULELOG("igStmt::transaction");
-//            IGStmt *p = createProvenanceStmt((Node *) createConstString($6));
-//            p->inputType = IG_INPUT_TRANSACTION;
-//            p->IGType = IG_PI_CS;
-//            p->options = $3;
-//            $$ = (Node *) p;
-//        }
-//        | USE IG optionalIGAsOf optionalIGWith OF '(' stmt ')' optionalTranslate
-//        {
-//            RULELOG("igStmt::stmt");
-//            Node *stmt = $7;
-//            IGStmt *p = createIGStmt(stmt);
-//            p->inputType = isQBUpdate(stmt) ? IG_INPUT_UPDATE : IG_INPUT_QUERY;
-//            p->IGType = USE_IG_COARSE_GRAINED;
-//            p->asOf = (Node *) $3;
-//            // p->options = $4;
-//            p->options = concatTwoLists($4, $9);
-//            $$ = (Node *) p;
-//        }
-//        
-//        | optionalTopK IG optionalIGAsOf optionalIGWith OF '(' stmt ')' optionalTranslate optionalSummarization
-//        {
-//            RULELOG("igStmt::summaryStmt");
-//            Node *stmt = $7;
-//            IGStmt *p = createIGStmt(stmt);
-//            p->inputType = isQBUpdate(stmt) ? IG_INPUT_UPDATE : IG_INPUT_QUERY;
-//            p->IGType = IG_PI_CS;
-//            p->asOf = (Node *) $3;
-//            p->options = CONCAT_LISTS(singleton($1),$4,$9,$10,
-//                                      singleton(createNodeKeyValue((Node *) createConstString(PROP_SUMMARIZATION_DOSUM),
-//                                                                   (Node *) createConstBool(TRUE))));
-//               /* p->sumOpts = appendToTailOfList(p->sumOpts,$1); */
-//               /* p->sumOpts = appendToTailOfList(p->sumOpts,(Node *) $10); */
-//            $$ = (Node *) p;
-//        }
+
     ;
 
 
