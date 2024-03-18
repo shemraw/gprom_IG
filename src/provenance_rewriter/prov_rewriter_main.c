@@ -44,13 +44,6 @@
 static QueryOperator *findProvenanceComputations (QueryOperator *op, Set *haveSeen);
 static QueryOperator *rewriteProvenanceComputation (ProvenanceComputation *op);
 
-
-//int *
-//getExplFlag (ProvenanceComputation *op)
-//{
-//	return op->explFlag;
-//}
-
 /* function definitions */
 Node *
 provRewriteQBModel (Node *qbModel)

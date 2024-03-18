@@ -830,7 +830,6 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	return hammingvalue_op;
 }
 
-
 static AggregationOperator *
 rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 {
@@ -1639,7 +1638,6 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 }
 
-
 static QueryOperator *
 rewriteIG_Analysis (AggregationOperator *patterns)
 {
@@ -1773,7 +1771,6 @@ rewriteIG_Analysis (AggregationOperator *patterns)
 	return (QueryOperator *) ord;
 
 }
-
 
 static QueryOperator *
 rewriteIG_Projection (ProjectionOperator *op)
@@ -2249,15 +2246,22 @@ rewriteIG_Projection (ProjectionOperator *op)
 //	This function adds the + expression to calculate the total distance
 	ProjectionOperator *sumrows = rewriteIG_SumExprs(hammingvalue_op);
 
-	AggregationOperator *patterns = rewriteIG_PatternGeneration(sumrows);
+	if(explFlag == TRUE)
+	{
 
-	QueryOperator *analysis = rewriteIG_Analysis(patterns);
+		INFO_OP_LOG("Rewritten Operator tree for patterns", (QueryOperator *) sumrows);
+		return (QueryOperator *) sumrows;
+	}
 
-	// example of using a function in ig_function.c
-	QueryOperator *result = rewriteIG_test(analysis);
+	else
+	{
+		AggregationOperator *patterns = rewriteIG_PatternGeneration(sumrows);
 
-	INFO_OP_LOG("Rewritten Operator tree for patterns", (QueryOperator *) result);
-	return result;
+		QueryOperator *analysis = rewriteIG_Analysis(patterns);
+
+		INFO_OP_LOG("Rewritten Operator tree for patterns", (QueryOperator *) analysis);
+		return (QueryOperator *) analysis;
+	}
 
 }
 

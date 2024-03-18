@@ -37,8 +37,6 @@ extern char *getTableNamefromPo(ProjectionOperator *po);
 extern List *getARfromPoAr(ProjectionOperator *po);
 extern List *getNamesfromPoAr(ProjectionOperator *po);
 
-//function for testing only
-extern QueryOperator *rewriteIG_test(QueryOperator *qo);
 
 //Input : AttributeReference (Data Type : DT_STRING)
 //Pitput : array of Ascii codes of string (Data Type : DT_INT)
@@ -51,11 +49,6 @@ extern List *toAsciiList(ProjectionOperator *po);
 //Input : List of projection expressions(contains Ascii, AttributeReference, CastExpr)
 extern List *getAsciiAggrs(List *projExprs, ProjectionOperator *po);
 
-
-QueryOperator *rewriteIG_test(QueryOperator *qo)
-{
-	return qo;
-}
 
 
 //rewrite conversion functions

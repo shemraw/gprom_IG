@@ -344,16 +344,10 @@ processInput(char *input)
 {
     char *q = NULL;
     Node *parse;
-//    int explFlag = 0;
     TRY
     {
         NEW_AND_ACQUIRE_MEMCONTEXT(QUERY_MEM_CONTEXT);
         parse = parseFromString(input);
-
-        //we can grab the flag from here now we need to send it to ig_main.c
-//        ProvenanceComputation *op = (ProvenanceComputation *) parse;
-//        explFlag = getExplFlag(op);
-        //op->igFlag = TRUE;
 
         // expl flag and ig flag exists here in parse
         q = rewriteParserOutput(parse, isRewriteOptionActivated(OPTION_OPTIMIZE_OPERATOR_MODEL));
