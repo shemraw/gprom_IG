@@ -1018,6 +1018,8 @@ outProvenanceComputation(StringInfo str, ProvenanceComputation *node)
     WRITE_ENUM_FIELD(inputType,ProvenanceInputType);
     WRITE_NODE_FIELD(transactionInfo);
     WRITE_NODE_FIELD(asOf);
+    WRITE_BOOL_FIELD(igFlag);
+	WRITE_BOOL_FIELD(explFlag);
 }
 
 static void

@@ -592,6 +592,8 @@ translateProvenanceStmt(ProvenanceStmt *prov, List **attrsOffsetsList)
             prov->selectClause, prov->dts, NULL, prov->igFlag, prov->explFlag);
     result->inputType = prov->inputType;
     result->asOf = copyObject(prov->asOf);
+    result->explFlag = prov->explFlag;
+    result->igFlag = prov->igFlag;
     translateProperties(((QueryOperator *) result), prov->options);
 
     switch (prov->inputType)

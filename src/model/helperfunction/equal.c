@@ -801,6 +801,8 @@ equalProvenanceComputation(ProvenanceComputation *a,  ProvenanceComputation *b, 
     COMPARE_SCALAR_FIELD(inputType);
     COMPARE_NODE_FIELD(transactionInfo);
     COMPARE_NODE_FIELD(asOf);
+    COMPARE_SCALAR_FIELD(igFlag);
+	COMPARE_SCALAR_FIELD(explFlag);
 
     return TRUE;
 }
