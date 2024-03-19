@@ -90,6 +90,8 @@ typedef struct ProvenanceStmt
     Node *asOf;
     List *options;
     List *sumOpts;
+//    int topk;
+    Node *topk;
     boolean igFlag;
     boolean explFlag;
     boolean inJoinCondt;

@@ -762,7 +762,7 @@ createDuplicateRemovalOp(List *attrs, QueryOperator *input, List *parents,
 }
 
 ProvenanceComputation *
-createProvenanceComputOp(ProvenanceType provType, List *inputs, List *parents, List *attrNames, List *dts, Node *asOf, boolean igFlag, boolean explFlag)
+createProvenanceComputOp(ProvenanceType provType, List *inputs, List *parents, List *attrNames, List *dts, Node *asOf, Node *topk, boolean igFlag, boolean explFlag)
 {
     ProvenanceComputation *p = makeNode(ProvenanceComputation);
 
@@ -787,6 +787,7 @@ createProvenanceComputOp(ProvenanceType provType, List *inputs, List *parents, L
     p->asOf = asOf;
     p->igFlag = igFlag;
     p->explFlag = explFlag;
+    p->topk = topk;
 
 
     return p;

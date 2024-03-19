@@ -64,6 +64,7 @@ Node *oracleParseResult = NULL;
 %token <stringVal> SEQUENCED TEMPORAL TIME
 %token <stringVal> PROVENANCE OF BASERELATION SCN TIMESTAMP HAS TABLE ONLY UPDATED SHOW INTERMEDIATE USE TUPLE VERSIONS STATEMENT ANNOTATIONS NO REENACT OPTIONS SEMIRING COMBINER MULT UNCERTAIN URANGE
 %token <stringVal> IG
+%token <stringVal> TOPK
 %token <stringVal> IGEXPL
 %token <stringVal> TIP INCOMPLETE XTABLE RADB UADB
 %token <stringVal> CAPTURE COARSE GRAINED FRAGMENT PAGE RANGESA RANGESB
@@ -511,6 +512,7 @@ igStmt:
 		    p->provType = IG_PI_CS;
 		    p->asOf = (Node *) $2;
             p->options = concatLists($3,$8);
+            p->topk = (Node *) createConstInt(0);
             p->igFlag = TRUE;
             p->explFlag = FALSE;
             p->inJoinCondt = FALSE;
@@ -524,6 +526,7 @@ igStmt:
 			p->provType = IG_PI_CS;
 			p->asOf = (Node *) $2;
 			p->options = $3;
+			p->topk = (Node *) createConstInt(0);
 			p->igFlag = TRUE;
 			p->explFlag = FALSE;
 			p->inJoinCondt = FALSE;
@@ -536,28 +539,30 @@ igStmt:
 */
 
 igExplStmt:
-	IGEXPL optionalProvAsOf optionalProvWith OF '(' stmt ')' optionalTranslate
+	IGEXPL TOPK intConst optionalProvAsOf optionalProvWith OF '(' stmt ')' optionalTranslate
         {
             RULELOG("igExplStmt::stmt");
-            Node *stmt = $6;
+            Node *stmt = $8;
 	    	ProvenanceStmt *p = createProvenanceStmt(stmt);
 		    p->inputType = isQBUpdate(stmt) ? PROV_INPUT_UPDATE : PROV_INPUT_QUERY;
 		    p->provType = IG_PI_CS;
-		    p->asOf = (Node *) $2;
-            p->options = concatLists($3,$8);
+		    p->asOf = (Node *) $4;
+            p->options = concatLists($5,$10);
             p->igFlag = TRUE;
             p->explFlag = TRUE;
+			p->topk = (Node *) createConstInt($3);
             p->inJoinCondt = FALSE;
             $$ = (Node *) p;
         }
-		| IGEXPL optionalProvAsOf optionalProvWith OF '(' stmtList ')'
+		| IGEXPL TOPK intConst optionalProvAsOf optionalProvWith OF '(' stmtList ')'
 		{
 			RULELOG("igExplStmt::stmtlist");
-			ProvenanceStmt *p = createProvenanceStmt((Node *) $6);
+			ProvenanceStmt *p = createProvenanceStmt((Node *) $8);
 			p->inputType = PROV_INPUT_UPDATE_SEQUENCE;
 			p->provType = IG_PI_CS;
-			p->asOf = (Node *) $2;
-			p->options = $3;
+			p->asOf = (Node *) $4;
+			p->options = $5;
+			p->topk = (Node *) createConstInt($3);
 			p->igFlag = TRUE;
 			p->explFlag = TRUE;
 			p->inJoinCondt = FALSE;

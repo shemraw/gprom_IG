@@ -665,6 +665,7 @@ outProvenanceStmt (StringInfo str, ProvenanceStmt *node)
     WRITE_NODE_FIELD(asOf);
     WRITE_NODE_FIELD(options);
     WRITE_NODE_FIELD(sumOpts);
+    WRITE_BOOL_FIELD(topk);
     WRITE_BOOL_FIELD(igFlag);
     WRITE_BOOL_FIELD(explFlag);
     WRITE_BOOL_FIELD(inJoinCondt);
@@ -1018,6 +1019,7 @@ outProvenanceComputation(StringInfo str, ProvenanceComputation *node)
     WRITE_ENUM_FIELD(inputType,ProvenanceInputType);
     WRITE_NODE_FIELD(transactionInfo);
     WRITE_NODE_FIELD(asOf);
+    WRITE_BOOL_FIELD(topk);
     WRITE_BOOL_FIELD(igFlag);
 	WRITE_BOOL_FIELD(explFlag);
 }

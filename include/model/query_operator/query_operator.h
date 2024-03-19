@@ -109,6 +109,7 @@ typedef struct ProvenanceComputation
     ProvenanceInputType inputType;
     ProvenanceTransactionInfo *transactionInfo;
     Node *asOf;
+    Node *topk;
     boolean explFlag;
     boolean igFlag;
 } ProvenanceComputation;
@@ -251,7 +252,7 @@ extern DuplicateRemoval *createDuplicateRemovalOp (List *attrs,
 
 
 extern ProvenanceComputation *createProvenanceComputOp(ProvenanceType provType,
-        List *inputs, List *parents, List *attrNames, List *dts, Node *asOf, boolean igFlag, boolean explFlag);
+        List *inputs, List *parents, List *attrNames, List *dts, Node *asOf, Node *topk, boolean igFlag, boolean explFlag);
 extern ConstRelOperator *createConstRelOp(List *values,List *parents,
         List *attrNames, List *dataTypes);
 extern NestingOperator *createNestingOp(NestingExprType nestingType, Node *cond,

@@ -752,6 +752,7 @@ copyProvenanceComputation(ProvenanceComputation *from, OperatorMap **opMap)
     COPY_SCALAR_FIELD(inputType);
     COPY_NODE_FIELD(transactionInfo);
     COPY_NODE_FIELD(asOf);
+    COPY_SCALAR_FIELD(topk);
     COPY_SCALAR_FIELD(igFlag);
 	COPY_SCALAR_FIELD(explFlag);
 
@@ -982,6 +983,7 @@ copyProvenanceStmt(ProvenanceStmt *from, OperatorMap **opMap)
     COPY_NODE_FIELD(asOf);
     COPY_NODE_FIELD(options);
     COPY_NODE_FIELD(sumOpts);
+    COPY_SCALAR_FIELD(topk);
     COPY_SCALAR_FIELD(igFlag);
     COPY_SCALAR_FIELD(explFlag);
     COPY_SCALAR_FIELD(inJoinCondt);

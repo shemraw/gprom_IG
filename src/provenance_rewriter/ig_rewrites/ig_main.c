@@ -72,6 +72,7 @@ List *attrL = NIL;
 List *attrR = NIL;
 boolean explFlag;
 boolean igFlag;
+Node *topk;
 
 QueryOperator *
 rewriteIG (ProvenanceComputation  *op)
@@ -91,7 +92,7 @@ rewriteIG (ProvenanceComputation  *op)
 
     igFlag = op->igFlag;
     explFlag = op->explFlag;
-
+    topk = op->topk;
 
     // cache asOf
     asOf = op->asOf;
