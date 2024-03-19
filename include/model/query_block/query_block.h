@@ -90,12 +90,14 @@ typedef struct ProvenanceStmt
     Node *asOf;
     List *options;
     List *sumOpts;
+    Node *topk;
     boolean igFlag;
+    boolean explFlag;
     boolean inJoinCondt;
 //    char *summaryType;
 //    List *userQuestion;
 //    int sampleSize;
-//    int topK;
+
 } ProvenanceStmt;
 
 typedef struct SelectItem

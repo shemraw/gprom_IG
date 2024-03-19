@@ -801,6 +801,9 @@ equalProvenanceComputation(ProvenanceComputation *a,  ProvenanceComputation *b, 
     COMPARE_SCALAR_FIELD(inputType);
     COMPARE_NODE_FIELD(transactionInfo);
     COMPARE_NODE_FIELD(asOf);
+    COMPARE_NODE_FIELD(topk);
+    COMPARE_SCALAR_FIELD(igFlag);
+	COMPARE_SCALAR_FIELD(explFlag);
 
     return TRUE;
 }
@@ -1035,7 +1038,9 @@ equalProvenanceStmt(ProvenanceStmt *a, ProvenanceStmt *b, HashMap *seenOps, MemC
     COMPARE_NODE_FIELD(asOf);
     COMPARE_NODE_FIELD(options);
     COMPARE_NODE_FIELD(sumOpts);
+    COMPARE_NODE_FIELD(topk);
     COMPARE_SCALAR_FIELD(igFlag);
+    COMPARE_SCALAR_FIELD(explFlag);
     COMPARE_SCALAR_FIELD(inJoinCondt);
     return TRUE;
 }

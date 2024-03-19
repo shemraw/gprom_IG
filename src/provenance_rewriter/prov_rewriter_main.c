@@ -177,7 +177,7 @@ rewriteProvenanceComputation (ProvenanceComputation *op)
                 result =  rewritePI_CSComposable(op);
             else
                 result = rewritePI_CS(op);
-            removeParent(result, (QueryOperator *) op);
+            	removeParent(result, (QueryOperator *) op);
 
             //semiring comb operations
             if(isCombinerActivated)

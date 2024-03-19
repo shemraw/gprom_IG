@@ -27,34 +27,31 @@
 #include "provenance_rewriter/semiring_combiner/sc_main.h"
 #include "provenance_rewriter/coarse_grained/coarse_grained_rewrite.h"
 
-//typedef struct AsciiAggrs {
-//    List *aggrNames;
-//    List *groupBy;
-//    List *aggrs;
-//} AsciiAggrs;
-//
+#define IG_PREFIX "ig_"
 
+// creates a list of attribute references from a list of attributeDefs with no given positions
+extern List *getARfromAttrDefs(List *qo);
+extern List *getNamesfromAttrDefs(List *qo);
+extern List *getARfromAttrDefswPos(QueryOperator *qo, List *attrDefs);
+extern char *getTableNamefromPo(ProjectionOperator *po);
+extern List *getARfromPoAr(ProjectionOperator *po);
+extern List *getNamesfromPoAr(ProjectionOperator *po);
 
-//function for testing only
-extern QueryOperator *rewriteIG_test(QueryOperator *);
 
 //Input : AttributeReference (Data Type : DT_STRING)
 //Pitput : array of Ascii codes of string (Data Type : DT_INT)
-extern Ascii *convertArtoAscii(AttributeReference *);
-
+extern Ascii *convertArtoAscii(AttributeReference *ar);
 
 //Input : ProjectionOperator
 //Output : List of converted AttributeReference toAscii and rest of the attributes
-extern List *toAsciiList(ProjectionOperator *);
-
+extern List *toAsciiList(ProjectionOperator *po);
 
 //Input : List of projection expressions(contains Ascii, AttributeReference, CastExpr)
-extern List *getAsciiAggrs(List *, ProjectionOperator *);
+extern List *getAsciiAggrs(List *projExprs, ProjectionOperator *po);
 
-QueryOperator *rewriteIG_test(QueryOperator *input)
-{
-	return input;
-}
+
+
+//rewrite conversion functions
 
 Ascii *convertArtoAscii(AttributeReference *a)
 {
@@ -104,58 +101,6 @@ List *toAsciiList(ProjectionOperator *op)
 	return projExprs;
 }
 
-//
-//AsciiAggrs *getAsciiAggrs(List *projExprs, ProjectionOperator *po)
-//{
-//	AsciiAggrs *a = NULL;
-//	List *aggrs = NIL;
-//	List *groupBy = NIL;
-//	List *newNames = NIL;
-//	List *aggrNames = NIL;
-//	List *groupByNames = NIL;
-//	int i = 0;
-//
-//	FOREACH(Node,n,projExprs)
-//	{
-//		if(isA(n,Ascii))
-//		{
-//			char *attrName = getAttrNameByPos((QueryOperator *) po, i);
-//			AttributeReference *ar = createAttrsRefByName((QueryOperator *) po, attrName);
-//			FunctionCall *sum = createFunctionCall("SUM", singleton(ar));
-//			aggrs = appendToTailOfList(aggrs,sum);
-//			aggrNames = appendToTailOfList(aggrNames,attrName);
-//		}
-//		else
-//		{
-//			if(isA(n,AttributeReference))
-//			{
-//				groupBy = appendToTailOfList(groupBy,n);
-//
-//				AttributeReference *ar = (AttributeReference *) n;
-//				groupByNames = appendToTailOfList(groupByNames,(ar->name));
-//			}
-//
-//			if(isA(n,CastExpr))
-//			{
-//				CastExpr *ce = (CastExpr *) n;
-//				AttributeReference *ar = (AttributeReference *) ce->expr;
-//				groupBy = appendToTailOfList(groupBy, (Node *) ar);
-//			}
-//		}
-//
-//		i++;
-//	}
-//
-//	newNames = CONCAT_LISTS(aggrNames, groupByNames);
-//
-//	a->aggrs = aggrs;
-//	a->groupBy = groupBy;
-//	a->aggrNames = newNames;
-//
-//	return a;
-//
-//}
-
 
 // test function
 List *getAsciiAggrs(List *projExprs, ProjectionOperator *po)
@@ -177,5 +122,89 @@ List *getAsciiAggrs(List *projExprs, ProjectionOperator *po)
 	}
 	return aggrs;
 }
+
+// creates a list of attribute references from a list of attributeDefs with no given positions
+List *getARfromAttrDefs(List *attrDefs)
+{
+	List *projExprs = NIL;
+	int pos = 0;
+
+	FOREACH(AttributeDef, a, attrDefs)
+	{
+
+		projExprs = appendToTailOfList(projExprs,
+				createFullAttrReference(a->attrName, 0, pos, 0, a->dataType));
+
+		pos++;
+	}
+
+	return projExprs;
+}
+
+// creates a list of attribute references from a list of attributeDefs with given positions form an expression
+List *getARfromAttrDefswPos(QueryOperator *qo, List *attrDefs)
+{
+	List *projExprs = NIL;
+
+	FOREACH(AttributeDef, a, attrDefs)
+	{
+		projExprs = appendToTailOfList(projExprs,
+			createFullAttrReference(a->attrName, 0,
+					getAttrPos(qo, a->attrName), 0,
+					isPrefix(a->attrName,"ig") ? DT_BIT10 : a->dataType));
+
+	}
+
+	return projExprs;
+}
+
+
+List *getNamesfromAttrDefs(List *attrDefs)
+{
+	List *projNames = NIL;
+	FOREACH(AttributeDef, a, attrDefs)
+	{
+		projNames = appendToTailOfList(projNames, a->attrName);
+	}
+
+	return projNames;
+}
+
+char *getTableNamefromPo(ProjectionOperator *po)
+{
+	char *tableName = NULL;
+	FOREACH(AttributeReference, n, po->projExprs)
+	{
+		if(isPrefix(n->name, IG_PREFIX))
+		{
+			int len1 = strlen(n->name);
+			int len2 = strlen(strrchr(n->name, '_'));
+			int len = len1 - len2 - 1;
+			tableName = substr(n->name, 8, len);
+		}
+	}
+	return tableName;
+}
+
+List *getARfromPoAr(ProjectionOperator *po)
+{
+	List *projExprs = NIL;
+	FOREACH(AttributeReference, n, po->projExprs)
+	{
+		projExprs = appendToTailOfList(projExprs, n);
+	}
+	return projExprs;
+}
+
+List *getNamesfromPoAr(ProjectionOperator *po)
+{
+	List *projNames = NIL;
+	FOREACH(AttributeReference, n, po->projExprs)
+	{
+		projNames = appendToTailOfList(projNames, n->name);
+	}
+	return projNames;
+}
+
 
 
