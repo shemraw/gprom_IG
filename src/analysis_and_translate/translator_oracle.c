@@ -589,12 +589,12 @@ translateProvenanceStmt(ProvenanceStmt *prov, List **attrsOffsetsList)
 
     //get type from options
     result = createProvenanceComputOp(prov->provType, NIL, NIL,
-            prov->selectClause, prov->dts, NULL, prov->topk, prov->igFlag, prov->explFlag);
+    		prov->selectClause, prov->dts, NULL, prov->topk, prov->igFlag, prov->explFlag);
     result->inputType = prov->inputType;
     result->asOf = copyObject(prov->asOf);
-    result->explFlag = prov->explFlag;
-    result->igFlag = prov->igFlag;
-    result->topk =  prov->topk;
+//    result->explFlag = prov->explFlag;
+//    result->igFlag = prov->igFlag;
+//    result->topk =  prov->topk;
 
     translateProperties(((QueryOperator *) result), prov->options);
 

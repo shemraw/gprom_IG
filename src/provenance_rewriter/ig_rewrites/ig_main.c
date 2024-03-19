@@ -70,9 +70,9 @@ static Node *asOf;
 static RelCount *nameState;
 List *attrL = NIL;
 List *attrR = NIL;
-boolean explFlag;
-boolean igFlag;
-Node *topk;
+static boolean explFlag;
+static boolean igFlag;
+static Node *topk;
 
 QueryOperator *
 rewriteIG (ProvenanceComputation  *op)
@@ -1269,7 +1269,7 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 
 	// add LIMIT top-k
-	int k = 10;
+	int k = INT_VALUE((Constant *) topk);
 
 	//TODO: postgresql specific
 	LimitOperator *fscoreTopKOrderByLimit =
