@@ -550,7 +550,7 @@ igExplStmt:
             p->options = concatLists($5,$10);
             p->igFlag = TRUE;
             p->explFlag = TRUE;
-			p->topk = (Node *) createConstInt($3);
+			p->topk = (Node *) createConstInt ($3);
             p->inJoinCondt = FALSE;
             $$ = (Node *) p;
         }

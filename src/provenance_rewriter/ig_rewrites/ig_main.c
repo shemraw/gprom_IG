@@ -1138,7 +1138,6 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 	INFO_OP_LOG("Remove No Good Patterns: ", removeNoGoodPatt);
 
-
 	//creating topKPattConstPlac
 	//where coverage > 1 and informativeness < 5
 	//informativeness < 5
@@ -2247,13 +2246,12 @@ rewriteIG_Projection (ProjectionOperator *op)
 //	This function adds the + expression to calculate the total distance
 	ProjectionOperator *sumrows = rewriteIG_SumExprs(hammingvalue_op);
 
-	if(explFlag == TRUE)
+	if(explFlag == FALSE)
 	{
 
 		INFO_OP_LOG("Rewritten Operator tree for patterns", (QueryOperator *) sumrows);
 		return (QueryOperator *) sumrows;
 	}
-
 	else
 	{
 		AggregationOperator *patterns = rewriteIG_PatternGeneration(sumrows);
@@ -2263,6 +2261,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 		INFO_OP_LOG("Rewritten Operator tree for patterns", (QueryOperator *) analysis);
 		return (QueryOperator *) analysis;
 	}
+
 
 }
 
