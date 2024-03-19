@@ -63,9 +63,7 @@ Node *oracleParseResult = NULL;
 %token <stringVal> SELECT INSERT UPDATE DELETE
 %token <stringVal> SEQUENCED TEMPORAL TIME
 %token <stringVal> PROVENANCE OF BASERELATION SCN TIMESTAMP HAS TABLE ONLY UPDATED SHOW INTERMEDIATE USE TUPLE VERSIONS STATEMENT ANNOTATIONS NO REENACT OPTIONS SEMIRING COMBINER MULT UNCERTAIN URANGE
-%token <stringVal> IG
-%token <stringVal> TOPK
-%token <stringVal> IGEXPL
+%token <stringVal> IG IGEXPL
 %token <stringVal> TIP INCOMPLETE XTABLE RADB UADB
 %token <stringVal> CAPTURE COARSE GRAINED FRAGMENT PAGE RANGESA RANGESB
 %token <stringVal> FROM
@@ -127,8 +125,7 @@ Node *oracleParseResult = NULL;
  * Types of non-terminal symbols
  */
 %type <node> stmt provStmt dmlStmt queryStmt ddlStmt reenactStmtWithOptions
-%type <node> igStmt
-%type <node> igExplStmt
+%type <node> igStmt igExplStmt
 %type <node> createTableStmt alterTableStmt alterTableCommand
 %type <list> tableElemList optTableElemList attrElemList
 %type <node> tableElement attr
@@ -526,7 +523,7 @@ igStmt:
 			p->provType = IG_PI_CS;
 			p->asOf = (Node *) $2;
 			p->options = $3;
-			p->topk = (Node *) createConstInt(0);
+            p->topk = (Node *) createConstInt(0);
 			p->igFlag = TRUE;
 			p->explFlag = FALSE;
 			p->inJoinCondt = FALSE;
@@ -539,7 +536,7 @@ igStmt:
 */
 
 igExplStmt:
-	IGEXPL TOPK intConst optionalProvAsOf optionalProvWith OF '(' stmt ')' optionalTranslate
+	IGEXPL TOP intConst optionalProvAsOf optionalProvWith OF '(' stmt ')' optionalTranslate
         {
             RULELOG("igExplStmt::stmt");
             Node *stmt = $8;
@@ -548,13 +545,13 @@ igExplStmt:
 		    p->provType = IG_PI_CS;
 		    p->asOf = (Node *) $4;
             p->options = concatLists($5,$10);
+            p->topk = (Node *) createConstInt($3);
             p->igFlag = TRUE;
             p->explFlag = TRUE;
-			p->topk = (Node *) createConstInt ($3);
             p->inJoinCondt = FALSE;
             $$ = (Node *) p;
         }
-		| IGEXPL TOPK intConst optionalProvAsOf optionalProvWith OF '(' stmtList ')'
+		| IGEXPL TOP intConst optionalProvAsOf optionalProvWith OF '(' stmtList ')'
 		{
 			RULELOG("igExplStmt::stmtlist");
 			ProvenanceStmt *p = createProvenanceStmt((Node *) $8);
@@ -568,23 +565,19 @@ igExplStmt:
 			p->inJoinCondt = FALSE;
 			$$ = (Node *) p;
 		}
-
-
     ;
 
 
-/* ----------------------------------------- */
-
-
 optionalTopK:
-//		/* empty */			{ RULELOG("optionalTopK::EMPTY"); $$ = NULL; }
-//		|
 		TOP intConst
 		{
 			RULELOG("optionalTopK::topk");
 			$$ = (Node *) createNodeKeyValue((Node *) createConstString(PROP_SUMMARIZATION_TOPK),(Node *) createConstInt($2));
 		}
     ;
+
+/* ----------------------------------------- */
+
 
 
 optionalSummarization:

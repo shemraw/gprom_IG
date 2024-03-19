@@ -344,11 +344,21 @@ processInput(char *input)
 {
     char *q = NULL;
     Node *parse;
+//    int topk = 0;
     TRY
     {
         NEW_AND_ACQUIRE_MEMCONTEXT(QUERY_MEM_CONTEXT);
         parse = parseFromString(input);
 
+//        int len1 = strlen(strchr(input, 'TOP'));
+//        int len2 = strlen(strchr(input, 'OF'));
+//        int len  = len2 - len1;
+//
+//        topk = substr(input, 11, len);
+//
+//        ProvenanceComputation *temp = (ProvenanceComputation *) parse;
+//        temp->topk = (Node *) createConstInt(topk);
+//
         // expl flag and ig flag exists here in parse
         q = rewriteParserOutput(parse, isRewriteOptionActivated(OPTION_OPTIMIZE_OPERATOR_MODEL));
         execute(q);
@@ -548,7 +558,7 @@ rewriteParserOutput (Node *parse, boolean applyOptimizations)
     Node *oModel;
 
 //    if(!getBoolOption(OPTION_INPUTDB))
-//    	summarizationPlan(parse);
+//    summarizationPlan(parse);
     START_TIMER("translation");
     oModel = translateParse(parse);
     DEBUG_NODE_BEATIFY_LOG("translator returned:", oModel);
