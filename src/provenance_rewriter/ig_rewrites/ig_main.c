@@ -2329,13 +2329,34 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 		FOREACH(AttributeDef, a, analysis->schema->attrDefs)
 		{
-			if(!streq(a->attrName, FSCORETOPK))
-			{
-				AttributeReference *ar = createFullAttrReference(a->attrName, 0,
-						getAttrPos(analysis, a->attrName), 0, a->dataType);
-				cleanExprs = appendToTailOfList(cleanExprs, ar);
-				cleanNames = appendToTailOfList(cleanNames, a->attrName);
-			}
+
+			AttributeReference *ar = createFullAttrReference(a->attrName, 0,
+					getAttrPos(analysis, a->attrName), 0, a->dataType);
+			cleanExprs = appendToTailOfList(cleanExprs, ar);
+			cleanNames = appendToTailOfList(cleanNames, a->attrName);
+
+//			if(streq(a->attrName, FSCORETOPK))
+//			{
+//				continue;
+//			}
+//			else if(isSuffix(a->attrName, "r2") && isPrefix(a->attrName, "ig"))
+//			{
+//				continue;
+//			}
+//			else if(isSuffix(a->attrName, "1"))
+//			{
+//				continue;
+//			}
+//			else
+//			{
+//				AttributeReference *ar = createFullAttrReference(a->attrName, 0,
+//						getAttrPos(analysis, a->attrName), 0, a->dataType);
+//				cleanExprs = appendToTailOfList(cleanExprs, ar);
+//				cleanNames = appendToTailOfList(cleanNames, a->attrName);
+//			}
+//
+
+
 		}
 
 		ProjectionOperator *cleanpo = createProjectionOp(cleanExprs,
