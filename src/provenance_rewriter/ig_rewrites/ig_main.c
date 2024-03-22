@@ -2340,10 +2340,10 @@ rewriteIG_Projection (ProjectionOperator *op)
 			{
 				continue;
 			}
-//			else if(isSuffix(a->attrName, "r2") && isPrefix(a->attrName, "ig"))
-//			{
-//				continue;
-//			}
+			else if(isSuffix(a->attrName, "r2") && isPrefix(a->attrName, "ig"))
+			{
+				continue;
+			}
 			else if(isSuffix(a->attrName, "1"))
 			{
 				continue;
