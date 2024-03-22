@@ -1524,6 +1524,7 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	DEBUG_NODE_BEATIFY_LOG("Join Patterns with Data: ", joinOp);
 
 
+	//------------------------------
 	// Add projection to exclude unnecessary attributes
 	List *projExprsClean = NIL;
 	List *attrNamesClean = NIL;
@@ -1569,6 +1570,9 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	addChildOperator((QueryOperator *) po, (QueryOperator *) joinOp);
 	switchSubtrees((QueryOperator *) joinOp, (QueryOperator *) po);
 	SET_BOOL_STRING_PROP(po, PROP_MATERIALIZE);
+
+
+	//-----------------------------------
 
 	// Adding duplicate elimination
 	projExprsClean = NIL;
@@ -1768,7 +1772,43 @@ rewriteIG_Analysis (AggregationOperator *patterns)
 	addParent((QueryOperator *) projForOrder, (QueryOperator *) ord);
 	switchSubtrees((QueryOperator *) projForOrder, (QueryOperator *) ord);
 
-	return (QueryOperator *) ord;
+
+
+	//new limit goes here
+	//another limit after union to make sure we have correct amount of patterns
+	//----------------------
+
+	int k = INT_VALUE((Constant *) topk);
+
+	LimitOperator *lo =
+			createLimitOp((Node *) createConstInt(k), NULL, (QueryOperator *) ord, NIL);
+
+	addParent((QueryOperator *) ord, (QueryOperator *) lo);
+	switchSubtrees((QueryOperator *) ord, (QueryOperator *) lo);
+
+	INFO_OP_LOG("Top-k patterns that are ordered: ", lo);
+
+	// add a projection to wrap LIMIT
+	List *lExprs = NIL;
+	int lpos = 0;
+
+	FOREACH(AttributeDef, a, ord->op.schema->attrDefs)
+	{
+		AttributeReference *ar = createFullAttrReference(a->attrName, 0, lpos, 0, a->dataType);
+		lExprs = appendToTailOfList(lExprs, ar);
+
+		lpos++;
+	}
+
+	ProjectionOperator *lpo = createProjectionOp(lExprs,
+			(QueryOperator *) lo, NIL, getAttrNames(lo->op.schema));
+
+	addParent((QueryOperator *) lo, (QueryOperator *) lpo);
+	switchSubtrees((QueryOperator *) lo, (QueryOperator *) lpo);
+
+	//-------------------------
+
+	return (QueryOperator *) lpo;
 
 }
 
