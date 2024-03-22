@@ -2277,8 +2277,9 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 					cleanExprs = appendToTailOfList(cleanExprs, a);
 					l = strlen(a->name);
-					char *s1 = substr(a->name, 0, 4);
-					char *s2 = substr(a->name, 21, l - 7);
+//					char *s1 = substr(a->name, 0, 4); //contains : value
+					char *s1 = strdup(IG_PREFIX);
+					char *s2 = substr(a->name, 21, l - 7); //contains : tableName_attributeName
 					displayName = CONCAT_STRINGS(s1, s2);
 //					displayName = substr(a->name, 0, l - 7);
 					cleanNames = appendToTailOfList(cleanNames, displayName);
@@ -2330,31 +2331,31 @@ rewriteIG_Projection (ProjectionOperator *op)
 		FOREACH(AttributeDef, a, analysis->schema->attrDefs)
 		{
 
-			AttributeReference *ar = createFullAttrReference(a->attrName, 0,
-					getAttrPos(analysis, a->attrName), 0, a->dataType);
-			cleanExprs = appendToTailOfList(cleanExprs, ar);
-			cleanNames = appendToTailOfList(cleanNames, a->attrName);
+//			AttributeReference *ar = createFullAttrReference(a->attrName, 0,
+//					getAttrPos(analysis, a->attrName), 0, a->dataType);
+//			cleanExprs = appendToTailOfList(cleanExprs, ar);
+//			cleanNames = appendToTailOfList(cleanNames, a->attrName);
 
-//			if(streq(a->attrName, FSCORETOPK))
-//			{
-//				continue;
-//			}
+			if(streq(a->attrName, FSCORETOPK))
+			{
+				continue;
+			}
 //			else if(isSuffix(a->attrName, "r2") && isPrefix(a->attrName, "ig"))
 //			{
 //				continue;
 //			}
-//			else if(isSuffix(a->attrName, "1"))
-//			{
-//				continue;
-//			}
-//			else
-//			{
-//				AttributeReference *ar = createFullAttrReference(a->attrName, 0,
-//						getAttrPos(analysis, a->attrName), 0, a->dataType);
-//				cleanExprs = appendToTailOfList(cleanExprs, ar);
-//				cleanNames = appendToTailOfList(cleanNames, a->attrName);
-//			}
-//
+			else if(isSuffix(a->attrName, "1"))
+			{
+				continue;
+			}
+			else
+			{
+				AttributeReference *ar = createFullAttrReference(a->attrName, 0,
+						getAttrPos(analysis, a->attrName), 0, a->dataType);
+				cleanExprs = appendToTailOfList(cleanExprs, ar);
+				cleanNames = appendToTailOfList(cleanNames, a->attrName);
+			}
+
 
 
 		}
