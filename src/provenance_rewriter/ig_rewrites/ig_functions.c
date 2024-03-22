@@ -50,7 +50,6 @@ extern List *toAsciiList(ProjectionOperator *po);
 extern List *getAsciiAggrs(List *projExprs, ProjectionOperator *po);
 
 
-
 //rewrite conversion functions
 
 Ascii *convertArtoAscii(AttributeReference *a)

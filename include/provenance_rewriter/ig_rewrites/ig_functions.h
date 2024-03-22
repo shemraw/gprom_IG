@@ -7,22 +7,12 @@
 
 #include "model/query_operator/query_operator.h"
 
-//typedef struct AsciiAggrs {
-//    List *aggrNames;
-//    List *groupBy;
-//    List *aggrs;
-//} AsciiAggrs;
-//
-
-
 extern List *getARfromAttrDefs(List *attrDefs);
 extern List *getNamesfromAttrDefs(List *attrDefs);
 extern List *getARfromAttrDefswPos(QueryOperator *qo, List *attrDefs);
 extern char *getTableNamefromPo(ProjectionOperator *po);
 extern List *getARfromPoAr(ProjectionOperator *po);
 extern List *getNamesfromPoAr(ProjectionOperator *po);
-
-
 
 extern QueryOperator *rewriteIG_test (QueryOperator *qo);
 
@@ -37,6 +27,9 @@ extern List *toAsciiList(ProjectionOperator *po);
 
 //Input : List of projection expressions(contains Ascii, AttributeReference, CastExpr)
 extern List *getAsciiAggrs(List *projExprs, ProjectionOperator *po);
+
+//clean up functions
+
 
 
 #endif /* IG_FUNCTIONS_H_ */
