@@ -451,7 +451,6 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 	sumNames = appendToTailOfList(sumNames, strdup(AVG_DIST));
 
 	ProjectionOperator *sumrows = createProjectionOp(sumExprs, NULL, NIL, sumNames);
-	//LOG_RESULT("TESTING SUM_AVG_ROWS FUNCTION", sumrows);
 
 	addChildOperator((QueryOperator *) sumrows, (QueryOperator *) hammingvalue_op);
 	switchSubtrees((QueryOperator *) hammingvalue_op, (QueryOperator *) sumrows);
@@ -461,7 +460,39 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 			copyObject(GET_STRING_PROP(hammingvalue_op, PROP_JOIN_OP_IG)));
 
 
-	return sumrows;
+
+	//--------------
+	//clean up for projection
+	List *cleanExprs = NIL;
+	List *cleanNames = NIL;
+
+	FOREACH(AttributeDef, a, sumrows->op.schema->attrDefs)
+	{
+		if(!isPrefix(a->attrName, IG_PREFIX) && !isPrefix(a->attrName, VALUE_IG) &&
+				!isPrefix(a->attrName, HAMMING_PREFIX) && !isPrefix(a->attrName, "Average") &&
+				!isPrefix(a->attrName, "Total"))
+		{
+			AttributeReference *ar = createFullAttrReference(a->attrName, 0,
+					getAttrPos((QueryOperator *) hammingvalue_op, a->attrName), 0, a->dataType);
+			cleanExprs = appendToTailOfList(cleanExprs, ar);
+			cleanNames = appendToTailOfList(cleanNames, a->attrName);
+
+		}
+	}
+
+	cleanExprs = appendToTailOfList(cleanExprs, sumExpr);
+	cleanNames = appendToTailOfList(cleanNames, strdup(TOTAL_DIST));
+
+	ProjectionOperator *cleanProj = createProjectionOp(cleanExprs, NULL, NIL, cleanNames);
+	addChildOperator((QueryOperator *) cleanProj, (QueryOperator *) sumrows);
+	switchSubtrees((QueryOperator *) sumrows, (QueryOperator *) cleanProj);
+
+	SET_STRING_PROP(cleanProj, PROP_JOIN_OP_IG,
+			copyObject(GET_STRING_PROP(hammingvalue_op, PROP_JOIN_OP_IG)));
+
+	//---------------
+
+	return cleanProj;
 
 }
 
@@ -826,7 +857,6 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
     // store the join query
 	SET_STRING_PROP(hammingvalue_op, PROP_JOIN_OP_IG,
 			copyObject(GET_STRING_PROP(hamming_op, PROP_JOIN_OP_IG)));
-
 
 	return hammingvalue_op;
 }
@@ -1651,6 +1681,9 @@ rewriteIG_Analysis (AggregationOperator *patterns)
 	int pos = 0;
 
 
+	//getting original attributes back
+
+
 	FOREACH(AttributeDef, n, patterns->op.schema->attrDefs)
 	{
 		if(isSuffix(n->attrName, "r2"))
@@ -1807,8 +1840,31 @@ rewriteIG_Analysis (AggregationOperator *patterns)
 	switchSubtrees((QueryOperator *) lo, (QueryOperator *) lpo);
 
 	//-------------------------
+	//clean up projection here
+	List *cleanExprs = NIL;
+	List *cleanNames = NIL;
 
-	return (QueryOperator *) lpo;
+	FOREACH(AttributeDef, a, lpo->op.schema->attrDefs)
+	{
+		if(!isSuffix(a->attrName, "r2"))
+		{
+			AttributeReference *ar = createFullAttrReference(a->attrName, 0,
+					getAttrPos((QueryOperator *) lpo, a->attrName), 0, a->dataType);
+			cleanExprs = appendToTailOfList(cleanExprs, ar);
+			cleanNames = appendToTailOfList(cleanNames, a->attrName);
+		}
+	}
+
+	ProjectionOperator *cleanpo = createProjectionOp(cleanExprs,
+			(QueryOperator *) lpo, NIL, cleanNames);
+
+	addParent((QueryOperator *) lpo, (QueryOperator *) cleanpo);
+	switchSubtrees((QueryOperator *) lpo, (QueryOperator *) cleanpo);
+
+	//--------------------------
+
+
+	return (QueryOperator *) cleanpo;
 
 }
 
