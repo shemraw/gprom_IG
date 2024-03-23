@@ -29,7 +29,7 @@ extern List *toAsciiList(ProjectionOperator *po);
 extern List *getAsciiAggrs(List *projExprs, ProjectionOperator *po);
 
 //clean up functions
-
+extern QueryOperator *cleanEXPL(QueryOperator *qo);
 
 
 #endif /* IG_FUNCTIONS_H_ */

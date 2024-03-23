@@ -37,6 +37,8 @@ extern char *getTableNamefromPo(ProjectionOperator *po);
 extern List *getARfromPoAr(ProjectionOperator *po);
 extern List *getNamesfromPoAr(ProjectionOperator *po);
 
+extern QueryOperator *cleanEXPL(QueryOperator *qo);
+
 
 //Input : AttributeReference (Data Type : DT_STRING)
 //Pitput : array of Ascii codes of string (Data Type : DT_INT)
@@ -48,6 +50,59 @@ extern List *toAsciiList(ProjectionOperator *po);
 
 //Input : List of projection expressions(contains Ascii, AttributeReference, CastExpr)
 extern List *getAsciiAggrs(List *projExprs, ProjectionOperator *po);
+
+
+
+QueryOperator *cleanEXPL(QueryOperator *qo)
+{
+
+	List *cleanExprs = NIL;
+	List *cleanNames = NIL;
+
+	FOREACH(AttributeDef, a, qo->schema->attrDefs)
+	{
+
+//			AttributeReference *ar = createFullAttrReference(a->attrName, 0,
+//					getAttrPos(analysis, a->attrName), 0, a->dataType);
+//			cleanExprs = appendToTailOfList(cleanExprs, ar);
+//			cleanNames = appendToTailOfList(cleanNames, a->attrName);
+
+		if(streq(a->attrName, "fscoreTopK"))
+		{
+			continue;
+		}
+		else if(isSuffix(a->attrName, "r2") && isPrefix(a->attrName, "ig"))
+		{
+			continue;
+		}
+		else if(isSuffix(a->attrName, "1"))
+		{
+			continue;
+		}
+		else
+		{
+			AttributeReference *ar = createFullAttrReference(a->attrName, 0,
+					getAttrPos(qo, a->attrName), 0, a->dataType);
+			cleanExprs = appendToTailOfList(cleanExprs, ar);
+			cleanNames = appendToTailOfList(cleanNames, a->attrName);
+		}
+
+
+
+	}
+
+	ProjectionOperator *cleanpo = createProjectionOp(cleanExprs,
+			qo, NIL, cleanNames);
+
+	addParent(qo, (QueryOperator *) cleanpo);
+	switchSubtrees(qo, (QueryOperator *) cleanpo);
+
+	return (QueryOperator *) cleanpo;
+
+
+}
+
+
 
 
 //rewrite conversion functions

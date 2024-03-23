@@ -1528,11 +1528,14 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 	FOREACH(AttributeDef, a, joinOp->schema->attrDefs)
 	{
-		AttributeReference *ar = createFullAttrReference(a->attrName, 0,
-			getAttrPos((QueryOperator *) joinOp, a->attrName), 0, a->dataType);
+		if(!isSuffix(a->attrName, "1"))
+		{
+			AttributeReference *ar = createFullAttrReference(a->attrName, 0,
+				getAttrPos((QueryOperator *) joinOp, a->attrName), 0, a->dataType);
 
-		projExprsClean = appendToTailOfList(projExprsClean,ar);
-		attrNamesClean = appendToTailOfList(attrNamesClean,ar->name);
+			projExprsClean = appendToTailOfList(projExprsClean,ar);
+			attrNamesClean = appendToTailOfList(attrNamesClean,ar->name);
+		}
 	}
 
 	ProjectionOperator *po = createProjectionOp(projExprsClean, NULL, NIL, attrNamesClean);
@@ -1605,6 +1608,7 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	AggregationOperator *analysisAggr = createAggregationOp(aggrsAnalysis, groupByAnalysis, NULL, NIL, analysisCorrNames);
 	addChildOperator((QueryOperator *) analysisAggr, (QueryOperator *) dr);
 	switchSubtrees((QueryOperator *) dr, (QueryOperator *) analysisAggr);
+
 
 	LOG_RESULT("Rewritten Pattern Generation tree for patterns", analysisAggr);
 	return analysisAggr;
@@ -2319,61 +2323,14 @@ rewriteIG_Projection (ProjectionOperator *op)
 		AggregationOperator *patterns = rewriteIG_PatternGeneration(sumrows);
 
 		QueryOperator *analysis = rewriteIG_Analysis(patterns);
-
 		INFO_OP_LOG("Rewritten Operator tree for patterns", (QueryOperator *) analysis);
 
+		//this was only created for QueryOperator *analysis
+		//do not use it with AggregationOperator
+		QueryOperator *cleanqo = cleanEXPL((QueryOperator *) analysis);
 
-//		//-------------------------
-		//clean up projection here
-		List *cleanExprs = NIL;
-		List *cleanNames = NIL;
-
-		FOREACH(AttributeDef, a, analysis->schema->attrDefs)
-		{
-
-//			AttributeReference *ar = createFullAttrReference(a->attrName, 0,
-//					getAttrPos(analysis, a->attrName), 0, a->dataType);
-//			cleanExprs = appendToTailOfList(cleanExprs, ar);
-//			cleanNames = appendToTailOfList(cleanNames, a->attrName);
-
-			if(streq(a->attrName, FSCORETOPK))
-			{
-				continue;
-			}
-			else if(isSuffix(a->attrName, "r2") && isPrefix(a->attrName, "ig"))
-			{
-				continue;
-			}
-//			else if(isSuffix(a->attrName, "1"))
-//			{
-//				continue;
-//			}
-			else
-			{
-				AttributeReference *ar = createFullAttrReference(a->attrName, 0,
-						getAttrPos(analysis, a->attrName), 0, a->dataType);
-				cleanExprs = appendToTailOfList(cleanExprs, ar);
-				cleanNames = appendToTailOfList(cleanNames, a->attrName);
-			}
-
-
-
-		}
-
-		ProjectionOperator *cleanpo = createProjectionOp(cleanExprs,
-				analysis, NIL, cleanNames);
-
-		addParent(analysis, (QueryOperator *) cleanpo);
-		switchSubtrees(analysis, (QueryOperator *) cleanpo);
-
-		//--------------------------
-
-		return (QueryOperator *) analysis;
-
-		return analysis;
+		return cleanqo;
 	}
-
-
 }
 
 static QueryOperator *
