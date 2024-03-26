@@ -2281,11 +2281,10 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 					cleanExprs = appendToTailOfList(cleanExprs, a);
 					l = strlen(a->name);
-					char *s1 = substr(a->name, 0, 4); //contains : value
-//					char *s1 = strdup(IG_PREFIX);
-					char *s2 = substr(a->name, 21, l - 7); //contains : tableName_attributeName
-					displayName = CONCAT_STRINGS(s1, s2);
-//					displayName = substr(a->name, 0, l - 7);
+//					char *s1 = substr(a->name, 0, 4); //contains : value
+					char *s2 = substr(a->name, 21, l - 7); //contains : _tableName_attributeName
+//					displayName = CONCAT_STRINGS(s1, s2);
+					displayName = CONCAT_STRINGS("IG", s2);
 					cleanNames = appendToTailOfList(cleanNames, displayName);
 
 				}

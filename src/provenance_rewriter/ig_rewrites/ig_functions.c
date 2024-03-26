@@ -62,20 +62,11 @@ QueryOperator *cleanEXPL(QueryOperator *qo)
 	FOREACH(AttributeDef, a, qo->schema->attrDefs)
 	{
 
-//			AttributeReference *ar = createFullAttrReference(a->attrName, 0,
-//					getAttrPos(analysis, a->attrName), 0, a->dataType);
-//			cleanExprs = appendToTailOfList(cleanExprs, ar);
-//			cleanNames = appendToTailOfList(cleanNames, a->attrName);
-
 		if(streq(a->attrName, "fscoreTopK"))
 		{
 			continue;
 		}
 		else if(isSuffix(a->attrName, "r2") && isPrefix(a->attrName, "ig"))
-		{
-			continue;
-		}
-		else if(isSuffix(a->attrName, "1"))
 		{
 			continue;
 		}
@@ -86,9 +77,6 @@ QueryOperator *cleanEXPL(QueryOperator *qo)
 			cleanExprs = appendToTailOfList(cleanExprs, ar);
 			cleanNames = appendToTailOfList(cleanNames, a->attrName);
 		}
-
-
-
 	}
 
 	ProjectionOperator *cleanpo = createProjectionOp(cleanExprs,
