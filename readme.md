@@ -1,15 +1,50 @@
 [![analytics](http://www.google-analytics.com/collect?v=1&t=pageview&_s=1&dl=https%3A%2F%2Fgithub.com%2FIITDBGroup%2Fgprom%2Fmain&_u=MAC~&cid=123456789&tid=UA-92255635-2)]()
 [![Build Status](https://travis-ci.org/IITDBGroup/gprom.svg?branch=master)](https://travis-ci.org/IITDBGroup/gprom)
 
-# Overview
+# PEDS Overview
 
-**GProM** is a database middleware that adds provenance support to multiple database backends. Provenance is information about how data was produced by database operations. That is, for a row in the database or returned by a query we capture from which rows it was derived and by which operations. The system compiles declarative queries with provenance requests into SQL code and executes this SQL code on a backend database system. GProM supports provenance capture for SQL queries and transactions, and produces provenance graphs explaining existing and missing answers for Datalog queries. Provenance is captured on demand by using a compilation technique called *instrumentation*. Instrumentation rewrites an SQL query (or past transaction) into a query that returns rows paired with their provenance. The output of the instrumentation process is a regular SQL query that can be executed using any standard relational database. The instrumented query generated from a provenance request returns a standard relation that maps rows to their provenance. Provenance for transactions is captured retroactively using a declarative replay technique called *reenactment* that we have developed at IIT. GProM extends multiple frontend languages (e.g., SQL and Datalog) with provenance requests and can produce code for multiple backends (currently Oracle). For information about the research behind GProM have a look at the IIT DBGroup's [webpage](http://www.cs.iit.edu/%7edbgroup/research/gprom.php). 
+**PEDS** is an exension of GProM, middleware that adds provenance support to multiple database backends. Provenance is information about how data was produced by database operations. That is, for a row in the database or returned by a query we capture from which rows it was derived and by which operations. PEDS builds on the capabilities of GProM to rewrite input queries further into rewriting those queries for more complex actions. PEDS supports annotation and capture of where and how provenances in their respective columns along with calculating a distance metric between two tuples during integration step. PEDS also provides meaningful 'k' patterns that can be found in the integrated dataset and orders them. For information about the research behind PEDS have a look at the link : https://scholar.google.com/citationsview_op=view_citation&hl=en&user=RzClsh8AAAAJ&citation_for_view=RzClsh8AAAAJ:roLk4NBRz8UC
 
-GProM provides an interactive shell `gprom`, a C library `libgprom`, and a JDBC driver.
 
-# Online Demos
+# Simple Demo
+To run a simple PEDS sinerio you just need to go to the PEDS directory and run the following commands 
+c1 ./scripts/eig_run.sh 3 "IG OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
+c2 ./scripts/eig_run.sh 3 "IGEXPL TOP 10 OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
 
-* [Online Demo for PUG Provenance Graph Explorer](http://ec2-18-218-236-30.us-east-2.compute.amazonaws.com:5000/)
+where owned and shared is sample data from a real-world Air Quality Index dataset(AQI).
+
+sample data for owned 
+
+schema : year(y) | county(c) | dayswaqi(d) | maqi(m)
+
+ year | county    | dayswaqi | maqi | 
+-------------------------------------
+ 2021 | Colbert   | 274      | 200  |
+ 2021 | Jackson   | 366      | 200  |
+ 2022 | Jefferson | 348      | 271  |
+ 2022 | Autauga   | 179      | 177  |
+
+sample data for shared
+
+ year | county    | gdays | maqi | 
+----------------------------------
+ 2021 | Jackson   | 85   | 156  |
+ 2022 | Colbert   | 66   | 200  |
+ 2022 | Jefferson | 66   | 221  |
+ 2021 | Colbert   | 66   | 168  |
+ 2022 | Autauga   | 122  | 177  |
+
+output for q1
+
+ year | county    | dayswaqi | maqi | gdays | IG_year | IG_county | IG_dayswaqi | IG_maqi | IG_gdays | Total_IG |
+-----------------------------------------------------------------------------------------------------------------
+ 2021 | Colbert   | 274      | 168  | 66    | 0       | 0         | 0           | 2       | 2        | 4        |
+ 2021 | Jackson   | 366      | 156  | 85    | 0       | 0         | 0           | 3       | 4        | 7        |
+ 2022 | Jefferson | 348      | 221  | 66    | 0       | 0         | 0           | 5       | 2        | 7        |
+ 2022 | Autauga   | 179      | 177  | 122   | 0       | 0         | 0           | 0       | 5        | 5        |
+ 2022 | Colbert   | null     | 200  | 66    | 0       | 0         | 0           | 3       | 2        | 5        |
+
+output for q2
 
 # Documentation (Wiki Links)
 
@@ -26,6 +61,10 @@ GProM provides an interactive shell `gprom`, a C library `libgprom`, and a JDBC 
 
 # Features
 
++ Annotation and capture of where and how provenance
++ Calculation of degree of new information i.e Information Gain (IG)
++ Computation of quality patterns
++ Analysis of patterns
 + Flexible on-demand provenance capture and querying for SQL queries using language-level instrumentation, i.e., by running SQL queries.
 + Retroactive provenance capture for transactions using reenactment. Notably, our approach requires no changes to the transactional workload and underlying DBMS
 + Produce provenance graphs for Datalog queries that explain why (provenance) or why-not (missing answers) a tuple is in the result of a Datalog query
@@ -34,7 +73,7 @@ GProM provides an interactive shell `gprom`, a C library `libgprom`, and a JDBC 
 
 # Usage #
 
-To use **gprom**, the interactive shell of GProM, you will need to have one of the supported backend databases installed. For casual use cases, you can stick to SQLite. However, to fully exploit the features of GProM, you should use Oracle. We also provide several docker containers with gprom preinstalled (see [here](https://github.com/IITDBGroup/gprom/wiki/docker)) When starting gprom, you have to specify connection parameters to the database. For example, using one of the convenience wrapper scripts that ship with GProM, you can connected to a test SQLite database included in the repository by running the following command in the main source folder after installation:
+To use **PEDS**, you will just need to install gprom, the interactive shell of GProM, you will need to have one of the supported backend databases installed. For casual use cases, you can stick to SQLite. However, to fully exploit the features of GProM, you should use Oracle. We also provide several docker containers with gprom preinstalled (see [here](https://github.com/IITDBGroup/gprom/wiki/docker)) When starting gprom, you have to specify connection parameters to the database. For example, using one of the convenience wrapper scripts that ship with GProM, you can connected to a test SQLite database included in the repository by running the following command in the main source folder after installation:
 
 ```
 gprom -backend sqlite -db ./examples/test.db
@@ -88,5 +127,5 @@ sudo make install
 
 # Research and Background
 
-The functionality of GProM is based on a long term research effort by the [IIT DBGroup](http://www.cs.iit.edu/~dbgroup/) studying how to capture provenance on-demand using instrumentation. Links to [publications](http://www.cs.iit.edu/~dbgroup/publications) and more research oriented descriptions of the techniques implemented in GProM can be found at [http://www.cs.iit.edu/~dbgroup/research](http://www.cs.iit.edu/~dbgroup/research).
+PEDS builds on GProM and the functionality of GProM is based on a long term research effort by the [IIT DBGroup](http://www.cs.iit.edu/~dbgroup/) studying how to capture provenance on-demand using instrumentation. Links to [publications](http://www.cs.iit.edu/~dbgroup/publications) and more research oriented descriptions of the techniques implemented in GProM can be found at [http://www.cs.iit.edu/~dbgroup/research](http://www.cs.iit.edu/~dbgroup/research).
 
