@@ -1,14 +1,18 @@
 # PEDS Overview
 
-**PEDS** is an exension of GProM, middleware that adds provenance support to multiple database backends. Provenance is information about how data was produced by database operations. That is, for a row in the database or returned by a query we capture from which rows it was derived and by which operations. PEDS builds on the capabilities of GProM to rewrite input queries further into rewriting those queries for more complex actions. PEDS supports annotation and capture of where and how provenances in their respective columns along with calculating a distance metric between two tuples during integration step. PEDS also provides meaningful 'k' patterns that can be found in the integrated dataset and orders them. For information about the research behind PEDS have a look at the link : https://scholar.google.com/citationsview_op=view_citation&hl=en&user=RzClsh8AAAAJ&citation_for_view=RzClsh8AAAAJ:roLk4NBRz8UC
+**PEDS** is a framework that allows users to estimate the price of data shared between buyers and sellers and generate explanations of the estimated price. It is an extension of GProM that adds provenance support for complex queries on relational database systems. Provenance is information about how a query's result was produced over several database operations. That is, for a row in a table returned by a query we capture from which rows it was derived from the input table and by which operations. PEDS builds on the capabilities of GProM to rewrite input queries into rewritten queries for more complex actions. PEDS captures where and how provenance through annotations and their respective columns along with calculating a distance metric between two tuples during integration of data. PEDS also provides meaningful top-*k* patterns as an explanation that are extracted based on various metrics determining the pattern's contribution to the estimated price. 
+
+<!--For information about the research behind PEDS have a look at the link : https://scholar.google.com/citationsview_op=view_citation&hl=en&user=RzClsh8AAAAJ&citation_for_view=RzClsh8AAAAJ:roLk4NBRz8UC-->
 
 
 # Simple Demo
-To run a simple PEDS sinerio you just need to go to the PEDS directory and run the following commands 
-+ ./scripts/eig_run.sh 3 "IG OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
-+ ./scripts/eig_run.sh 3 "IGEXPL TOP 10 OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
+To run a simple PEDS sinerio, you can write a command in the following format:
++ to estimate the price: ./scripts/eig_run.sh ${log_level} "IG OF (${query});"
+  + ./scripts/eig_run.sh 3 "IG OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
++ to compute explanations: ./scripts/eig_run.sh ${log_level} "IGEXPL TOP ${k} OF (${query});"
+  + ./scripts/eig_run.sh 3 "IGEXPL TOP 10 OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
 
-where owned and shared is sample data from a real-world Air Quality Index dataset(AQI).
+Below, we show sample data from a real-world Air Quality Index dataset(AQI) for the example queries above.
 This demo shows a simple sinerio to familiarize the users with two of PEDS functionality. 
 + (i)  That computed the degree of new information and
 + (ii) That shows meaningful patterns found after integration step.
@@ -55,6 +59,7 @@ output for second command. Shows the best patterns and the f_score based on whic
 
 ```
 
+<!--
 # Documentation (Wiki Links)
 
 * [Installation Instructions](https://github.com/IITDBGroup/gprom/wiki/installation)
@@ -122,10 +127,13 @@ Oracle SQL - SQLite:./examples/test.db$ \q
 ```
 
 Provenance for SQL queries is only one of the features supported by GProM. A full list of SQL language extensions supported by GProM can be found in the [wiki](https://github.com/IITDBGroup/gprom/wiki/). See the [man page](https://github.com/IITDBGroup/gprom/blob/master/doc/gprom_man.md) of gprom for further information how to use the CLI of the system. 
+--> 
 
 # Installation
 
-The [wiki](https://github.com/IITDBGroup/gprom/wiki/installation) has detailed installation instructions. In a nutshell, GProM can be compiled with support for different database backends and is linked against the C client libraries of these database backends. The installation follows the standard procedure using GNU build tools. Checkout the git repository, install all dependencies and run:
+PEDS installation follows the installation of GProM. The [wiki](https://github.com/IITDBGroup/gprom/wiki/installation) has detailed installation instructions. 
+<!--In a nutshell, GProM can be compiled with support for different database backends and is linked against the C client libraries of these database backends.--> 
+The installation follows the standard procedure using GNU build tools. Checkout the git repository, install all dependencies and run:
 
 ```
 ./autogen.sh
@@ -134,7 +142,8 @@ make
 sudo make install
 ```
 
+<!--
 # Research and Background
 
 PEDS builds on GProM and the functionality of GProM is based on a long term research effort by the [IIT DBGroup](http://www.cs.iit.edu/~dbgroup/) studying how to capture provenance on-demand using instrumentation. Links to [publications](http://www.cs.iit.edu/~dbgroup/publications) and more research oriented descriptions of the techniques implemented in GProM can be found at [http://www.cs.iit.edu/~dbgroup/research](http://www.cs.iit.edu/~dbgroup/research).
-
+-->
