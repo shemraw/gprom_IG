@@ -1,6 +1,3 @@
-![image](https://github.com/UCDBG/PEDS/assets/131382689/8b4e1d88-59f8-413e-a771-79e19c278345)[![analytics](http://www.google-analytics.com/collect?v=1&t=pageview&_s=1&dl=https%3A%2F%2Fgithub.com%2FIITDBGroup%2Fgprom%2Fmain&_u=MAC~&cid=123456789&tid=UA-92255635-2)]()
-[![Build Status](https://travis-ci.org/IITDBGroup/gprom.svg?branch=master)](https://travis-ci.org/IITDBGroup/gprom)
-
 # PEDS Overview
 
 **PEDS** is an exension of GProM, middleware that adds provenance support to multiple database backends. Provenance is information about how data was produced by database operations. That is, for a row in the database or returned by a query we capture from which rows it was derived and by which operations. PEDS builds on the capabilities of GProM to rewrite input queries further into rewriting those queries for more complex actions. PEDS supports annotation and capture of where and how provenances in their respective columns along with calculating a distance metric between two tuples during integration step. PEDS also provides meaningful 'k' patterns that can be found in the integrated dataset and orders them. For information about the research behind PEDS have a look at the link : https://scholar.google.com/citationsview_op=view_citation&hl=en&user=RzClsh8AAAAJ&citation_for_view=RzClsh8AAAAJ:roLk4NBRz8UC
@@ -8,10 +5,11 @@
 
 # Simple Demo
 To run a simple PEDS sinerio you just need to go to the PEDS directory and run the following commands 
-c1 ./scripts/eig_run.sh 3 "IG OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
-c2 ./scripts/eig_run.sh 3 "IGEXPL TOP 10 OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
++ ./scripts/eig_run.sh 3 "IG OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
++ ./scripts/eig_run.sh 3 "IGEXPL TOP 10 OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
 
 where owned and shared is sample data from a real-world Air Quality Index dataset(AQI).
+
 ```
 sample data for owned 
 
@@ -32,7 +30,7 @@ sample data for shared
  2021 | Colbert   | 66   | 168  |
  2022 | Autauga   | 122  | 177  |
 
-output for q1
+output for first command. Shows IG only
 
  year | county    | dayswaqi | maqi | gdays | IG_year | IG_county | IG_dayswaqi | IG_maqi | IG_gdays | Total_IG |
 -----------------------------------------------------------------------------------------------------------------
@@ -42,16 +40,15 @@ output for q1
  2022 | Autauga   | 179      | 177  | 122   | 0       | 0         | 0           | 0       | 5        | 5        |
  2022 | Colbert   | null     | 200  | 66    | 0       | 0         | 0           | 3       | 2        | 5        |
 
-output for q2
+output for second command. Shows the best patterns and the f_score based on which they are ranked on
 
  year | county    | dayswaqi | maqi | gdays | imp | info | cov | f_score |
 -------------------------------------------------------------------------- 
  2022 | *         | *       | *     | 66    | 12  | 2    | 2   | 11.29   |
  *    | Colbert   | *       | *     | 66    | 9   | 2    | 2   | 10.29   |
  *    | *         | *       | *     | 66    | 16  | 1    | 3   | 9.14    |
- 2022 | *         | *       | *     | *     | 11  | 1    | 2   | 4.25    |
  2021 | *         | *       | *     | *     | 17  | 1    | 3   | 5.87    |
-
+ 2022 | *         | *       | *     | *     | 11  | 1    | 2   | 4.25    |
 
 ```
 
