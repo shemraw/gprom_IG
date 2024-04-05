@@ -9,6 +9,9 @@ To run a simple PEDS sinerio you just need to go to the PEDS directory and run t
 + ./scripts/eig_run.sh 3 "IGEXPL TOP 10 OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
 
 where owned and shared is sample data from a real-world Air Quality Index dataset(AQI).
+This demo shows a simple sinerio to familiarize the users with two of PEDS functionality. 
++ (i)  That computed the degree of new information and
++ (ii) That shows meaningful patterns found after integration step.
 
 ```
 sample data for owned 
