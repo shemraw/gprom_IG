@@ -7,10 +7,12 @@
 
 # Simple Demo
 To run a simple PEDS sinerio, you can write a command in the following format:
-+ to estimate the price: ./scripts/eig_run.sh ${log_level} "IG OF (${query});"
-  + ./scripts/eig_run.sh 3 "IG OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
-+ to compute explanations: ./scripts/eig_run.sh ${log_level} "IGEXPL TOP ${k} OF (${query});"
-  + ./scripts/eig_run.sh 3 "IGEXPL TOP 10 OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
++ to estimate the price
+  + ./scripts/eig_run.sh ${log_level} "IG OF (${query});"
+  + Example: ./scripts/eig_run.sh 3 "IG OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
++ to compute explanations
+  + ./scripts/eig_run.sh ${log_level} "IGEXPL TOP ${k} OF (${query});"
+  + Example: ./scripts/eig_run.sh 3 "IGEXPL TOP 10 OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
 
 Below, we show sample data from a real-world Air Quality Index dataset(AQI) for the example queries above.
 This demo shows a simple sinerio to familiarize the users with two of PEDS functionality. 
