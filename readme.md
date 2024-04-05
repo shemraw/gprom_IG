@@ -133,9 +133,7 @@ Provenance for SQL queries is only one of the features supported by GProM. A ful
 
 # Installation
 
-PEDS installation follows the installation of GProM. The [wiki](https://github.com/IITDBGroup/gprom/wiki/installation) has detailed installation instructions. 
-<!--In a nutshell, GProM can be compiled with support for different database backends and is linked against the C client libraries of these database backends.--> 
-The installation follows the standard procedure using GNU build tools. Checkout the git repository, install all dependencies and run:
+PEDS installation follows the installation of GProM. The [wiki](https://github.com/IITDBGroup/gprom/wiki/installation) has detailed installation instructions. <!--In a nutshell, GProM can be compiled with support for different database backends and is linked against the C client libraries of these database backends.--> The installation follows the standard procedure using GNU build tools. Checkout the git repository, install all dependencies and run:
 
 ```
 ./autogen.sh
