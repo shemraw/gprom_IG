@@ -1,4 +1,4 @@
-[![analytics](http://www.google-analytics.com/collect?v=1&t=pageview&_s=1&dl=https%3A%2F%2Fgithub.com%2FIITDBGroup%2Fgprom%2Fmain&_u=MAC~&cid=123456789&tid=UA-92255635-2)]()
+![image](https://github.com/UCDBG/PEDS/assets/131382689/8b4e1d88-59f8-413e-a771-79e19c278345)[![analytics](http://www.google-analytics.com/collect?v=1&t=pageview&_s=1&dl=https%3A%2F%2Fgithub.com%2FIITDBGroup%2Fgprom%2Fmain&_u=MAC~&cid=123456789&tid=UA-92255635-2)]()
 [![Build Status](https://travis-ci.org/IITDBGroup/gprom.svg?branch=master)](https://travis-ci.org/IITDBGroup/gprom)
 
 # PEDS Overview
@@ -12,10 +12,8 @@ c1 ./scripts/eig_run.sh 3 "IG OF (select * from owned o FULL OUTER JOIN shared s
 c2 ./scripts/eig_run.sh 3 "IGEXPL TOP 10 OF (select * from owned o FULL OUTER JOIN shared s ON(o.county = s.county AND o.year = s.year));"
 
 where owned and shared is sample data from a real-world Air Quality Index dataset(AQI).
-
+```
 sample data for owned 
-
-schema : year(y) | county(c) | dayswaqi(d) | maqi(m)
 
  year | county    | dayswaqi | maqi | 
 -------------------------------------
@@ -45,6 +43,17 @@ output for q1
  2022 | Colbert   | null     | 200  | 66    | 0       | 0         | 0           | 3       | 2        | 5        |
 
 output for q2
+
+ year | county    | dayswaqi | maqi | gdays | imp | info | cov | f_score |
+-------------------------------------------------------------------------- 
+ 2022 | *         | *       | *     | 66    | 12  | 2    | 2   | 11.29   |
+ *    | Colbert   | *       | *     | 66    | 9   | 2    | 2   | 10.29   |
+ *    | *         | *       | *     | 66    | 16  | 1    | 3   | 9.14    |
+ 2022 | *         | *       | *     | *     | 11  | 1    | 2   | 4.25    |
+ 2021 | *         | *       | *     | *     | 17  | 1    | 3   | 5.87    |
+
+
+```
 
 # Documentation (Wiki Links)
 
