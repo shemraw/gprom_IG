@@ -405,8 +405,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 }
 
-/*
-//rewriteIG_SumExprs
 static ProjectionOperator *
 rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 {
@@ -464,7 +462,6 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 
 }
 
-*/
 
 //rewriteIG_HammingFunctions
 static ProjectionOperator *
@@ -638,11 +635,13 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
     FOREACH(AttributeDef, a, newProj->op.schema->attrDefs)
 	{
+    	//commenting out IG attributes here to keep outputs clean
     	if(isPrefix(a->attrName, IG_PREFIX))
     	{
-    		AttributeReference *ar = createFullAttrReference(a->attrName, 0, x, 0, DT_BIT10);
-			exprs = appendToTailOfList(exprs, ar);
-			atNames = appendToTailOfList(atNames, a->attrName);
+//    		AttributeReference *ar = createFullAttrReference(a->attrName, 0, x, 0, DT_BIT10);
+//			exprs = appendToTailOfList(exprs, ar);
+//			atNames = appendToTailOfList(atNames, a->attrName);
+    		continue;
     	}
     	else
     	{
@@ -656,117 +655,41 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 	List *igAttrL = NIL;
 	List *igAttrR = NIL;
-//	List *igAttrLnames = NIL;
-//	List *igAttrRnames = NIL;
-//	List *attrNameLOrig = NIL;
-//	List *attrNameROrig = NIL;
-
 
 	FOREACH(AttributeDef, n, newProj->op.schema->attrDefs)
 	{
-//		List *functioninput = NIL;
-//		List *cast = NIL;
-
-
 		if(isPrefix(n->attrName, IG_PREFIX) && !isSuffix(n->attrName, INTEG_SUFFIX))
 		{
 
 			if (isSubstr(n->attrName, "owned") != FALSE)
 			{
-//				char *ch = substr(n->attrName, 14, strlen(n->attrName) - 1);
 				AttributeReference *ar = getAttrRefByName((QueryOperator *) newProj, n->attrName);
 				igAttrL = appendToTailOfList(igAttrL, ar);
-//				igAttrLnames = appendToTailOfList(igAttrLnames, n->attrName);
-//				attrNameLOrig = appendToTailOfList(attrNameLOrig, ch);
 			}
 
 			if (isSubstr(n->attrName, "shared") != FALSE)
 			{
-//				char *ch = substr(n->attrName, 15, strlen(n->attrName) - 1);
 				AttributeReference *ar = getAttrRefByName((QueryOperator *) newProj, n->attrName);
 				igAttrR = appendToTailOfList(igAttrR, ar);
-//				igAttrRnames = appendToTailOfList(igAttrRnames, n->attrName);
-//				attrNameROrig = appendToTailOfList(attrNameROrig, ch);
 			}
 		}
-
-//		exprs = appendToTailOfList(exprs,igAttrL);
-//		exprs = appendToTailOfList(exprs,igAttrR);
-//		atNames = appendToTailOfList(exprs,igAttrLnames);
-//		atNames = appendToTailOfList(exprs,igAttrRnames);
-//		atNames = appendToTailOfList(exprs,attrNameLOrig);
-//		atNames = appendToTailOfList(exprs,attrNameROrig);
-
-//		if(isPrefix(n->attrName, IG_PREFIX) && isSuffix(n->attrName, INTEG_SUFFIX))
-//		{
-//			char *origNameOfInteg = replaceSubstr(n->attrName,INTEG_SUFFIX,"");
-//
-//			if(MAP_HAS_STRING_KEY(nameToIgAttrRef, origNameOfInteg))
-//			{
-//
-//				AttributeReference *attrIgL = getAttrRefByName((QueryOperator *) newProj, n->attrName);
-//				AttributeReference *attrIgR = getAttrRefByName((QueryOperator *) newProj, origNameOfInteg);
-//
-//				AttributeDef *origAttrDef = getAttrDefByName((QueryOperator *) newProj, origNameOfInteg);
-//
-//				if(!searchListNode(commonAttrNames, (Node *) origAttrDef) &&
-//						!searchListNode(joinAttrNames, (Node *) origAttrDef) &&
-//							searchListNode(attrR, (Node *) origAttrDef))
-//				{
-//					CastExpr *castL;
-//					castL = createCastExpr((Node *) attrIgL, DT_STRING);
-//					cast = LIST_MAKE(castL, createConstString("0000000000"));
-//
-//					FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
-//					exprs = appendToTailOfList(exprs,hammingdist);
-//					atNames = appendToTailOfList(atNames, CONCAT_STRINGS(HAMMING_PREFIX, n->attrName));
-//				}
-//				else
-//				{
-//					CastExpr *castL;
-//					CastExpr *castR;
-//
-//					castL = createCastExpr((Node *) attrIgL, DT_STRING);
-//					castR = createCastExpr((Node *) attrIgR, DT_STRING);
-//
-//					cast = appendToTailOfList(cast, castL);
-//					cast = appendToTailOfList(cast, castR);
-//
-//					functioninput = appendToTailOfList(functioninput, attrIgL);
-//					functioninput = appendToTailOfList(functioninput, attrIgR);
-//
-//					FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
-//					Node *cond = (Node *)(createOpExpr("=",functioninput));
-//					Node *then = (Node *)(createConstString("0000000000"));
-//					Node *els  = (Node *) hammingdist;
-//
-//					CaseWhen *caseWhen = createCaseWhen(cond, then);
-//					CaseExpr *caseExpr = createCaseExpr(NULL, singleton(caseWhen), els);
-//
-//					exprs = appendToTailOfList(exprs,caseExpr);
-//					atNames = appendToTailOfList(atNames, CONCAT_STRINGS(HAMMING_PREFIX, n->attrName));
-//				}
-//
-//			}
-//
-//		}
 	}
 
-//	List *testinputs = NIL;
 	int LL = LIST_LENGTH(igAttrL);
+	int RR = LIST_LENGTH(igAttrR);
 	int lend = 1;
-//	int R = LIST_LENGTH(igAttrR);
-	//hamming function for all same attributes first
+	int rend = 1;
+
+	// 1. hamming function for all same/common attributes first
+	// 2. renaming the attribute names || Keeping the table Names for now
 	FOREACH(AttributeReference, arR, igAttrR)
 	{
-//		List *functioninput = NIL;
 		List *cast = NIL;
 		char *chR = substr(arR->name, 15, strlen(arR->name) - 1);
 		lend = 1;
 		FOREACH(AttributeReference, arL, igAttrL)
 		{
 			char *chL = substr(arL->name, 14, strlen(arL->name) - 1);
-
 			if(strcmp(chR, chL) == 0 )
 			{
 				CastExpr *castL;
@@ -778,14 +701,11 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 				FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
 				exprs = appendToTailOfList(exprs,hammingdist);
-				atNames = appendToTailOfList(atNames, CONCAT_STRINGS(HAMMING_PREFIX, arR->name));
-				//for testing purpoes
-//				testinputs = appendToTailOfList(testinputs, hammingdist);
-//				lend = lend + 1;
+				char *name = CONCAT_STRINGS(HAMMING_PREFIX, substr(arR->name, 8 , strlen(arR->name) - 1));
+				atNames = appendToTailOfList(atNames, name);
+//				atNames = appendToTailOfList(atNames, CONCAT_STRINGS(HAMMING_PREFIX, arR->name));
 				break;
 			}
-			// conditions for different attributes
-			// modify this for complex query
 
 //			data schema for reference
 //			owned L
@@ -793,31 +713,56 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 //			shared R
 //			county year gdays maqi
 
-			// we need unique attributes just from shared and owned
+			// we need unique attributes just from shared R
 			else if(lend >= LL)
 			{
 				CastExpr *castR;
 				castR = createCastExpr((Node *) arR, DT_STRING);
-
 				cast = LIST_MAKE(createConstString("0000000000"), castR);
 
 				FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
 				exprs = appendToTailOfList(exprs,hammingdist);
-				atNames = appendToTailOfList(atNames, CONCAT_STRINGS(HAMMING_PREFIX, arR->name));
-				//for testing purpoes
-//				testinputs = appendToTailOfList(testinputs, hammingdist);
+				char *name = CONCAT_STRINGS(HAMMING_PREFIX, substr(arR->name, 8 , strlen(arR->name) - 1));
+				atNames = appendToTailOfList(atNames, name);
+//				atNames = appendToTailOfList(atNames, CONCAT_STRINGS(HAMMING_PREFIX, arR->name));
 			}
-			else
+			else if(strcmp(chR, chL) != 0)
 			{
 				lend = lend + 1;
-//				continue;
 			}
-
-
 		}
 	}
 
-//	exprs = appendToTailOfList(exprs,testinputs);
+	// we need unique attributes just from owned L
+	FOREACH(AttributeReference, arL, igAttrL)
+	{
+		List *cast = NIL;
+		char *chL = substr(arL->name, 14, strlen(arL->name) - 1);
+		rend = 1;
+		FOREACH(AttributeReference, arR, igAttrR)
+		{
+			char *chR = substr(arR->name, 15, strlen(arR->name) - 1);
+			if(strcmp(chR, chL) == 0 )
+			{
+				break;
+			}
+			else if(rend >= RR)
+			{
+				CastExpr *castL;
+				castL = createCastExpr((Node *) arL, DT_STRING);
+				cast = LIST_MAKE(createConstString("0000000000"), castL);
+				FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
+				exprs = appendToTailOfList(exprs,hammingdist);
+				char *name = CONCAT_STRINGS(HAMMING_PREFIX, substr(arL->name, 8 , strlen(arL->name) - 1));
+				atNames = appendToTailOfList(atNames, name);
+			}
+			else
+			{
+				rend = rend + 1;
+			}
+
+		}
+	}
 
 	ProjectionOperator *hamming_op = createProjectionOp(exprs, NULL, NIL, atNames);
 
@@ -895,7 +840,9 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 			FunctionCall *hammingdistvalue = createFunctionCall("hammingdistvalue", singleton(a));
 
 			h_valueExprs = appendToTailOfList(h_valueExprs, hammingdistvalue);
-			h_valueName = appendToTailOfList(h_valueName, CONCAT_STRINGS(VALUE_IG, a->name));
+			char *name = CONCAT_STRINGS(VALUE_IG ,substr(a->name, 8, strlen(a->name) - 1));
+//			h_valueName = appendToTailOfList(h_valueName, CONCAT_STRINGS(VALUE_IG, a->name));
+			h_valueName = appendToTailOfList(h_valueName, name);
 		}
 
 		posV++;
@@ -935,8 +882,6 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	return hammingvalue_op;
 }
 
-
-/*
 static AggregationOperator *
 rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 {
@@ -1117,7 +1062,6 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 		}
 	}
 
-
 	addParent((QueryOperator *) clean, (QueryOperator *) ao);
 	switchSubtrees((QueryOperator *) clean, (QueryOperator *) ao);
 
@@ -1192,8 +1136,6 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 	ProjectionOperator *inform = createProjectionOp(informExprs, (QueryOperator *) ao, NIL, informNames);
 	addParent((QueryOperator *) ao, (QueryOperator *) inform);
-
-
 	switchSubtrees((QueryOperator *) ao, (QueryOperator *) inform);
 
 	INFO_OP_LOG("Generate Patterns While Computing Informativeness and Coverage: ", inform);
@@ -1652,7 +1594,6 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	switchSubtrees((QueryOperator *) joinOp, (QueryOperator *) po);
 	SET_BOOL_STRING_PROP(po, PROP_MATERIALIZE);
 
-
 	//-----------------------------------
 
 	// Adding duplicate elimination
@@ -1684,9 +1625,19 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	{
 		if(isPrefix(n->attrName, "value"))
 		{
-			int len = strlen(n->attrName) - 1;
-			char *name = substr(n->attrName, 14, len);
-			analysisCorrNames = appendToTailOfList(analysisCorrNames, CONCAT_STRINGS(name, "_r2"));
+			if(isSubstr(n->attrName, "owned") != FALSE)
+			{
+				int len = strlen(n->attrName) - 1;
+				char *name = substr(n->attrName, 12, len);
+				analysisCorrNames = appendToTailOfList(analysisCorrNames, CONCAT_STRINGS(name, "_r2"));
+			}
+			else if(isSubstr(n->attrName, "shared") != FALSE)
+			{
+				int len = strlen(n->attrName) - 1;
+				char *name = substr(n->attrName, 13, len);
+				analysisCorrNames = appendToTailOfList(analysisCorrNames, CONCAT_STRINGS(name, "_r2"));
+			}
+
 		}
 	}
 
@@ -1896,7 +1847,6 @@ rewriteIG_Analysis (AggregationOperator *patterns)
 
 }
 
-*/
 
 
 static QueryOperator *
@@ -2371,10 +2321,9 @@ rewriteIG_Projection (ProjectionOperator *op)
 	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(newProj);
 
 //	This function adds the + expression to calculate the total distance
-//	ProjectionOperator *sumrows = rewriteIG_SumExprs(hammingvalue_op);
+	ProjectionOperator *sumrows = rewriteIG_SumExprs(hammingvalue_op);
 
-	return (QueryOperator *) hammingvalue_op;
-	/*
+//	return (QueryOperator *) sumrows;
 	if(explFlag == FALSE)
 	{
 
@@ -2383,6 +2332,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 		List *cleanExprs = NIL;
 		List *cleanNames = NIL;
 
+		//converting name : value to IG
 		FOREACH(AttributeReference, a, sumrows->projExprs)
 		{
 
@@ -2391,14 +2341,15 @@ rewriteIG_Projection (ProjectionOperator *op)
 				if(isPrefix(a->name, VALUE_IG))
 				{
 					char *displayName = NULL;
-					int l = 0;
+//					int l = 0;
 
 					cleanExprs = appendToTailOfList(cleanExprs, a);
-					l = strlen(a->name);
+//					l = strlen(a->name);
 //					char *s1 = substr(a->name, 0, 4); //contains : value
-					char *s2 = substr(a->name, 21, l - 7); //contains : _tableName_attributeName
+//					char *s2 = substr(a->name, 21, l - 7); //contains : _tableName_attributeName
 //					displayName = CONCAT_STRINGS(s1, s2);
-					displayName = CONCAT_STRINGS("IG", s2);
+					char *s2 = substr(a->name, 6, strlen(a->name) - 1); //contains : _tableName_attributeName
+					displayName = CONCAT_STRINGS("IG_", s2);
 					cleanNames = appendToTailOfList(cleanNames, displayName);
 
 				}
@@ -2444,7 +2395,6 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 		return cleanqo;
 	}
-	*/
 
 
 }
