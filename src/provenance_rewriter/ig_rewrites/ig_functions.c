@@ -144,7 +144,6 @@ List *toAsciiList(ProjectionOperator *op)
 }
 
 
-// test function
 List *getAsciiAggrs(List *projExprs, ProjectionOperator *po)
 {
 	List *aggrs = NIL;

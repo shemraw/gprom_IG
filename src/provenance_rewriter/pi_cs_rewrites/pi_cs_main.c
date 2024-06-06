@@ -1342,27 +1342,12 @@ rewritePI_CSTableAccess(TableAccessOperator *op)
     	if(provType == PROV_PI_CS)
     		newAttrName = getProvenanceAttrName(op->tableName, attr->attrName, relAccessCount);
 
-//    	if(provType == IG_PI_CS)
-//    		newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
-
         provAttr = appendToTailOfList(provAttr, newAttrName);
-
-//    	if(provType == PROV_PI_CS)
    		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
 
     	cnt++;
     }
-/*
-    cnt = 0;
 
-    FOREACH(AttributeDef, attr, op->op.schema->attrDefs)
-	   {
-		   newAttrName = getProvenanceAttrName1(op->tableName, attr->attrName, relAccessCount);
-		   provAttr = appendToTailOfList(provAttr, newAttrName);
-		   projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
-		   cnt++;
-	   }
-*/
     List *newProvPosList = NIL;
     CREATE_INT_SEQ(newProvPosList, cnt, (cnt * 2) - 1, 1);
 
