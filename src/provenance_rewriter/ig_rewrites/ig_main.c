@@ -355,58 +355,65 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 	ProjectionOperator *addPo = createProjectionOp(projExprs, NULL, NIL, newNames);;
 
-	// Getting Table name and length of table name here
-	char *tableName = NULL;
-	tableName = getTableNamefromPo(addPo);
-
-	int temp = 0;
-	int tableLength = strlen(tableName);
-	attrNames = NIL;
-	List *newProjExpr = NIL;
-	List *newProjExpr1 = NIL;
-	List *newProjExpr2 = NIL;
-
-
-	// Getting original attributes
-	newProjExpr1 = getARfromPoAr(addPo);
-	attrNames = getNamesfromPoAr(addPo);
-	// Creating _anno Attribute
-	FOREACH(AttributeReference, n, addPo->projExprs)
-	{
-
-		if(temp == 0)
-		{
-			newProjExpr = appendToTailOfList(newProjExpr, createConstString(tableName));
-			temp++;
-		}
-		else if (isPrefix(n->name, IG_PREFIX))
-		{
-			CastExpr *cast;
-			cast = createCastExpr((Node *) n, DT_STRING);
-			newProjExpr = appendToTailOfList(newProjExpr, cast);
-
-			//this adds first 3 letter for the variable in concat
-			int end = strlen(strrchr(n->name, '_'));
-
-			newProjExpr = appendToTailOfList(newProjExpr,
-					createConstString((substr(n->name, 9 + tableLength, 9 + tableLength + end - 2))));
-		}
-	}
-
-	attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS(tableName, "_anno"));
-	newProjExpr = LIST_MAKE(createOpExpr("||", newProjExpr));
-	newProjExpr2 = concatTwoLists(newProjExpr1, newProjExpr);
-
-	ProjectionOperator *concat = createProjectionOp(newProjExpr2, NULL, NIL, attrNames);
-
-	addChildOperator((QueryOperator *) concat, (QueryOperator *) newPo);
+	addChildOperator((QueryOperator *) addPo, (QueryOperator *) newPo);
 
 	// Switch the subtree with this newly created projection operator.
-	switchSubtrees((QueryOperator *) newPo, (QueryOperator *) concat);
+	switchSubtrees((QueryOperator *) newPo, (QueryOperator *) addPo);
 
-	LOG_RESULT("Converted Operator tree", concat);
-	return (QueryOperator *) concat;
+	// Getting Table name and length of table name here
+//	char *tableName = NULL;
+//	tableName = getTableNamefromPo(addPo);
+//
+//	int temp = 0;
+//	int tableLength = strlen(tableName);
+//	attrNames = NIL;
+//	List *newProjExpr = NIL;
+//	List *newProjExpr1 = NIL;
+//	List *newProjExpr2 = NIL;
 
+
+//	// Getting original attributes
+//	newProjExpr1 = getARfromPoAr(addPo);
+//	attrNames = getNamesfromPoAr(addPo);
+//	// Creating _anno Attribute
+//	FOREACH(AttributeReference, n, addPo->projExprs)
+//	{
+//
+//		if(temp == 0)
+//		{
+//			newProjExpr = appendToTailOfList(newProjExpr, createConstString(tableName));
+//			temp++;
+//		}
+//		else if (isPrefix(n->name, IG_PREFIX))
+//		{
+//			CastExpr *cast;
+//			cast = createCastExpr((Node *) n, DT_STRING);
+//			newProjExpr = appendToTailOfList(newProjExpr, cast);
+//
+//			//this adds first 3 letter for the variable in concat
+//			int end = strlen(strrchr(n->name, '_'));
+//
+//			newProjExpr = appendToTailOfList(newProjExpr,
+//					createConstString((substr(n->name, 9 + tableLength, 9 + tableLength + end - 2))));
+//		}
+//	}
+//
+//	attrNames = appendToTailOfList(attrNames, CONCAT_STRINGS(tableName, "_anno"));
+//	newProjExpr = LIST_MAKE(createOpExpr("||", newProjExpr));
+//	newProjExpr2 = concatTwoLists(newProjExpr1, newProjExpr);
+//
+//	ProjectionOperator *concat = createProjectionOp(newProjExpr2, NULL, NIL, attrNames);
+//
+//	addChildOperator((QueryOperator *) concat, (QueryOperator *) newPo);
+//
+//	// Switch the subtree with this newly created projection operator.
+//	switchSubtrees((QueryOperator *) newPo, (QueryOperator *) concat);
+
+//	LOG_RESULT("Converted Operator tree", concat);
+//	return (QueryOperator *) concat;
+
+	LOG_RESULT("Converted Operator tree", addPo);
+	return (QueryOperator *) addPo;
 
 }
 
@@ -2664,6 +2671,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 					(searchArList(leftAttributes, arR->name) == 1))
 			{
 				inputL = appendToTailOfList(inputL, arR);
+				inputName = appendToTailOfList(inputName, arR->name);
 			}
 		}
 	}
