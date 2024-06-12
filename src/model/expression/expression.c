@@ -98,6 +98,15 @@ createFullAttrReference (char *name, int fromClause, int attrPos,
     return result;
 }
 
+//AttributeDef *
+//createFullAttrDef (char *attrName, DataType dataType)
+//{
+//	AttributeDef *result = makeNode(AttributeDef);
+//    result->attrName = strdup(attrName);
+//    result->dataType = dataType;
+//
+//    return result;
+//}
 
 CastExpr *
 createCastExpr (Node *expr, DataType resultDt)

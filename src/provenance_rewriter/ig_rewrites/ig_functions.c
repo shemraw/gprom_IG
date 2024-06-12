@@ -51,8 +51,6 @@ extern List *toAsciiList(ProjectionOperator *po);
 //Input : List of projection expressions(contains Ascii, AttributeReference, CastExpr)
 extern List *getAsciiAggrs(List *projExprs, ProjectionOperator *po);
 
-
-
 QueryOperator *cleanEXPL(QueryOperator *qo)
 {
 

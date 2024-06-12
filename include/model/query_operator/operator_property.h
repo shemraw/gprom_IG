@@ -211,6 +211,8 @@
 #define IG_PROP_JOIN_ATTR "IG_PROP_JOIN_ATTR"
 #define IG_PROP_JOIN_ATTR_R "IG_PROP_JOIN_ATTR_R"
 #define IG_PROP_ORIG_ATTR "IG_PROP_ORIG_ATTR"
+#define IG_INPUT_PROP "IG_INPUT_PROP"
+#define IG_JOIN_PROP "IG_JOIN_PROP"
 
 
 /* properties for aggregation operators created by lateral rewrite */

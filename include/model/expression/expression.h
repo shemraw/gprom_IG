@@ -77,6 +77,13 @@ typedef struct AttributeReference {
     DataType attrType;
 } AttributeReference;
 
+//typedef struct AttributeDef
+//{
+//    NodeTag type;
+//    DataType dataType;
+//    char *attrName;
+//} AttributeDef;
+
 typedef struct SQLParameter {
     NodeTag type;
     char *name;
@@ -231,6 +238,8 @@ extern Operator *createSumExpr (char *name, List *args);
 extern AttributeReference *createAttributeReference (char *name);
 extern AttributeReference *createFullAttrReference (char *name, int fromClause, int attrPos,
         int outerLevelsUp, DataType attrType);
+
+//extern AttributeDef *createFullAttrDef (char *attrName, DataType dataType);
 
 extern CastExpr *createCastExpr (Node *expr, DataType resultDt);
 extern CastExpr *createstring_to_arrayExpr (Node *expr, DataType resultDt, char delim);
