@@ -2507,7 +2507,8 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	//creating input for conversion
 	List *inputL = NIL; // owned
 	List *inputR = NIL; // shared
-	List *inputs = NIL; // all
+	List *input = NIL; // all
+	List *inputName = NIL;
 	List *allattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_INPUT_PROP);
 	List *joinattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_JOIN_PROP);
 	globalTableLen = LIST_LENGTH(op->op.schema->attrDefs);
@@ -2519,21 +2520,25 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 		if(loop == 1)
 		{
 			inputL = appendToTailOfList(inputL, ar);
+			inputName = appendToTailOfList(inputName, ar->name);
 			loop++;
 		}
 		else if(loop == 2)
 		{
 			inputR = appendToTailOfList(inputR, ar);
+			inputName = appendToTailOfList(inputName, ar->name);
 			loop++;
 		}
 		else if(loop == 3)
 		{
 			inputL = appendToTailOfList(inputL, ar);
+			inputName = appendToTailOfList(inputName, ar->name);
 			loop++;
 		}
 		else if(loop == 4)
 		{
 			inputR = appendToTailOfList(inputR, ar);
+			inputName = appendToTailOfList(inputName, ar->name);
 			loop++;
 		}
 	}
@@ -2546,7 +2551,8 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 			{
 				if(strcmp(attrDef->attrName, ar->name) == 0)
 				{
-					inputL = appendToTailOfList(inputL, attrDef);
+					inputL = appendToTailOfList(inputL, ar);
+					inputName = appendToTailOfList(inputName, ar->name);
 				}
 			}
 
@@ -2561,21 +2567,25 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 				{
 					if(strcmp(atName, attrDef->attrName) == 0)
 					{
-						attrDef->attrName = atName;
-						inputR = appendToTailOfList(inputR, attrDef);
+						ar->name = atName;
+						inputR = appendToTailOfList(inputR, ar);
+						inputName = appendToTailOfList(inputName, ar->name);
 					}
 
 				}
 				else if(strcmp(ar->name, attrDef->attrName) == 0)
 				{
-					inputR = appendToTailOfList(inputR, attrDef);
+					inputR = appendToTailOfList(inputR, ar);
+					inputName = appendToTailOfList(inputName, ar->name);
 				}
 			}
 		}
 	}
 
 	tablePos = tablePos + 1; // to change 0 from 1
-	inputs = CONCAT_LISTS(inputL, inputR); // all attrDefs
+	input = CONCAT_LISTS(inputL, inputR); // all attrDefs
+
+	ProjectionOperator *inputPo = createProjectionOp(input, NULL, NIL, inputName);
 
 	int cnt = 0;
 	List *attrNames = NIL;
@@ -2589,7 +2599,8 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 //		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
 //		cnt++;
 //	}
-	FOREACH(AttributeDef, attr, inputs)
+
+	FOREACH(AttributeDef, attr, inputPo->op.schema->attrDefs)
 	{
 		attrNames = appendToTailOfList(attrNames, strdup(attr->attrName));
 		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
@@ -2608,7 +2619,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 //   		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
 //    	cnt++;
 //    }
-    FOREACH(AttributeDef, attr, inputs)
+    FOREACH(AttributeDef, attr, inputPo->op.schema->attrDefs)
     {
     	newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
     	attrNames = appendToTailOfList(attrNames, newAttrName);
