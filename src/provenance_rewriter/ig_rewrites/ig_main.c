@@ -70,6 +70,7 @@ static Node *asOf;
 static RelCount *nameState;
 List *attrL = NIL;
 List *attrR = NIL;
+
 int tablePos = 0; // 0 = L || 1 = R
 int globalTableLen = 0;
 static boolean explFlag;
@@ -2452,6 +2453,15 @@ rewriteIG_Join (JoinOperator *op)
 	SET_STRING_PROP(rChild, IG_JOIN_PROP, joinExprs);
 	SET_STRING_PROP(lChild, IG_JOIN_PROP, joinExprs);
 
+	List *lProp = NIL;
+	FOREACH(AttributeDef, adef, lChild->schema->attrDefs)
+	{
+		lProp = appendToTailOfList(lProp, createFullAttrReference(adef->attrName, 0, 0,
+				0, adef->dataType));
+	}
+
+//	SET_STRING_PROP(rChild, IG_L_PROP, lProp);
+//	SET_STRING_PROP(lChild, IG_L_PROP, lProp);
 
     lChild = rewriteIG_Operator(lChild);
     rChild = rewriteIG_Operator(rChild);
@@ -2513,35 +2523,39 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	List *joinattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_JOIN_PROP);
 	globalTableLen = LIST_LENGTH(op->op.schema->attrDefs);
 
-	//adding join operators
+	//adding join attributes
 	int loop = 1;
 	FOREACH(AttributeReference, ar, joinattrs)
 	{
-		if(loop == 1)
+		if(tablePos == 0)
 		{
-			inputL = appendToTailOfList(inputL, ar);
-			inputName = appendToTailOfList(inputName, ar->name);
-			loop++;
+			if(loop % 2 == 1)
+			{
+				inputL = appendToTailOfList(inputL, ar);
+				inputName = appendToTailOfList(inputName, ar->name);
+				loop++;
+			}
+			else
+			{
+				loop++;
+			}
 		}
-		else if(loop == 2)
+		else if(tablePos == 1)
 		{
-			inputR = appendToTailOfList(inputR, ar);
-			inputName = appendToTailOfList(inputName, ar->name);
-			loop++;
+			if(loop % 2 == 0)
+			{
+				inputR = appendToTailOfList(inputR, ar);
+				inputName = appendToTailOfList(inputName, ar->name);
+				loop++;
+			}
+			else
+			{
+				loop++;
+			}
 		}
-		else if(loop == 3)
-		{
-			inputL = appendToTailOfList(inputL, ar);
-			inputName = appendToTailOfList(inputName, ar->name);
-			loop++;
-		}
-		else if(loop == 4)
-		{
-			inputR = appendToTailOfList(inputR, ar);
-			inputName = appendToTailOfList(inputName, ar->name);
-			loop++;
-		}
+
 	}
+
 	// adding input attributes
 	FOREACH(AttributeReference, ar, allattrs) // loop for all attrRef in properties
 	{
@@ -2551,8 +2565,15 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 			{
 				if(strcmp(attrDef->attrName, ar->name) == 0)
 				{
-					inputL = appendToTailOfList(inputL, ar);
-					inputName = appendToTailOfList(inputName, ar->name);
+					if(searchArList(inputL, ar->name) == 1) // 1 = TRUE
+					{
+						continue;
+					}
+					else
+					{
+						inputL = appendToTailOfList(inputL, ar);
+						inputName = appendToTailOfList(inputName, ar->name);
+					}
 				}
 			}
 
@@ -2567,20 +2588,86 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 				{
 					if(strcmp(atName, attrDef->attrName) == 0)
 					{
-						ar->name = atName;
-						inputR = appendToTailOfList(inputR, ar);
-						inputName = appendToTailOfList(inputName, ar->name);
+						if(searchArList(inputR, atName) == 1) // 1 = TRUE
+						{
+							continue;
+						}
+						else
+						{
+							ar->name = atName;
+							inputR = appendToTailOfList(inputR, ar);
+							inputName = appendToTailOfList(inputName, ar->name);
+						}
 					}
 
 				}
 				else if(strcmp(ar->name, attrDef->attrName) == 0)
 				{
-					inputR = appendToTailOfList(inputR, ar);
-					inputName = appendToTailOfList(inputName, ar->name);
+					if(searchArList(inputR, attrDef->attrName) == 1) // 1 = TRUE
+					{
+						continue;
+					}
+					else
+					{
+						inputR = appendToTailOfList(inputR, ar);
+						inputName = appendToTailOfList(inputName, ar->name);
+					}
 				}
 			}
 		}
 	}
+
+//	List *lAttrList = (List *) GET_STRING_PROP((QueryOperator *) op, IG_L_PROP);
+
+	List *rightAttributes = NIL;
+	List *leftAttributes = NIL;
+	FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
+	{
+		leftAttributes = appendToTailOfList(leftAttributes,
+				createFullAttrReference(adef->attrName, 0, 0, 0, adef->dataType));
+	}
+	// adding attributes to Left side (owned) if they exist on the Right side (shared)
+	if(tablePos == 0)
+	{
+		// populating rightAttributes for next step
+		FOREACH(AttributeReference, ar , allattrs)
+		{
+			if(ar->attrPosition >= globalTableLen)
+			{
+				int l = strlen(ar->name);
+				ar->name = substr(ar->name, 0, l - 2);
+				rightAttributes = appendToTailOfList(rightAttributes, ar);
+			}
+		}
+
+//		FOREACH(AttributeReference, arL, leftAttributes)
+//		{
+//			FOREACH(AttributeReference, arR, rightAttributes)
+//			{
+//				if(searchArList(rightAttributes, arL->name) == 1)
+//				{
+//					continue;
+//				}
+//				else
+//				{
+//					if(searchArList(lAttrList, arR->name) == 1)
+//					{
+//						inputL = appendToTailOfList(inputL, arR);
+//					}
+//				}
+//			}
+//		}
+
+		FOREACH(AttributeReference, arR, rightAttributes)
+		{
+			if((searchArList(inputL, arR->name) == 0) &&
+					(searchArList(leftAttributes, arR->name) == 1))
+			{
+				inputL = appendToTailOfList(inputL, arR);
+			}
+		}
+	}
+
 
 	tablePos = tablePos + 1; // to change 0 from 1
 	input = CONCAT_LISTS(inputL, inputR); // all attrDefs

@@ -36,6 +36,7 @@ extern List *getARfromAttrDefswPos(QueryOperator *qo, List *attrDefs);
 extern char *getTableNamefromPo(ProjectionOperator *po);
 extern List *getARfromPoAr(ProjectionOperator *po);
 extern List *getNamesfromPoAr(ProjectionOperator *po);
+extern int searchArList(List *arList, char *ch);
 
 extern QueryOperator *cleanEXPL(QueryOperator *qo);
 
@@ -50,6 +51,18 @@ extern List *toAsciiList(ProjectionOperator *po);
 
 //Input : List of projection expressions(contains Ascii, AttributeReference, CastExpr)
 extern List *getAsciiAggrs(List *projExprs, ProjectionOperator *po);
+
+int searchArList(List *arList, char *ch)
+{
+	FOREACH(AttributeReference, ar, arList)
+	{
+		if(strcmp(ar->name, ch) == 0)
+		{
+			return 1; // 1 = TRUE
+		}
+	}
+	return 0; // 0 = FALSE
+}
 
 QueryOperator *cleanEXPL(QueryOperator *qo)
 {

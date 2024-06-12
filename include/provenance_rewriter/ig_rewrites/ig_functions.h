@@ -13,6 +13,7 @@ extern List *getARfromAttrDefswPos(QueryOperator *qo, List *attrDefs);
 extern char *getTableNamefromPo(ProjectionOperator *po);
 extern List *getARfromPoAr(ProjectionOperator *po);
 extern List *getNamesfromPoAr(ProjectionOperator *po);
+extern int searchArList(List *arList, char *ch);
 
 extern QueryOperator *rewriteIG_test (QueryOperator *qo);
 
