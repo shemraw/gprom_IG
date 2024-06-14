@@ -279,6 +279,25 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	// Switch the subtree with this newly created projection operator.
 	switchSubtrees((QueryOperator *) op, (QueryOperator *) po);
 
+	// Creating a new projection so ascii(unnest(string_to_array(ig_conv_owned_county, NULL)))) does not end up in SUM function
+	List *cleanExprs = NIL;
+	List *cleanNames = NIL;
+
+	FOREACH(AttributeDef, a, po->op.schema->attrDefs)
+	{
+		cleanExprs = appendToTailOfList(cleanExprs,
+				createFullAttrReference(a->attrName, 0,
+						getAttrPos((QueryOperator *) po, a->attrName), 0, a->dataType));
+
+		cleanNames = appendToTailOfList(cleanNames, a->attrName);
+	}
+
+	//creating projection operator before aggregation op. This is NEEDED!
+	ProjectionOperator *cleanpo = createProjectionOp(cleanExprs, NULL, NIL, cleanNames);
+	addChildOperator((QueryOperator *) cleanpo, (QueryOperator *) po);
+	// Switch the subtree with this newly created projection operator.
+	switchSubtrees((QueryOperator *) po, (QueryOperator *) cleanpo);
+
 	List *aggrs = NIL;
 	List *groupBy = NIL;
 	List *newNames = NIL;
@@ -324,9 +343,9 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		}
 	}
 
-	addChildOperator((QueryOperator *) ao, (QueryOperator *) po);
+	addChildOperator((QueryOperator *) ao, (QueryOperator *) cleanpo);
 	// Switch the subtree with this newly created projection operator.
-	switchSubtrees((QueryOperator *) po, (QueryOperator *) ao);
+	switchSubtrees((QueryOperator *) cleanpo, (QueryOperator *) ao);
 
 	// CREATING THE NEW PROJECTION OPERATOR
 	projExprs = NIL;
