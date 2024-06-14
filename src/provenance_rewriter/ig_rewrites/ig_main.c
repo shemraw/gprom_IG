@@ -2718,13 +2718,28 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 
 	// Creating IG attributes
     char *newAttrName;
+    List *copyAllattrs = copyObject(allattrs);
 
+    //TODO: retrieve the original attribute name
+    FOREACH(AttributeReference, ar, copyAllattrs)
+    {
+    	if(isSuffix(ar->name,"1"))
+    	{
+    		ar->name = replaceSubstr(ar->name,"1","");
+    	}
+    }
+
+	// duplicating IG attributes
     FOREACH(AttributeDef, attr, inputPo->op.schema->attrDefs)
     {
-    	newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
-    	attrNames = appendToTailOfList(attrNames, newAttrName);
-    	projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0,
-    					getAttrPos((QueryOperator *) op, attr->attrName), 0, attr->dataType));
+    	//check an attribute is an attribute in the projection operation of input query
+    	if(searchArList(copyAllattrs, attr->attrName) == 1)
+    	{
+        	newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
+        	attrNames = appendToTailOfList(attrNames, newAttrName);
+        	projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0,
+        					getAttrPos((QueryOperator *) op, attr->attrName), 0, attr->dataType));
+    	}
 
 //    	if(searchArList(joinattrs, attr->attrName) == 1)
 //    	{

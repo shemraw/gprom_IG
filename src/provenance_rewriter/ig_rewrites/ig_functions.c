@@ -56,7 +56,7 @@ int searchArList(List *arList, char *ch)
 {
 	FOREACH(AttributeReference, ar, arList)
 	{
-		if(strcmp(ar->name, ch) == 0)
+		if(streq(ar->name, ch))
 		{
 			return 1; // 1 = TRUE
 		}
