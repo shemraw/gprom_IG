@@ -63,8 +63,8 @@ static QueryOperator *rewriteIG_Projection(ProjectionOperator *op);
 static QueryOperator *rewriteIG_Selection(SelectionOperator *op);
 static QueryOperator *rewriteIG_Join(JoinOperator *op);
 static QueryOperator *rewriteIG_TableAccess(TableAccessOperator *op);
-//static ProjectionOperator *rewriteIG_SumExprs(ProjectionOperator *op);
-//static ProjectionOperator *rewriteIG_HammingFunctions(ProjectionOperator *op);
+static ProjectionOperator *rewriteIG_SumExprs(ProjectionOperator *op);
+static ProjectionOperator *rewriteIG_HammingFunctions(ProjectionOperator *op);
 
 static Node *asOf;
 static RelCount *nameState;
@@ -462,8 +462,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 }
 
-
-/*
 
 static ProjectionOperator *
 rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
@@ -1907,8 +1905,6 @@ rewriteIG_Analysis (AggregationOperator *patterns)
 
 }
 
-*/
-
 static QueryOperator *
 rewriteIG_Projection (ProjectionOperator *op)
 {
@@ -1916,10 +1912,8 @@ rewriteIG_Projection (ProjectionOperator *op)
     DEBUG_LOG("REWRITE-IG - Integration");
     DEBUG_LOG("Operator tree \n%s", nodeToString(op));
 
-    //moving the conversion step here
-
     // store original attributes in the input query
-//    List *origAttrs = op->projExprs;
+    List *origAttrs = op->projExprs;
 
     // store the join query
     if(HAS_STRING_PROP(OP_LCHILD(op), PROP_JOIN_OP_IG))
@@ -2331,9 +2325,10 @@ rewriteIG_Projection (ProjectionOperator *op)
     addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
     switchSubtrees((QueryOperator *) op, (QueryOperator *) newProj);
 
-    return (QueryOperator *) newProj;
 
-/*
+//    INFO_OP_LOG("Rewritten Projection tree ---------", (QueryOperator *) newProj);
+//    return (QueryOperator *) newProj;
+
 
     // TODO: coalesce becomes DT_STRING
     int pos = 0;
@@ -2384,15 +2379,13 @@ rewriteIG_Projection (ProjectionOperator *op)
 			copyObject(GET_STRING_PROP(op, PROP_JOIN_OP_IG)));
 
     INFO_OP_LOG("Rewritten Operator tree for all IG attributes", newProj);
+//    return (QueryOperator *) newProj;
 
-    return (QueryOperator *) newProj;
-*/
 //    INFO_OP_LOG("Rewritten Operator tree for all IG attributes", rewriteIG_HammingFunctions(newProj));
 //    INFO_OP_LOG("Rewritten Operator tree for all IG attributes", rewriteIG_SumExprs(newProj));
 //    INFO_OP_LOG("Rewritten Operator tree for all IG attributes", rewriteIG_PatternGeneration(newProj));
 //    INFO_OP_LOG("Rewritten Operator tree for all IG attributes", rewriteIG_Analysis((AggregationOperator *) newProj));
 
-    /*
 //  This function creates hash maps and adds hamming distance functions
 	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(newProj);
 
@@ -2471,9 +2464,6 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 		return cleanqo;
 	}
-	*/
-
-
 }
 
 static QueryOperator *
@@ -2671,13 +2661,15 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 
 //	List *lAttrList = (List *) GET_STRING_PROP((QueryOperator *) op, IG_L_PROP);
 
-	List *rightAttributes = NIL;
-	List *leftAttributes = NIL;
+	List *rightAttributes = NIL; // right attribute from input query
+	List *leftAttributes = NIL; // all the left attributes fron the input query
+	List *currentAttributes = NIL; // all the attributes in current table || for first iteration its in owned table
 	FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
 	{
-		leftAttributes = appendToTailOfList(leftAttributes,
+		currentAttributes = appendToTailOfList(currentAttributes,
 				createFullAttrReference(adef->attrName, 0, 0, 0, adef->dataType));
 	}
+
 	// adding attributes to Left side (owned) if they exist on the Right side (shared)
 	if(tablePos == 0)
 	{
@@ -2690,30 +2682,16 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 				ar->name = substr(ar->name, 0, l - 2);
 				rightAttributes = appendToTailOfList(rightAttributes, ar);
 			}
+			else if(ar->attrPosition < globalTableLen)
+			{
+				leftAttributes = appendToTailOfList(leftAttributes, ar);
+			}
 		}
-
-//		FOREACH(AttributeReference, arL, leftAttributes)
-//		{
-//			FOREACH(AttributeReference, arR, rightAttributes)
-//			{
-//				if(searchArList(rightAttributes, arL->name) == 1)
-//				{
-//					continue;
-//				}
-//				else
-//				{
-//					if(searchArList(lAttrList, arR->name) == 1)
-//					{
-//						inputL = appendToTailOfList(inputL, arR);
-//					}
-//				}
-//			}
-//		}
 
 		FOREACH(AttributeReference, arR, rightAttributes)
 		{
 			if((searchArList(inputL, arR->name) == 0) &&
-					(searchArList(leftAttributes, arR->name) == 1))
+					(searchArList(currentAttributes, arR->name) == 1))
 			{
 				inputL = appendToTailOfList(inputL, arR);
 				inputName = appendToTailOfList(inputName, arR->name);
@@ -2727,51 +2705,56 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 
 	ProjectionOperator *inputPo = createProjectionOp(input, NULL, NIL, inputName);
 
-//	int cnt = 0;
 	List *attrNames = NIL;
 	List *projExpr = NIL;
-//	List *newProjExprs = NIL;
 
 	// normal attributes
 	FOREACH(AttributeDef, attr, inputPo->op.schema->attrDefs)
 	{
 		attrNames = appendToTailOfList(attrNames, strdup(attr->attrName));
-//		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
 		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0,
 				getAttrPos((QueryOperator *) op, attr->attrName), 0, attr->dataType));
-//		getAttrPos(child, ar->name);
-//		cnt++;
 	}
 
 	// Creating IG attributes
-//    cnt = 0;
     char *newAttrName;
-//    newProjExprs = copyObject(projExpr);
 
     FOREACH(AttributeDef, attr, inputPo->op.schema->attrDefs)
     {
     	newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
     	attrNames = appendToTailOfList(attrNames, newAttrName);
-//   		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
     	projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0,
     					getAttrPos((QueryOperator *) op, attr->attrName), 0, attr->dataType));
-//    	cnt++;
+
+//    	if(searchArList(joinattrs, attr->attrName) == 1)
+//    	{
+//    		FOREACH(AttributeReference, aref, allattrs)
+//			{
+//    			if(searchArList(joinattrs, aref->name) == 1)
+//    			{
+//    	    		continue;
+//    			}
+//			}
+//
+//    	}
+//    	else
+//    	{
+//        	newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
+//        	attrNames = appendToTailOfList(attrNames, newAttrName);
+//        	projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0,
+//        					getAttrPos((QueryOperator *) op, attr->attrName), 0, attr->dataType));
+//    	}
     }
-
-
-//    List *newIgPosList = NIL;
-//    CREATE_INT_SEQ(newIgPosList, cnt, (cnt * 2) - 1, 1);
 
 	ProjectionOperator *po = createProjectionOp(projExpr, NULL, NIL, attrNames);
 
-	// set ig attributes and property
-//	po->op.igAttrs = newIgPosList;
 	SET_BOOL_STRING_PROP((QueryOperator *) po, PROP_PROJ_IG_ATTR_DUP);
 
 	addChildOperator((QueryOperator *) po, (QueryOperator *) op);
 
 	// Switch the subtree with this newly created projection operator.
     switchSubtrees((QueryOperator *) op, (QueryOperator *) po);
+
 
     DEBUG_LOG("table access after adding additional attributes for ig: %s", operatorToOverviewString((Node *) po));
 
