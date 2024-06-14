@@ -50,7 +50,7 @@ extern Ascii *convertArtoAscii(AttributeReference *ar);
 extern List *toAsciiList(ProjectionOperator *po);
 
 //Input : List of projection expressions(contains Ascii, AttributeReference, CastExpr)
-extern List *getAsciiAggrs(List *projExprs, ProjectionOperator *po);
+extern List *getAsciiAggrs(List *projExprs);
 
 int searchArList(List *arList, char *ch)
 {
@@ -133,7 +133,7 @@ List *toAsciiList(ProjectionOperator *op)
 
 	FOREACH(AttributeReference, a, op->projExprs)
 	{
-		if(isPrefix(a->name,"ig"))
+		if(isPrefix(a->name, "ig"))
 		{
 			if (a->attrType == DT_STRING)
 			{
@@ -155,22 +155,21 @@ List *toAsciiList(ProjectionOperator *op)
 }
 
 
-List *getAsciiAggrs(List *projExprs, ProjectionOperator *po)
+List *getAsciiAggrs(List *projExprs)
 {
 	List *aggrs = NIL;
-	int i = 0;
-
-	FOREACH(Node,n,projExprs)
+	FOREACH(AttributeReference, n, projExprs)
 	{
 		if(isA(n,Ascii))
 		{
-			char *attrName = getAttrNameByPos((QueryOperator *) po, i);
-			AttributeReference *ar = createAttrsRefByName((QueryOperator *) po, attrName);
+			Ascii *ai = (Ascii *) n;
+			Unnest *un = (Unnest *) ai->expr;
+			StringToArray *sta = (StringToArray *) un->expr;
+			AttributeReference *ar = (AttributeReference *) sta->expr;
+			ar->attrType = DT_INT;
 			FunctionCall *sum = createFunctionCall("SUM", singleton(ar));
 			aggrs = appendToTailOfList(aggrs,sum);
 		}
-
-		i++;
 	}
 	return aggrs;
 }

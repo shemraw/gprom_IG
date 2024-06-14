@@ -27,7 +27,7 @@ extern Ascii *convertArtoAscii(AttributeReference *ar);
 extern List *toAsciiList(ProjectionOperator *po);
 
 //Input : List of projection expressions(contains Ascii, AttributeReference, CastExpr)
-extern List *getAsciiAggrs(List *projExprs, ProjectionOperator *po);
+extern List *getAsciiAggrs(List *projExprs);
 
 //clean up functions
 extern QueryOperator *cleanEXPL(QueryOperator *qo);

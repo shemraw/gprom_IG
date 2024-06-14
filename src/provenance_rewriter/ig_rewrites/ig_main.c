@@ -228,33 +228,53 @@ rewriteIG_Selection (SelectionOperator *op) //where clause
     return (QueryOperator *) op;
 }
 
-
 //rewriteIG_Conversion
 static QueryOperator *
 rewriteIG_Conversion (ProjectionOperator *op)
 {
-
-	List *newProjExprs = NIL;
+//	List *newProjExprs = NIL;
 	List *projExprs = NIL;
 	List *attrNames = NIL;
 
-	newProjExprs = toAsciiList(op);
-	op->projExprs = newProjExprs;
+
+//	op->projExprs = newProjExprs;
 
 	// CREATING a projection to not feed ascii expression into aggregation
+//	FOREACH(AttributeDef, a, op->op.schema->attrDefs)
+//	{
+//		if(isPrefix(a->attrName, "ig") && a->dataType == DT_STRING)
+//		{
+//			a->dataType = DT_INT;
+//		}
+//	}
+
+	// we need to preserve positions here
+//	projExprs = getARfromAttrDefs(op->op.schema->attrDefs);
+//	attrNames = getNamesfromAttrDefs(op->op.schema->attrDefs);
+
 	FOREACH(AttributeDef, a, op->op.schema->attrDefs)
 	{
-		if(isPrefix(a->attrName, "ig") && a->dataType == DT_STRING)
+
+		projExprs = appendToTailOfList(projExprs,
+				createFullAttrReference(a->attrName, 0,
+						getAttrPos((QueryOperator *) op, a->attrName), 0, a->dataType));
+
+		attrNames = appendToTailOfList(attrNames, a->attrName);
+	}
+
+	// create projection operator upon selection operator from select clause
+	ProjectionOperator *po = createProjectionOp(projExprs, NULL, NIL, attrNames);
+	po->projExprs = toAsciiList(po);
+
+	//changing schema for string attributes
+	FOREACH(AttributeDef, adef, po->op.schema->attrDefs)
+	{
+		if(isPrefix(adef->attrName, "ig") && adef->dataType == DT_STRING)
 		{
-			a->dataType = DT_INT;
+			adef->dataType = DT_INT;
 		}
 	}
 
-	projExprs = getARfromAttrDefs(op->op.schema->attrDefs);
-	attrNames = getNamesfromAttrDefs(op->op.schema->attrDefs);
-
-	//create projection operator upon selection operator from select clause
-	ProjectionOperator *po = createProjectionOp(projExprs, NULL, NIL, attrNames);
 	addChildOperator((QueryOperator *) po, (QueryOperator *) op);
 	// Switch the subtree with this newly created projection operator.
 	switchSubtrees((QueryOperator *) op, (QueryOperator *) po);
@@ -264,39 +284,45 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	List *newNames = NIL;
 	List *aggrNames = NIL;
 	List *groupByNames = NIL;
-	int i = 0;
 
-	FOREACH(Node, n, newProjExprs)
+	FOREACH(AttributeReference, n, po->projExprs)
 	{
-		if(isA(n,Ascii))
+		if(isA(n, Ascii))
 		{
-			char *attrName = getAttrNameByPos((QueryOperator *) po, i);
-			aggrNames = appendToTailOfList(aggrNames,attrName);
+			Ascii *ai = (Ascii *) n;
+			Unnest *un = (Unnest *) ai->expr;
+			StringToArray *sta = (StringToArray *) un->expr;
+			AttributeReference *ar = (AttributeReference *) sta->expr;
+			aggrNames = appendToTailOfList(aggrNames, ar->name);
 		}
 		else
 		{
-			if(isA(n,AttributeReference))
+			if(isA(n, AttributeReference))
 			{
-				groupBy = appendToTailOfList(groupBy,n);
-
-				AttributeReference *ar = (AttributeReference *) n;
-				groupByNames = appendToTailOfList(groupByNames,(ar->name));
+				groupBy = appendToTailOfList(groupBy, n);
+				groupByNames = appendToTailOfList(groupByNames, n->name);
 			}
 
-			if(isA(n,CastExpr))
+			if(isA(n, CastExpr))
 			{
 				CastExpr *ce = (CastExpr *) n;
 				AttributeReference *ar = (AttributeReference *) ce->expr;
 				groupBy = appendToTailOfList(groupBy, (Node *) ar);
 			}
 		}
-
-		i++;
 	}
 
 	newNames = CONCAT_LISTS(aggrNames, groupByNames);
-	aggrs = getAsciiAggrs(newProjExprs, po);
+	aggrs = getAsciiAggrs(po->projExprs);
 	AggregationOperator *ao = createAggregationOp(aggrs , groupBy, NULL, NIL, newNames);
+	//changing schema for string attributes
+	FOREACH(AttributeDef, adef, ao->op.schema->attrDefs)
+	{
+		if(isPrefix(adef->attrName, "ig") && adef->dataType == DT_STRING)
+		{
+			adef->dataType = DT_INT;
+		}
+	}
 
 	addChildOperator((QueryOperator *) ao, (QueryOperator *) po);
 	// Switch the subtree with this newly created projection operator.
@@ -314,7 +340,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	switchSubtrees((QueryOperator *) ao, (QueryOperator *) newPo);
 
 	// CAST_EXPR
-	newProjExprs = NIL;
+	List *newProjExprs = NIL;
 
 	FOREACH(AttributeReference, a, newPo->projExprs)
 	{
@@ -2560,7 +2586,6 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 				loop++;
 			}
 		}
-
 	}
 
 	// adding input attributes
@@ -2586,6 +2611,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 
 			else if(tablePos == 1 && (ar->attrPosition >= globalTableLen))
 			{
+				// NOTE : can use isPrefix/ isSuffix functions here
 				char *name = ar->name;
 				int l = strlen(name);
 				char *lc = substr(name, l - 1, l - 1); //last character from attribute reference
@@ -2682,54 +2708,45 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 
 	ProjectionOperator *inputPo = createProjectionOp(input, NULL, NIL, inputName);
 
-	int cnt = 0;
+//	int cnt = 0;
 	List *attrNames = NIL;
 	List *projExpr = NIL;
-	List *newProjExprs = NIL;
+//	List *newProjExprs = NIL;
 
 	// normal attributes
-//	FOREACH(AttributeDef, attr, op->op.schema->attrDefs)
-//	{
-//		attrNames = appendToTailOfList(attrNames, strdup(attr->attrName));
-//		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
-//		cnt++;
-//	}
-
 	FOREACH(AttributeDef, attr, inputPo->op.schema->attrDefs)
 	{
 		attrNames = appendToTailOfList(attrNames, strdup(attr->attrName));
-		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
-		cnt++;
+//		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
+		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0,
+				getAttrPos((QueryOperator *) op, attr->attrName), 0, attr->dataType));
+//		getAttrPos(child, ar->name);
+//		cnt++;
 	}
 
 	// Creating IG attributes
-    cnt = 0;
+//    cnt = 0;
     char *newAttrName;
-    newProjExprs = copyObject(projExpr);
+//    newProjExprs = copyObject(projExpr);
 
-//    FOREACH(AttributeDef, attr, op->op.schema->attrDefs)
-//    {
-//    	newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
-//    	attrNames = appendToTailOfList(attrNames, newAttrName);
-//   		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
-//    	cnt++;
-//    }
     FOREACH(AttributeDef, attr, inputPo->op.schema->attrDefs)
     {
     	newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
     	attrNames = appendToTailOfList(attrNames, newAttrName);
-   		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
-    	cnt++;
+//   		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0, cnt, 0, attr->dataType));
+    	projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0,
+    					getAttrPos((QueryOperator *) op, attr->attrName), 0, attr->dataType));
+//    	cnt++;
     }
 
 
-    List *newIgPosList = NIL;
-    CREATE_INT_SEQ(newIgPosList, cnt, (cnt * 2) - 1, 1);
+//    List *newIgPosList = NIL;
+//    CREATE_INT_SEQ(newIgPosList, cnt, (cnt * 2) - 1, 1);
 
 	ProjectionOperator *po = createProjectionOp(projExpr, NULL, NIL, attrNames);
 
 	// set ig attributes and property
-	po->op.igAttrs = newIgPosList;
+//	po->op.igAttrs = newIgPosList;
 	SET_BOOL_STRING_PROP((QueryOperator *) po, PROP_PROJ_IG_ATTR_DUP);
 
 	addChildOperator((QueryOperator *) po, (QueryOperator *) op);
@@ -2740,22 +2757,23 @@ rewriteIG_TableAccess(TableAccessOperator *op)
     DEBUG_LOG("table access after adding additional attributes for ig: %s", operatorToOverviewString((Node *) po));
 
 	// add projection expressions for ig attrs
-	FOREACH_INT(a, po->op.igAttrs)
-	{
-		AttributeDef *att = getAttrDef((QueryOperator *) po,a);
-		newProjExprs = appendToTailOfList(newProjExprs,
-						 createFullAttrReference(att->attrName, 0, a, 0, att->dataType));
-	}
+//	FOREACH_INT(a, po->op.igAttrs)
+//	{
+//		AttributeDef *att = getAttrDef((QueryOperator *) po,a);
+//		newProjExprs = appendToTailOfList(newProjExprs,
+//						 createFullAttrReference(att->attrName, 0, a, 0, att->dataType));
+//	}
 
-	ProjectionOperator *newPo = createProjectionOp(newProjExprs, NULL, NIL, attrNames);
-	addChildOperator((QueryOperator *) newPo, (QueryOperator *) po);
+//	ProjectionOperator *newPo = createProjectionOp(newProjExprs, NULL, NIL, attrNames);
+//	addChildOperator((QueryOperator *) newPo, (QueryOperator *) po);
+//
+//	// Switch the subtree with this newly created projection operator.
+//    switchSubtrees((QueryOperator *) po, (QueryOperator *) newPo);
+//
+//    DEBUG_LOG("table access after adding ig attributes to the schema: %s", operatorToOverviewString((Node *) newPo));
+//    LOG_RESULT("Rewritten TableAccess Operator tree", newPo);
 
-	// Switch the subtree with this newly created projection operator.
-    switchSubtrees((QueryOperator *) po, (QueryOperator *) newPo);
-
-    DEBUG_LOG("table access after adding ig attributes to the schema: %s", operatorToOverviewString((Node *) newPo));
-    LOG_RESULT("Rewritten TableAccess Operator tree", newPo);
-
-    return rewriteIG_Conversion(newPo);
-
+//    return rewriteIG_Conversion(newPo);
+    return rewriteIG_Conversion(po);
 }
+
