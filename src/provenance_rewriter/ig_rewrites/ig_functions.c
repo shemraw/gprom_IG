@@ -36,7 +36,12 @@ extern List *getARfromAttrDefswPos(QueryOperator *qo, List *attrDefs);
 extern char *getTableNamefromPo(ProjectionOperator *po);
 extern List *getARfromPoAr(ProjectionOperator *po);
 extern List *getNamesfromPoAr(ProjectionOperator *po);
+
 extern int searchArList(List *arList, char *ch);
+extern int searchAdefList(List *adefList, char *ch);
+
+extern List *removeDupeAr(List *arList);
+extern int searchArListByPos(List *arList, int pos);
 
 extern QueryOperator *cleanEXPL(QueryOperator *qo);
 
@@ -52,11 +57,55 @@ extern List *toAsciiList(ProjectionOperator *po);
 //Input : List of projection expressions(contains Ascii, AttributeReference, CastExpr)
 extern List *getAsciiAggrs(List *projExprs);
 
+int searchArListByPos(List *arList, int pos)
+{
+	FOREACH(AttributeReference, ar, arList)
+	{
+		if(ar->attrPosition == pos)
+		{
+			return 1; // 1 = TRUE
+		}
+	}
+		return 0; // 0 = FALSE
+}
+
+
+
+List *removeDupeAr(List *arList)
+{
+	List *cleanArList = NIL;
+	FOREACH(AttributeReference, ar, arList)
+	{
+		if(searchArListByPos(cleanArList, ar->attrPosition) == 0)
+		{
+			cleanArList = appendToTailOfList(cleanArList, ar);
+		}
+		else if(searchArListByPos(cleanArList, ar->attrPosition) == 1)
+		{
+			continue;
+		}
+	}
+
+	return cleanArList;
+}
+
 int searchArList(List *arList, char *ch)
 {
 	FOREACH(AttributeReference, ar, arList)
 	{
 		if(streq(ar->name, ch))
+		{
+			return 1; // 1 = TRUE
+		}
+	}
+	return 0; // 0 = FALSE
+}
+
+int searchAdefList(List *adefList, char *ch)
+{
+	FOREACH(AttributeDef, ar, adefList)
+	{
+		if(streq(ar->attrName, ch))
 		{
 			return 1; // 1 = TRUE
 		}

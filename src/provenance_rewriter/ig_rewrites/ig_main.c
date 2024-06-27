@@ -2597,6 +2597,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 		}
 	}
 
+
 	// adding input attributes
 	FOREACH(AttributeReference, ar, allattrs) // loop for all attrRef in properties
 	{
@@ -2604,64 +2605,123 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 		{
 			if(tablePos == 0 && (ar->attrPosition < globalTableLen)) // creating left list
 			{
-				if(strcmp(attrDef->attrName, ar->name) == 0)
+				if(isA(ar, AttributeReference))
 				{
-					if(searchArList(inputL, ar->name) == 1) // 1 = TRUE
+					if(strcmp(attrDef->attrName, ar->name) == 0)
 					{
-						continue;
-					}
-					else
-					{
-						inputL = appendToTailOfList(inputL, ar);
-						inputName = appendToTailOfList(inputName, ar->name);
+						if(searchArList(inputL, ar->name) == 1) // 1 = TRUE
+						{
+							continue;
+						}
+						else
+						{
+							inputL = appendToTailOfList(inputL, ar);
+							inputName = appendToTailOfList(inputName, ar->name);
+						}
 					}
 				}
 			}
 
 			else if(tablePos == 1 && (ar->attrPosition >= globalTableLen))
 			{
-				// NOTE : can use isPrefix/ isSuffix functions here
-				char *name = ar->name;
-				int l = strlen(name);
-				char *lc = substr(name, l - 1, l - 1); //last character from attribute reference
-				char *atName = substr(name, 0, l - 2);
-				char *c1 = "1";
-				if(strcmp(lc, c1) == 0) // when its 0 || TRUE || part of shared
+				if(isA(ar, AttributeReference))
 				{
-					if(strcmp(atName, attrDef->attrName) == 0)
+					// NOTE : can use isPrefix/ isSuffix functions here
+					char *name = ar->name;
+					int l = strlen(name);
+					char *lc = substr(name, l - 1, l - 1); //last character from attribute reference
+					char *atName = substr(name, 0, l - 2);
+					char *c1 = "1";
+					if(strcmp(lc, c1) == 0) // when its 0 || TRUE || part of shared
 					{
-						if(searchArList(inputR, atName) == 1) // 1 = TRUE
+						if(strcmp(atName, attrDef->attrName) == 0)
+						{
+							if(searchArList(inputR, atName) == 1) // 1 = TRUE
+							{
+								continue;
+							}
+							else
+							{
+								ar->name = atName;
+								inputR = appendToTailOfList(inputR, ar);
+								inputName = appendToTailOfList(inputName, ar->name);
+							}
+						}
+
+					}
+					else if(strcmp(ar->name, attrDef->attrName) == 0)
+					{
+						if(searchArList(inputR, attrDef->attrName) == 1) // 1 = TRUE
 						{
 							continue;
 						}
 						else
 						{
-							ar->name = atName;
 							inputR = appendToTailOfList(inputR, ar);
 							inputName = appendToTailOfList(inputName, ar->name);
 						}
-					}
-
-				}
-				else if(strcmp(ar->name, attrDef->attrName) == 0)
-				{
-					if(searchArList(inputR, attrDef->attrName) == 1) // 1 = TRUE
-					{
-						continue;
-					}
-					else
-					{
-						inputR = appendToTailOfList(inputR, ar);
-						inputName = appendToTailOfList(inputName, ar->name);
 					}
 				}
 			}
 		}
 	}
 
-//	List *lAttrList = (List *) GET_STRING_PROP((QueryOperator *) op, IG_L_PROP);
+	//getting inputs from casewhen expression
+	List *caswWhenAttrs = NIL;
+	FOREACH(AttributeReference, ar, allattrs)
+	{
+		if(isA(ar, CaseExpr))
+		{
+			CaseExpr *ce = (CaseExpr *) ar;
+
+			FOREACH(CaseWhen, cw, ce->whenClauses)
+			{
+				// when condition
+				List *whenArgs = ((Operator *) cw->when)->args;
+				FOREACH(Node, n, whenArgs)
+				{
+					if(isA(n, Operator))
+					{
+						Operator *nop = (Operator *) n;
+						FOREACH(Node, arg, nop->args)
+						{
+							if(isA(arg, AttributeReference))
+							{
+								AttributeReference *ar = (AttributeReference *) arg;
+								caswWhenAttrs = appendToTailOfList(caswWhenAttrs, ar);
+							}
+
+							if(isA(arg, IsNullExpr))
+							{
+								// this gets the IsNullExpr of node x and stores it in isN
+								IsNullExpr *isN = (IsNullExpr *) arg;
+								// this takes the expr of IsNullExpr(isN) and stores it in new node ofisN
+								Node *ofisN = isN->expr;
+								// this gets the AttributeReference in the node(ofisN) and stores it in arofisN
+								AttributeReference *arofisN = (AttributeReference *) ofisN;
+								caswWhenAttrs = appendToTailOfList(caswWhenAttrs, arofisN);
+							}
+						}
+					}
+				}
+
+				// then
+				AttributeReference *then = (AttributeReference *) cw->then;
+				caswWhenAttrs = appendToTailOfList(caswWhenAttrs, then);
+			}
+
+			// else
+			AttributeReference *els = (AttributeReference *) ce->elseRes;
+			caswWhenAttrs = appendToTailOfList(caswWhenAttrs, els);
+		}
+	}
+
+	// order in which case when is stored : operator -> isNullExpr -> then -> else
+	List *noDupesAr = removeDupeAr(caswWhenAttrs);
+
 
 	List *rightAttributes = NIL; // right attribute from input query
+	//leftAttributes seems useless clean it up later
 	List *leftAttributes = NIL; // all the left attributes fron the input query
 	List *currentAttributes = NIL; // all the attributes in current table || for first iteration its in owned table
 	FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
@@ -2676,29 +2736,91 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 		// populating rightAttributes for next step
 		FOREACH(AttributeReference, ar , allattrs)
 		{
-			if(ar->attrPosition >= globalTableLen)
+			if(!isA(ar, CaseExpr))
 			{
-				int l = strlen(ar->name);
-				ar->name = substr(ar->name, 0, l - 2);
-				rightAttributes = appendToTailOfList(rightAttributes, ar);
-			}
-			else if(ar->attrPosition < globalTableLen)
-			{
-				leftAttributes = appendToTailOfList(leftAttributes, ar);
+				if(ar->attrPosition >= globalTableLen)
+				{
+					int l = strlen(ar->name);
+					ar->name = substr(ar->name, 0, l - 2);
+					rightAttributes = appendToTailOfList(rightAttributes, ar);
+				}
+				else if(ar->attrPosition < globalTableLen)
+				{
+					leftAttributes = appendToTailOfList(leftAttributes, ar);
+				}
 			}
 		}
 
+
 		FOREACH(AttributeReference, arR, rightAttributes)
 		{
-			if((searchArList(inputL, arR->name) == 0) &&
-					(searchArList(currentAttributes, arR->name) == 1))
+			if(!isA(arR, CaseExpr))
 			{
-				inputL = appendToTailOfList(inputL, arR);
-				inputName = appendToTailOfList(inputName, arR->name);
+				if((searchArList(inputL, arR->name) == 0) &&
+						(searchArList(currentAttributes, arR->name) == 1))
+				{
+					inputL = appendToTailOfList(inputL, arR);
+					inputName = appendToTailOfList(inputName, arR->name);
+				}
+			}
+		}
+
+
+		FOREACH(AttributeReference, ar, noDupesAr)
+		{
+
+			if(ar->attrPosition < globalTableLen)
+			{
+				leftAttributes = appendToTailOfList(leftAttributes, ar);
+				inputL = appendToTailOfList(inputL, ar);
+				inputName = appendToTailOfList(inputName, ar->name);
+			}
+			else if(ar->attrPosition >= globalTableLen)
+			{
+		    	if(isSuffix(ar->name,"1"))
+		    	{
+		    		ar->name = replaceSubstr(ar->name,"1","");
+		    		if(searchAdefList(op->op.schema->attrDefs, ar->name) == 1)
+					{
+		    			inputL = appendToTailOfList(inputL, ar);
+						inputName = appendToTailOfList(inputName, ar->name);
+					}
+		    	}
+		    	else
+		    	{
+		    		if(searchAdefList(op->op.schema->attrDefs, ar->name) == 1)
+					{
+						inputL = appendToTailOfList(inputL, ar);
+						inputName = appendToTailOfList(inputName, ar->name);
+					}
+		    	}
 			}
 		}
 	}
 
+	else if(tablePos == 1)
+	{
+		FOREACH(AttributeReference, ar, noDupesAr)
+		{
+			if(ar->attrPosition >= globalTableLen)
+			{
+		    	if(isSuffix(ar->name,"1"))
+		    	{
+		    		ar->name = replaceSubstr(ar->name,"1","");
+		    		if(searchAdefList(op->op.schema->attrDefs, ar->name) == 1)
+					{
+		    			inputR = appendToTailOfList(inputR, ar);
+						inputName = appendToTailOfList(inputName, ar->name);
+					}
+		    	}
+	    		else
+	    		{
+	    			inputR = appendToTailOfList(inputR, ar);
+					inputName = appendToTailOfList(inputName, ar->name);
+	    		}
+			}
+		}
+	}
 
 	tablePos = tablePos + 1; // to change 0 from 1
 	input = CONCAT_LISTS(inputL, inputR); // all attrDefs
@@ -2718,7 +2840,8 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 
 	// Creating IG attributes
     char *newAttrName;
-    List *copyAllattrs = copyObject(allattrs);
+    List *copyAllattrs = copyObject(input);
+//    List *copyAllattrs = NIL;
 
     //TODO: retrieve the original attribute name
     FOREACH(AttributeReference, ar, copyAllattrs)
