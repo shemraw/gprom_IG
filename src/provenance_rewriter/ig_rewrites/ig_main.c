@@ -462,7 +462,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 }
 
-
 static ProjectionOperator *
 rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 {
@@ -519,7 +518,6 @@ rewriteIG_SumExprs (ProjectionOperator *hammingvalue_op)
 	return sumrows;
 
 }
-
 
 //rewriteIG_HammingFunctions
 static ProjectionOperator *
@@ -713,6 +711,17 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 	List *igAttrL = NIL;
 	List *igAttrR = NIL;
+	List *origAttrs = NIL;
+
+	//original attributes
+	FOREACH(AttributeDef, n, newProj->op.schema->attrDefs)
+	{
+		if(!isPrefix(n->attrName, IG_PREFIX))
+		{
+			AttributeReference *ar = getAttrRefByName((QueryOperator *) newProj, n->attrName);
+			origAttrs = appendToTailOfList(origAttrs, ar);
+		}
+	}
 
 	FOREACH(AttributeDef, n, newProj->op.schema->attrDefs)
 	{
@@ -721,14 +730,26 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 			if (isSubstr(n->attrName, "owned") != FALSE)
 			{
-				AttributeReference *ar = getAttrRefByName((QueryOperator *) newProj, n->attrName);
-				igAttrL = appendToTailOfList(igAttrL, ar);
+				FOREACH(AttributeReference, ar, origAttrs)
+				{
+					if(isSubstr(n->attrName, ar->name) == TRUE)
+					{
+						AttributeReference *ar = getAttrRefByName((QueryOperator *) newProj, n->attrName);
+						igAttrL = appendToTailOfList(igAttrL, ar);
+					}
+				}
 			}
 
 			if (isSubstr(n->attrName, "shared") != FALSE)
 			{
-				AttributeReference *ar = getAttrRefByName((QueryOperator *) newProj, n->attrName);
-				igAttrR = appendToTailOfList(igAttrR, ar);
+				FOREACH(AttributeReference, ar, origAttrs)
+				{
+					if(isSubstr(n->attrName, ar->name) == TRUE)
+					{
+						AttributeReference *ar = getAttrRefByName((QueryOperator *) newProj, n->attrName);
+						igAttrR = appendToTailOfList(igAttrR, ar);
+					}
+				}
 			}
 		}
 	}
@@ -948,6 +969,7 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	DEBUG_LOG("REWRITE-IG - Pattern Generation");
 	DEBUG_LOG("Operator tree \n%s", nodeToString(sumrows));
 
+	//------------------------
 	List *Laggrs = NIL;;
 	List *Raggrs = NIL;
 	List *LaggrsNames = NIL;
@@ -977,9 +999,21 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 		}
 	}
 
+	//------------------------------------------
 
 	List *cleanExprs = NIL;
 	List *cleanNames = NIL;
+
+//	FOREACH(AttributeDef, adef, sumrows->op.schema->attrDefs)
+//	{
+//		if(!isPrefix(adef->attrName, "hamming"))
+//		{
+//			AttributeReference *attr = createFullAttrReference(adef->attrName, 0,
+//					getAttrPos((QueryOperator *) sumrows, adef->attrName),0, adef->dataType);
+//			cleanExprs = appendToTailOfList(cleanExprs, attr);
+//			cleanNames = appendToTailOfList(cleanNames, adef->attrName);
+//		}
+//	}
 
 	//Creating Left Case when statements
 	FOREACH(AttributeDef, L, Laggrs)
@@ -1060,7 +1094,46 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 		}
 	}
 
-	ProjectionOperator *clean = createProjectionOp(cleanExprs, NULL, NIL, cleanNames);
+	//---------------------
+
+	ProjectionOperator *clean1 = createProjectionOp(cleanExprs, NULL, NIL, cleanNames);
+
+	List *cleanExprs1 = NIL;
+	List *cleanNames1 = NIL;
+	List *origAttrs = NIL;
+
+	FOREACH(AttributeDef, adef, sumrows->op.schema->attrDefs)
+	{
+		if(!isPrefix(adef->attrName, "hamming") && !isPrefix(adef->attrName, "value")
+				&& !isPrefix(adef->attrName, "Total"))
+		{
+			AttributeReference *ar = getAttrRefByName((QueryOperator *) sumrows, adef->attrName);
+			origAttrs = appendToTailOfList(origAttrs, ar);
+		}
+	}
+
+	//cleaning up extra attributes from clean
+	FOREACH(AttributeReference, ar , clean1->projExprs)
+	{
+		if(!isPrefix(ar->name, "value") && !isPrefix(ar->name, "Total"))
+		{
+			FOREACH(AttributeReference, oar, origAttrs)
+			{
+				if(streq(ar->name, oar->name))
+				{
+					cleanExprs1 = appendToTailOfList(cleanExprs1, ar);
+					cleanNames1 = appendToTailOfList(cleanNames1, CONCAT_STRINGS(INDEX, ar->name));
+				}
+			}
+		}
+		else
+		{
+			cleanExprs1 = appendToTailOfList(cleanExprs1, ar);
+			cleanNames1 = appendToTailOfList(cleanNames1, ar->name);
+		}
+	}
+
+	ProjectionOperator *clean = createProjectionOp(cleanExprs1, NULL, NIL, cleanNames1);
 	addChildOperator((QueryOperator *) clean, (QueryOperator *) sumrows);
 	switchSubtrees((QueryOperator *) sumrows, (QueryOperator *) clean);
 
@@ -1733,6 +1806,7 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 
 }
 
+
 static QueryOperator *
 rewriteIG_Analysis (AggregationOperator *patterns)
 {
@@ -2325,11 +2399,6 @@ rewriteIG_Projection (ProjectionOperator *op)
     addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
     switchSubtrees((QueryOperator *) op, (QueryOperator *) newProj);
 
-
-//    INFO_OP_LOG("Rewritten Projection tree ---------", (QueryOperator *) newProj);
-//    return (QueryOperator *) newProj;
-
-
     // TODO: coalesce becomes DT_STRING
     int pos = 0;
     List *newProjExprs = NIL;
@@ -2379,12 +2448,6 @@ rewriteIG_Projection (ProjectionOperator *op)
 			copyObject(GET_STRING_PROP(op, PROP_JOIN_OP_IG)));
 
     INFO_OP_LOG("Rewritten Operator tree for all IG attributes", newProj);
-//    return (QueryOperator *) newProj;
-
-//    INFO_OP_LOG("Rewritten Operator tree for all IG attributes", rewriteIG_HammingFunctions(newProj));
-//    INFO_OP_LOG("Rewritten Operator tree for all IG attributes", rewriteIG_SumExprs(newProj));
-//    INFO_OP_LOG("Rewritten Operator tree for all IG attributes", rewriteIG_PatternGeneration(newProj));
-//    INFO_OP_LOG("Rewritten Operator tree for all IG attributes", rewriteIG_Analysis((AggregationOperator *) newProj));
 
 //  This function creates hash maps and adds hamming distance functions
 	ProjectionOperator *hammingvalue_op = rewriteIG_HammingFunctions(newProj);
@@ -2392,7 +2455,9 @@ rewriteIG_Projection (ProjectionOperator *op)
 //	This function adds the + expression to calculate the total distance
 	ProjectionOperator *sumrows = rewriteIG_SumExprs(hammingvalue_op);
 
+
 //	return (QueryOperator *) sumrows;
+
 	if(explFlag == FALSE)
 	{
 
@@ -2411,7 +2476,6 @@ rewriteIG_Projection (ProjectionOperator *op)
 				{
 					char *displayName = NULL;
 //					int l = 0;
-
 					cleanExprs = appendToTailOfList(cleanExprs, a);
 //					l = strlen(a->name);
 //					char *s1 = substr(a->name, 0, 4); //contains : value
@@ -2454,7 +2518,6 @@ rewriteIG_Projection (ProjectionOperator *op)
 	else
 	{
 		AggregationOperator *patterns = rewriteIG_PatternGeneration(sumrows);
-
 		QueryOperator *analysis = rewriteIG_Analysis(patterns);
 		INFO_OP_LOG("Rewritten Operator tree for patterns", (QueryOperator *) analysis);
 
@@ -2463,7 +2526,10 @@ rewriteIG_Projection (ProjectionOperator *op)
 		QueryOperator *cleanqo = cleanEXPL((QueryOperator *) analysis);
 
 		return cleanqo;
+
+//		return (QueryOperator *) patterns;
 	}
+
 }
 
 static QueryOperator *
@@ -2501,9 +2567,6 @@ rewriteIG_Join (JoinOperator *op)
 		lProp = appendToTailOfList(lProp, createFullAttrReference(adef->attrName, 0, 0,
 				0, adef->dataType));
 	}
-
-//	SET_STRING_PROP(rChild, IG_L_PROP, lProp);
-//	SET_STRING_PROP(lChild, IG_L_PROP, lProp);
 
     lChild = rewriteIG_Operator(lChild);
     rChild = rewriteIG_Operator(rChild);
@@ -2864,24 +2927,6 @@ rewriteIG_TableAccess(TableAccessOperator *op)
         					getAttrPos((QueryOperator *) op, attr->attrName), 0, attr->dataType));
     	}
 
-//    	if(searchArList(joinattrs, attr->attrName) == 1)
-//    	{
-//    		FOREACH(AttributeReference, aref, allattrs)
-//			{
-//    			if(searchArList(joinattrs, aref->name) == 1)
-//    			{
-//    	    		continue;
-//    			}
-//			}
-//
-//    	}
-//    	else
-//    	{
-//        	newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
-//        	attrNames = appendToTailOfList(attrNames, newAttrName);
-//        	projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0,
-//        					getAttrPos((QueryOperator *) op, attr->attrName), 0, attr->dataType));
-//    	}
     }
 
 	ProjectionOperator *po = createProjectionOp(projExpr, NULL, NIL, attrNames);
@@ -2895,25 +2940,6 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 
 
     DEBUG_LOG("table access after adding additional attributes for ig: %s", operatorToOverviewString((Node *) po));
-
-	// add projection expressions for ig attrs
-//	FOREACH_INT(a, po->op.igAttrs)
-//	{
-//		AttributeDef *att = getAttrDef((QueryOperator *) po,a);
-//		newProjExprs = appendToTailOfList(newProjExprs,
-//						 createFullAttrReference(att->attrName, 0, a, 0, att->dataType));
-//	}
-
-//	ProjectionOperator *newPo = createProjectionOp(newProjExprs, NULL, NIL, attrNames);
-//	addChildOperator((QueryOperator *) newPo, (QueryOperator *) po);
-//
-//	// Switch the subtree with this newly created projection operator.
-//    switchSubtrees((QueryOperator *) po, (QueryOperator *) newPo);
-//
-//    DEBUG_LOG("table access after adding ig attributes to the schema: %s", operatorToOverviewString((Node *) newPo));
-//    LOG_RESULT("Rewritten TableAccess Operator tree", newPo);
-
-//    return rewriteIG_Conversion(newPo);
     return rewriteIG_Conversion(po);
 }
 
