@@ -711,6 +711,8 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 	List *igAttrL = NIL;
 	List *igAttrR = NIL;
+
+	//input query attributes
 	List *origAttrs = NIL;
 
 	//original attributes
@@ -778,7 +780,8 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 				cast = LIST_MAKE(castL, castR);
 
-				FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
+//				FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
+				FunctionCall *hammingdist = createFunctionCall("hammingxor", cast);
 				exprs = appendToTailOfList(exprs,hammingdist);
 				char *name = CONCAT_STRINGS(HAMMING_PREFIX, substr(arR->name, 8 , strlen(arR->name) - 1));
 				atNames = appendToTailOfList(atNames, name);
@@ -799,7 +802,8 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 				castR = createCastExpr((Node *) arR, DT_STRING);
 				cast = LIST_MAKE(createConstString("0000000000"), castR);
 
-				FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
+//				FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
+				FunctionCall *hammingdist = createFunctionCall("hammingxor", cast);
 				exprs = appendToTailOfList(exprs,hammingdist);
 				char *name = CONCAT_STRINGS(HAMMING_PREFIX, substr(arR->name, 8 , strlen(arR->name) - 1));
 				atNames = appendToTailOfList(atNames, name);
@@ -830,7 +834,8 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 				CastExpr *castL;
 				castL = createCastExpr((Node *) arL, DT_STRING);
 				cast = LIST_MAKE(createConstString("0000000000"), castL);
-				FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
+//				FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
+				FunctionCall *hammingdist = createFunctionCall("hammingxor", cast);
 				exprs = appendToTailOfList(exprs,hammingdist);
 				char *name = CONCAT_STRINGS(HAMMING_PREFIX, substr(arL->name, 8 , strlen(arL->name) - 1));
 				atNames = appendToTailOfList(atNames, name);
@@ -916,8 +921,8 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 	{
 		if(isPrefix(a->name, HAMMING_PREFIX))
 		{
-			FunctionCall *hammingdistvalue = createFunctionCall("hammingdistvalue", singleton(a));
-
+//			FunctionCall *hammingdistvalue = createFunctionCall("hammingdistvalue", singleton(a));
+			FunctionCall *hammingdistvalue = createFunctionCall("hammingxorvalue", singleton(a));
 			h_valueExprs = appendToTailOfList(h_valueExprs, hammingdistvalue);
 			char *name = CONCAT_STRINGS(VALUE_IG ,substr(a->name, 8, strlen(a->name) - 1));
 //			h_valueName = appendToTailOfList(h_valueName, CONCAT_STRINGS(VALUE_IG, a->name));
