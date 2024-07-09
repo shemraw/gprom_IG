@@ -235,7 +235,7 @@ rewriteIG_Conversion (ProjectionOperator *op)
 //	List *newProjExprs = NIL;
 	List *projExprs = NIL;
 	List *attrNames = NIL;
-
+//	List *ansProjExprs = op->projExprs;
 
 //	op->projExprs = newProjExprs;
 
@@ -254,6 +254,23 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 	FOREACH(AttributeDef, a, op->op.schema->attrDefs)
 	{
+//		// preserve the original attribute position
+//		char *origAttrName = a->attrName;
+//
+//		if(isPrefix(origAttrName,"ig"))
+//		{
+//			origAttrName = strEndTok(origAttrName,"_");
+//		}
+//
+//		int pos = 0;
+//
+//		FOREACH(AttributeReference, ar, ansProjExprs)
+//		{
+//			if(streq(origAttrName, ar->name))
+//			{
+//				pos = ar->attrPosition;
+//			}
+//		}
 
 		projExprs = appendToTailOfList(projExprs,
 				createFullAttrReference(a->attrName, 0,
@@ -285,6 +302,24 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 	FOREACH(AttributeDef, a, po->op.schema->attrDefs)
 	{
+//		// preserve the original attribute position
+//		char *origAttrName = a->attrName;
+//
+//		if(isPrefix(origAttrName,"ig"))
+//		{
+//			origAttrName = strEndTok(origAttrName,"_");
+//		}
+//
+//		int pos = 0;
+//
+//		FOREACH(AttributeReference, ar, ansProjExprs)
+//		{
+//			if(streq(origAttrName, ar->name))
+//			{
+//				pos = ar->attrPosition;
+//			}
+//		}
+
 		cleanExprs = appendToTailOfList(cleanExprs,
 				createFullAttrReference(a->attrName, 0,
 						getAttrPos((QueryOperator *) po, a->attrName), 0, a->dataType));
@@ -351,6 +386,30 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	projExprs = NIL;
 	projExprs = getARfromAttrDefs(ao->op.schema->attrDefs);
 
+//	FOREACH(AttributeDef, a, ao->op.schema->attrDefs)
+//	{
+//		// preserve the original attribute position
+//		char *origAttrName = a->attrName;
+//
+//		if(isPrefix(origAttrName,"ig"))
+//		{
+//			origAttrName = strEndTok(origAttrName,"_");
+//		}
+//
+//		int pos = 0;
+//
+//		FOREACH(AttributeReference, ar, ansProjExprs)
+//		{
+//			if(streq(origAttrName, ar->name))
+//			{
+//				pos = ar->attrPosition;
+//			}
+//		}
+//
+//		projExprs = appendToTailOfList(projExprs,
+//				createFullAttrReference(a->attrName, 0, pos, 0, a->dataType));
+//	}
+
 	//create projection operator upon selection operator from select clause
 	ProjectionOperator *newPo = createProjectionOp(projExprs, NULL, NIL, newNames);
 
@@ -396,7 +455,35 @@ rewriteIG_Conversion (ProjectionOperator *op)
 	newNames = NIL;
 
 	projExprs = getARfromAttrDefswPos((QueryOperator *) newPo, po->op.schema->attrDefs);
-	newNames = getNamesfromAttrDefs(po->op.schema->attrDefs);
+//	FOREACH(AttributeDef, a, po->op.schema->attrDefs)
+//	{
+//		// preserve the original attribute position
+//		char *origAttrName = a->attrName;
+//
+//		if(isPrefix(origAttrName,"ig"))
+//		{
+//			origAttrName = strEndTok(origAttrName,"_");
+//		}
+//
+//		int pos = 0;
+//
+//		FOREACH(AttributeReference, ar, ansProjExprs)
+//		{
+//			if(streq(origAttrName, ar->name))
+//			{
+//				pos = ar->attrPosition;
+//			}
+//		}
+//
+//		projExprs = appendToTailOfList(projExprs,
+//				createFullAttrReference(a->attrName, 0, pos, 0,
+//						isPrefix(a->attrName,"ig") ? DT_BIT10 : a->dataType));
+//	}
+
+	//TODO: duplicate function created
+//	newNames = getNamesfromAttrDefs(po->op.schema->attrDefs);
+	newNames = getAttrNames(po->op.schema);
+
 
 	ProjectionOperator *addPo = createProjectionOp(projExprs, NULL, NIL, newNames);;
 
@@ -2553,15 +2640,17 @@ rewriteIG_Join (JoinOperator *op)
 	SET_STRING_PROP(lChild, IG_INPUT_PROP,
 			copyObject(GET_STRING_PROP(op, IG_INPUT_PROP)));
 
-	List *joinAttrs = ((Operator *) op->cond)->args;
-	List *joinExprs = NIL;
-	FOREACH(Operator, o, joinAttrs)
-	{
-		FOREACH(AttributeReference, ar, o->args)
-		{
-			joinExprs = appendToTailOfList(joinExprs, ar);
-		}
-	}
+//	List *joinAttrs = ((Operator *) op->cond)->args;
+	List *joinExprs = getAttrReferences((Node *) op);
+
+	//TODO: need a recursive function to collect join attribute references
+//	FOREACH(Operator, o, joinAttrs)
+//	{
+//		FOREACH(AttributeReference, ar, o->args)
+//		{
+//			joinExprs = appendToTailOfList(joinExprs, ar);
+//		}
+//	}
 
 	SET_STRING_PROP(rChild, IG_JOIN_PROP, joinExprs);
 	SET_STRING_PROP(lChild, IG_JOIN_PROP, joinExprs);
@@ -2634,33 +2723,40 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	globalTableLen = LIST_LENGTH(op->op.schema->attrDefs);
 
 	//adding join attributes
-	int loop = 1;
-	FOREACH(AttributeReference, ar, joinattrs)
+//	int loop = 1;
+	FOREACH(Node, n, joinattrs)
 	{
-		if(tablePos == 0)
+		if(isA(n,AttributeReference))
 		{
-			if(loop % 2 == 1)
+			AttributeReference *ar = (AttributeReference *) n;
+
+			if(tablePos == 0)
 			{
-				inputL = appendToTailOfList(inputL, ar);
-				inputName = appendToTailOfList(inputName, ar->name);
-				loop++;
+	//			if(loop % 2 == 1)
+				if(ar->fromClauseItem == 0)
+				{
+					inputL = appendToTailOfList(inputL, ar);
+					inputName = appendToTailOfList(inputName, ar->name);
+	//				loop++;
+				}
+	//			else
+	//			{
+	//				loop++;
+	//			}
 			}
-			else
+			else if(tablePos == 1)
 			{
-				loop++;
-			}
-		}
-		else if(tablePos == 1)
-		{
-			if(loop % 2 == 0)
-			{
-				inputR = appendToTailOfList(inputR, ar);
-				inputName = appendToTailOfList(inputName, ar->name);
-				loop++;
-			}
-			else
-			{
-				loop++;
+	//			if(loop % 2 == 0)
+				if(ar->fromClauseItem == 1)
+				{
+					inputR = appendToTailOfList(inputR, ar);
+					inputName = appendToTailOfList(inputName, ar->name);
+	//				loop++;
+				}
+	//			else
+	//			{
+	//				loop++;
+	//			}
 			}
 		}
 	}
@@ -2698,9 +2794,20 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 					char *name = ar->name;
 					int l = strlen(name);
 					char *lc = substr(name, l - 1, l - 1); //last character from attribute reference
-					char *atName = substr(name, 0, l - 2);
+
+					//TODO: break if the length of an attribute is 1
+					char *atName = NULL;
+					if(l > 1)
+					{
+						atName = substr(name, 0, l - 2);
+					}
+					else
+					{
+						atName = name;
+					}
+
 					char *c1 = "1";
-					if(strcmp(lc, c1) == 0) // when its 0 || TRUE || part of shared
+					if(streq(lc, c1)) // when its 0 || TRUE || part of shared
 					{
 						if(strcmp(atName, attrDef->attrName) == 0)
 						{
@@ -2717,7 +2824,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 						}
 
 					}
-					else if(strcmp(ar->name, attrDef->attrName) == 0)
+					else if(streq(ar->name, attrDef->attrName))
 					{
 						if(searchArList(inputR, attrDef->attrName) == 1) // 1 = TRUE
 						{
@@ -2843,26 +2950,33 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 				inputL = appendToTailOfList(inputL, ar);
 				inputName = appendToTailOfList(inputName, ar->name);
 			}
-			else if(ar->attrPosition >= globalTableLen)
-			{
-		    	if(isSuffix(ar->name,"1"))
-		    	{
-		    		ar->name = replaceSubstr(ar->name,"1","");
-		    		if(searchAdefList(op->op.schema->attrDefs, ar->name) == 1)
-					{
-		    			inputL = appendToTailOfList(inputL, ar);
-						inputName = appendToTailOfList(inputName, ar->name);
-					}
-		    	}
-		    	else
-		    	{
-		    		if(searchAdefList(op->op.schema->attrDefs, ar->name) == 1)
-					{
-						inputL = appendToTailOfList(inputL, ar);
-						inputName = appendToTailOfList(inputName, ar->name);
-					}
-		    	}
-			}
+			//TODO: no need to add the join attribute from the right-side table
+//			else if(ar->attrPosition >= globalTableLen)
+//			{
+//		    	if(isSuffix(ar->name,"1"))
+//		    	{
+//		    		ar->name = replaceSubstr(ar->name,"1","");
+////		    		if(searchAdefList(op->op.schema->attrDefs, ar->name) == 1)
+////					{
+////		    			inputL = appendToTailOfList(inputL, ar);
+////						inputName = appendToTailOfList(inputName, ar->name);
+////					}
+//		    	}
+////		    	else
+////		    	{
+////		    		if(searchAdefList(op->op.schema->attrDefs, ar->name) == 1)
+////					{
+////						inputL = appendToTailOfList(inputL, ar);
+////						inputName = appendToTailOfList(inputName, ar->name);
+////					}
+////		    	}
+//
+//	    		if(searchAdefList(op->op.schema->attrDefs, ar->name) == 1)
+//				{
+//	    			inputL = appendToTailOfList(inputL, ar);
+//					inputName = appendToTailOfList(inputName, ar->name);
+//				}
+//			}
 		}
 	}
 

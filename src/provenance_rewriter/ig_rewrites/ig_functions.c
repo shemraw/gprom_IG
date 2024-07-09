@@ -80,10 +80,10 @@ List *removeDupeAr(List *arList)
 		{
 			cleanArList = appendToTailOfList(cleanArList, ar);
 		}
-		else if(searchArListByPos(cleanArList, ar->attrPosition) == 1)
-		{
-			continue;
-		}
+//		else if(searchArListByPos(cleanArList, ar->attrPosition) == 1)
+//		{
+//			continue;
+//		}
 	}
 
 	return cleanArList;
