@@ -2126,7 +2126,8 @@ rewriteIG_Projection (ProjectionOperator *op)
 	}
 
     //setting input query as string property
-    SET_STRING_PROP(OP_LCHILD(op), IG_INPUT_PROP, op->projExprs);
+	List *attrRefs = getAttrReferences((Node *) op->projExprs);
+    SET_STRING_PROP(OP_LCHILD(op), IG_INPUT_PROP, attrRefs);
 
     QueryOperator *child = OP_LCHILD(op);
 
