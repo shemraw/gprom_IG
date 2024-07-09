@@ -185,6 +185,8 @@ rewriteIG_Selection (SelectionOperator *op) //where clause
     SET_STRING_PROP(op, PROP_JOIN_OP_IG, OP_LCHILD(op));
 
     // rewrite child first
+    List *inputProjExpr = (List *) GET_STRING_PROP(op,IG_INPUT_PROP);
+    SET_STRING_PROP(OP_LCHILD(op), IG_INPUT_PROP, inputProjExpr);
     rewriteIG_Operator(child);
 
     // update selection
@@ -2123,7 +2125,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 		}
 	}
 
-    //setting input query as sring property
+    //setting input query as string property
     SET_STRING_PROP(OP_LCHILD(op), IG_INPUT_PROP, op->projExprs);
 
     QueryOperator *child = OP_LCHILD(op);
@@ -2982,6 +2984,19 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 
 	else if(tablePos == 1)
 	{
+//		FOREACH(AttributeReference, arL, leftAttributes)
+//		{
+//			if(!isA(arL, CaseExpr))
+//			{
+//				if((searchArList(inputR, arL->name) == 0) &&
+//						(searchArList(currentAttributes, arL->name) == 1))
+//				{
+//					inputR = appendToTailOfList(inputR, arL);
+//					inputName = appendToTailOfList(inputName, arL->name);
+//				}
+//			}
+//		}
+
 		FOREACH(AttributeReference, ar, noDupesAr)
 		{
 			if(ar->attrPosition >= globalTableLen)
@@ -3003,6 +3018,31 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 			}
 		}
 	}
+
+	//TODO: add an attribute appearing in the input attributes but not in the projection
+	if(tablePos == 1)
+	{
+		int pos = 0;
+
+		FOREACH(AttributeDef, ad, op->op.schema->attrDefs)
+		{
+			FOREACH(AttributeReference, ar, allattrs)
+			{
+				if(streq(ad->attrName,ar->name)
+						&& !searchListString(inputName,ad->attrName))
+				{
+					AttributeReference *newAr = ar;
+					newAr->attrPosition = pos;
+
+					inputR = appendToTailOfList(inputR, newAr);
+					inputName = appendToTailOfList(inputName, ad->attrName);
+				}
+			}
+
+			pos++;
+		}
+	}
+
 
 	tablePos = tablePos + 1; // to change 0 from 1
 	input = CONCAT_LISTS(inputL, inputR); // all attrDefs
