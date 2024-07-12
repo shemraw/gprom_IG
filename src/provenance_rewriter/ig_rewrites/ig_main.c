@@ -2804,7 +2804,6 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	globalTableLen = LIST_LENGTH(op->op.schema->attrDefs);
 
 	//adding join attributes
-//	int loop = 1;
 	FOREACH(Node, n, joinattrs)
 	{
 		if(isA(n,AttributeReference))
@@ -2813,31 +2812,19 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 
 			if(tablePos == 0)
 			{
-	//			if(loop % 2 == 1)
 				if(ar->fromClauseItem == 0)
 				{
 					inputL = appendToTailOfList(inputL, ar);
 					inputName = appendToTailOfList(inputName, ar->name);
-	//				loop++;
 				}
-	//			else
-	//			{
-	//				loop++;
-	//			}
 			}
 			else if(tablePos == 1)
 			{
-	//			if(loop % 2 == 0)
 				if(ar->fromClauseItem == 1)
 				{
 					inputR = appendToTailOfList(inputR, ar);
 					inputName = appendToTailOfList(inputName, ar->name);
-	//				loop++;
 				}
-	//			else
-	//			{
-	//				loop++;
-	//			}
 			}
 		}
 	}
@@ -2899,6 +2886,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 							else
 							{
 								ar->name = atName;
+
 								inputR = appendToTailOfList(inputR, ar);
 								inputName = appendToTailOfList(inputName, ar->name);
 							}
@@ -2920,6 +2908,16 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 				}
 			}
 		}
+	}
+
+	FOREACH(AttributeReference, ar, inputL)
+	{
+		ar->attrPosition = getAttrPos((QueryOperator *) op, ar->name);
+	}
+
+	FOREACH(AttributeReference, ar, inputR)
+	{
+		ar->attrPosition = getAttrPos((QueryOperator *) op, ar->name);
 	}
 
 	//getting inputs from casewhen expression
@@ -2975,7 +2973,6 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	// order in which case when is stored : operator -> isNullExpr -> then -> else
 	List *noDupesAr = removeDupeAr(caswWhenAttrs);
 
-
 	List *rightAttributes = NIL; // right attribute from input query
 	//leftAttributes seems useless clean it up later
 	List *leftAttributes = NIL; // all the left attributes fron the input query
@@ -3007,7 +3004,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 			}
 		}
 
-
+		//adding attributes that are in input query, in the shared table but also exist in owned table
 		FOREACH(AttributeReference, arR, rightAttributes)
 		{
 			if(!isA(arR, CaseExpr))
@@ -3015,6 +3012,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 				if((searchArList(inputL, arR->name) == 0) &&
 						(searchArList(currentAttributes, arR->name) == 1))
 				{
+					arR->attrPosition = getAttrPos((QueryOperator *) op, arR->name);
 					inputL = appendToTailOfList(inputL, arR);
 					inputName = appendToTailOfList(inputName, arR->name);
 				}
