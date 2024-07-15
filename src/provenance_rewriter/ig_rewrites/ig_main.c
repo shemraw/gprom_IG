@@ -2653,6 +2653,8 @@ rewriteIG_Projection (ProjectionOperator *op)
 
 //			if(!isPrefix(a->name, IG_PREFIX) && !isPrefix(a->name, HAMMING_PREFIX) && !isA(a, Operator))
 //			{
+			if(!isA(a, Operator))
+			{
 				if(isPrefix(a->name, VALUE_IG))
 				{
 					char *displayName = NULL;
@@ -2674,6 +2676,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 					cleanNames = appendToTailOfList(cleanNames, a->name);
 				}
 //			}
+			}
 		}
 
 		FOREACH(AttributeReference, a, sumrows->projExprs)
