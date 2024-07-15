@@ -1938,13 +1938,13 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 			if(isSubstr(n->attrName, "left") != FALSE)
 			{
 				int len = strlen(n->attrName) - 1;
-				char *name = substr(n->attrName, 12, len);
+				char *name = substr(n->attrName, 11, len);
 				analysisCorrNames = appendToTailOfList(analysisCorrNames, CONCAT_STRINGS(name, "_r2"));
 			}
 			else if(isSubstr(n->attrName, "right") != FALSE)
 			{
 				int len = strlen(n->attrName) - 1;
-				char *name = substr(n->attrName, 13, len);
+				char *name = substr(n->attrName, 12, len);
 				analysisCorrNames = appendToTailOfList(analysisCorrNames, CONCAT_STRINGS(name, "_r2"));
 			}
 
