@@ -19,6 +19,7 @@ extern int searchAdefList(List *adefList, char *ch);
 
 extern List *removeDupeAr(List *arList);
 extern int searchArListByPos(List *arList, int pos);
+AttributeReference *getAttrRefFromArListByPos(List* arList, int pos);
 
 extern QueryOperator *rewriteIG_test (QueryOperator *qo);
 
@@ -36,6 +37,7 @@ extern List *getAsciiAggrs(List *projExprs);
 
 //clean up functions
 extern QueryOperator *cleanEXPL(QueryOperator *qo);
+
 
 
 #endif /* IG_FUNCTIONS_H_ */

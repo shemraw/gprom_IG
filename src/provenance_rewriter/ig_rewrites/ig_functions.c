@@ -57,6 +57,20 @@ extern List *toAsciiList(ProjectionOperator *po);
 //Input : List of projection expressions(contains Ascii, AttributeReference, CastExpr)
 extern List *getAsciiAggrs(List *projExprs);
 
+AttributeReference *getAttrRefFromArListByPos(List* arList, int pos);
+
+AttributeReference *getAttrRefFromArListByPos(List* arList, int pos)
+{
+	FOREACH(AttributeReference, ar, arList)
+	{
+		if(ar->attrPosition == pos)
+		{
+			return ar;
+		}
+	}
+	return NULL;
+}
+
 int searchArListByPos(List *arList, int pos)
 {
 	FOREACH(AttributeReference, ar, arList)

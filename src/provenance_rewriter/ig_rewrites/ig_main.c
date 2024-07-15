@@ -283,6 +283,12 @@ rewriteIG_Conversion (ProjectionOperator *op)
 
 	// create projection operator upon selection operator from select clause
 	ProjectionOperator *po = createProjectionOp(projExprs, NULL, NIL, attrNames);
+
+//	FOREACH(AttributeReference, po, op->projExprs)
+//	{
+//		a->attrPosition
+//	}
+
 	po->projExprs = toAsciiList(po);
 
 	//changing schema for string attributes
@@ -3124,7 +3130,24 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	tablePos = tablePos + 1; // to change 0 from 1
 	input = CONCAT_LISTS(inputL, inputR); // all attrDefs
 
-	ProjectionOperator *inputPo = createProjectionOp(input, NULL, NIL, inputName);
+
+
+//	ProjectionOperator *inputPo1 = createProjectionOp(input, NULL, NIL, inputName);
+
+	//reordering the list
+	List *cleaninput;
+	List *cleaninputNames;
+
+	for(int i = 0; i < LIST_LENGTH(input); i++ )
+	{
+//		AttributeReference *ar = getAttrRefByPos((QueryOperator *) inputPo1, i);
+		AttributeReference *ar = getAttrRefFromArListByPos(input, i);
+		cleaninput = appendToTailOfList(cleaninput, ar);
+		cleaninputNames = appendToTailOfList(cleaninputNames, ar->name);
+	}
+
+
+	ProjectionOperator *inputPo = createProjectionOp(cleaninput, NULL, NIL, cleaninputNames);
 
 	List *attrNames = NIL;
 	List *projExpr = NIL;
