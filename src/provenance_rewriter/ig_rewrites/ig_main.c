@@ -3135,8 +3135,8 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 //	ProjectionOperator *inputPo1 = createProjectionOp(input, NULL, NIL, inputName);
 
 	//reordering the list
-	List *cleaninput;
-	List *cleaninputNames;
+	List *cleaninput = NIL;
+	List *cleaninputNames = NIL;
 
 	for(int i = 0; i < LIST_LENGTH(input); i++ )
 	{
@@ -3162,7 +3162,8 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 
 	// Creating IG attributes
     char *newAttrName;
-    List *copyAllattrs = copyObject(input);
+//    List *copyAllattrs = copyObject(input);
+    List *copyAllattrs = copyObject(cleaninput);
 //    List *copyAllattrs = NIL;
 
     //TODO: retrieve the original attribute name
