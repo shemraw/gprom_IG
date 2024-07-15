@@ -831,8 +831,10 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 //		if(isPrefix(n->attrName, IG_PREFIX) && !isSuffix(n->attrName, INTEG_SUFFIX))
 		if(isPrefix(n->attrName, IG_PREFIX))
 		{
-			if (isSubstr(n->attrName, "owned") != FALSE && !isSuffix(n->attrName, INTEG_SUFFIX) &&
-					isSubstr(n->attrName, "shared") == FALSE)
+//			if (isSubstr(n->attrName, "owned") != FALSE && !isSuffix(n->attrName, INTEG_SUFFIX) &&
+//					isSubstr(n->attrName, "shared") == FALSE)
+			if (isSubstr(n->attrName, "left") != FALSE && !isSuffix(n->attrName, INTEG_SUFFIX) &&
+					isSubstr(n->attrName, "right") == FALSE)
 			{
 				FOREACH(AttributeReference, ar, origAttrs)
 				{
@@ -1933,13 +1935,13 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 	{
 		if(isPrefix(n->attrName, "value"))
 		{
-			if(isSubstr(n->attrName, "owned") != FALSE)
+			if(isSubstr(n->attrName, "left") != FALSE)
 			{
 				int len = strlen(n->attrName) - 1;
 				char *name = substr(n->attrName, 12, len);
 				analysisCorrNames = appendToTailOfList(analysisCorrNames, CONCAT_STRINGS(name, "_r2"));
 			}
-			else if(isSubstr(n->attrName, "shared") != FALSE)
+			else if(isSubstr(n->attrName, "right") != FALSE)
 			{
 				int len = strlen(n->attrName) - 1;
 				char *name = substr(n->attrName, 13, len);
@@ -3130,7 +3132,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	}
 
 
-	tablePos = tablePos + 1; // to change 0 from 1
+//	tablePos = tablePos + 1; // to change 0 from 1
 	input = CONCAT_LISTS(inputL, inputR); // all attrDefs
 
 
@@ -3178,18 +3180,40 @@ rewriteIG_TableAccess(TableAccessOperator *op)
     	}
     }
 
-	// duplicating IG attributes
-    FOREACH(AttributeDef, attr, inputPo->op.schema->attrDefs)
-    {
-    	//check an attribute is an attribute in the projection operation of input query
-    	if(searchArList(copyAllattrs, attr->attrName) == 1)
-    	{
-        	newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
-        	attrNames = appendToTailOfList(attrNames, newAttrName);
-        	projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0,
-        					getAttrPos((QueryOperator *) op, attr->attrName), 0, attr->dataType));
-    	}
 
+	// duplicating IG attributes
+    if(tablePos == 0)
+    {
+        FOREACH(AttributeDef, attr, inputPo->op.schema->attrDefs)
+        {
+        	//check an attribute is an attribute in the projection operation of input query
+        	if(searchArList(copyAllattrs, attr->attrName) == 1)
+        	{
+    //        	newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
+            	newAttrName = getIgAttrName("left", attr->attrName, relAccessCount);
+            	attrNames = appendToTailOfList(attrNames, newAttrName);
+            	projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0,
+            					getAttrPos((QueryOperator *) op, attr->attrName), 0, attr->dataType));
+        	}
+
+        }
+    }
+
+    if(tablePos == 1)
+    {
+        FOREACH(AttributeDef, attr, inputPo->op.schema->attrDefs)
+        {
+        	//check an attribute is an attribute in the projection operation of input query
+        	if(searchArList(copyAllattrs, attr->attrName) == 1)
+        	{
+    //        	newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
+            	newAttrName = getIgAttrName("right", attr->attrName, relAccessCount);
+            	attrNames = appendToTailOfList(attrNames, newAttrName);
+            	projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0,
+            					getAttrPos((QueryOperator *) op, attr->attrName), 0, attr->dataType));
+        	}
+
+        }
     }
 
 	ProjectionOperator *po = createProjectionOp(projExpr, NULL, NIL, attrNames);
@@ -3201,7 +3225,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	// Switch the subtree with this newly created projection operator.
     switchSubtrees((QueryOperator *) op, (QueryOperator *) po);
 
-
+    tablePos = tablePos + 1; // to change 0 from 1
     DEBUG_LOG("table access after adding additional attributes for ig: %s", operatorToOverviewString((Node *) po));
     return rewriteIG_Conversion(po);
 }
