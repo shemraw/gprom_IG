@@ -846,7 +846,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 				}
 			}
 
-			if (isSubstr(n->attrName, "integ") == TRUE)
+			if (isSubstr(n->attrName, "integ") == TRUE && isSubstr(n->attrName, "right") != FALSE)
 			{
 				FOREACH(AttributeReference, ar, origAttrs)
 				{
