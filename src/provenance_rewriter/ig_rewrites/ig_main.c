@@ -811,7 +811,7 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 
 	List *igAttrL = NIL;
-	List *igAttrR = NIL;
+	List *cleanigAttrR = NIL;
 
 	//input query attributes
 	List *origAttrs = NIL;
@@ -854,13 +854,14 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 					if(isSubstr(n->attrName, ar->name) == TRUE)
 					{
 						AttributeReference *arn = getAttrRefByName((QueryOperator *) newProj, n->attrName);
-						igAttrR = appendToTailOfList(igAttrR, arn);
+						cleanigAttrR = appendToTailOfList(cleanigAttrR, arn);
 					}
 				}
 			}
 		}
 	}
 
+	List *igAttrR = removeDupeAr(cleanigAttrR);
 	int LL = LIST_LENGTH(igAttrL);
 	int RR = LIST_LENGTH(igAttrR);
 	int lend = 1;
@@ -868,92 +869,6 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
 
 	// 1. hamming function for all same/common attributes first
 	// 2. renaming the attribute names || Keeping the table Names for now
-//	FOREACH(AttributeReference, arR, igAttrR)
-//	{
-//		List *cast = NIL;
-//		char *chR = substr(arR->name, 15, strlen(arR->name) - 1);
-//		lend = 1;
-//		FOREACH(AttributeReference, arL, igAttrL)
-//		{
-//			char *chL = substr(arL->name, 14, strlen(arL->name) - 1);
-//			if(strcmp(chR, chL) == 0 )
-//			{
-//				CastExpr *castL;
-//				CastExpr *castR;
-//				castL = createCastExpr((Node *) arL, DT_STRING);
-//				castR = createCastExpr((Node *) arR, DT_STRING);
-//
-//				cast = LIST_MAKE(castL, castR);
-//
-////				FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
-//				FunctionCall *hammingdist = createFunctionCall("hammingxor", cast);
-//				exprs = appendToTailOfList(exprs,hammingdist);
-//				char *name = CONCAT_STRINGS(HAMMING_PREFIX, substr(arR->name, 8 , strlen(arR->name) - 1));
-//				atNames = appendToTailOfList(atNames, name);
-////				atNames = appendToTailOfList(atNames, CONCAT_STRINGS(HAMMING_PREFIX, arR->name));
-//				break;
-//			}
-//
-////			data schema for reference
-////			owned L
-////			county year dayswaqi maqi
-////			shared R
-////			county year gdays maqi
-//
-//			// we need unique attributes just from shared R
-//			else if(lend >= LL)
-//			{
-//				CastExpr *castR;
-//				castR = createCastExpr((Node *) arR, DT_STRING);
-//				cast = LIST_MAKE(createConstString("0000000000"), castR);
-//
-////				FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
-//				FunctionCall *hammingdist = createFunctionCall("hammingxor", cast);
-//				exprs = appendToTailOfList(exprs,hammingdist);
-//				char *name = CONCAT_STRINGS(HAMMING_PREFIX, substr(arR->name, 8 , strlen(arR->name) - 1));
-//				atNames = appendToTailOfList(atNames, name);
-////				atNames = appendToTailOfList(atNames, CONCAT_STRINGS(HAMMING_PREFIX, arR->name));
-//			}
-//			else if(strcmp(chR, chL) != 0)
-//			{
-//				lend = lend + 1;
-//			}
-//		}
-//	}
-//
-//	// we need unique attributes just from owned L
-//	FOREACH(AttributeReference, arL, igAttrL)
-//	{
-//		List *cast = NIL;
-//		char *chL = substr(arL->name, 14, strlen(arL->name) - 1);
-//		rend = 1;
-//		FOREACH(AttributeReference, arR, igAttrR)
-//		{
-//			char *chR = substr(arR->name, 15, strlen(arR->name) - 1);
-//			if(strcmp(chR, chL) == 0 )
-//			{
-//				break;
-//			}
-//			else if(rend >= RR)
-//			{
-//				CastExpr *castL;
-//				castL = createCastExpr((Node *) arL, DT_STRING);
-//				cast = LIST_MAKE(createConstString("0000000000"), castL);
-////				cast = LIST_MAKE(castL, castL);
-////				FunctionCall *hammingdist = createFunctionCall("hammingdist", cast);
-//				FunctionCall *hammingdist = createFunctionCall("hammingxor", cast);
-//				exprs = appendToTailOfList(exprs,hammingdist);
-//				char *name = CONCAT_STRINGS(HAMMING_PREFIX, substr(arL->name, 8 , strlen(arL->name) - 1));
-//				atNames = appendToTailOfList(atNames, name);
-//			}
-//			else
-//			{
-//				rend = rend + 1;
-//			}
-//
-//		}
-//	}
-
 
 	FOREACH(AttributeReference, arR, igAttrR)
 	{
@@ -1938,15 +1853,17 @@ rewriteIG_PatternGeneration (ProjectionOperator *sumrows)
 		{
 			if(isSubstr(n->attrName, "left") != FALSE)
 			{
-				int len = strlen(n->attrName) - 1;
-				char *name = substr(n->attrName, 11, len);
-				analysisCorrNames = appendToTailOfList(analysisCorrNames, CONCAT_STRINGS(name, "_r2"));
+//				int len = strlen(n->attrName) - 1;
+//				char *name = substr(n->attrName, 11, len);
+//				analysisCorrNames = appendToTailOfList(analysisCorrNames, CONCAT_STRINGS(name, "_r2"));
+				analysisCorrNames = appendToTailOfList(analysisCorrNames, CONCAT_STRINGS(n->attrName, "_r2"));
 			}
 			else if(isSubstr(n->attrName, "right") != FALSE)
 			{
-				int len = strlen(n->attrName) - 1;
-				char *name = substr(n->attrName, 12, len);
-				analysisCorrNames = appendToTailOfList(analysisCorrNames, CONCAT_STRINGS(name, "_r2"));
+//				int len = strlen(n->attrName) - 1;
+//				char *name = substr(n->attrName, 12, len);
+//				analysisCorrNames = appendToTailOfList(analysisCorrNames, CONCAT_STRINGS(name, "_r2"));
+				analysisCorrNames = appendToTailOfList(analysisCorrNames, CONCAT_STRINGS(n->attrName, "_r2"));
 			}
 
 		}
