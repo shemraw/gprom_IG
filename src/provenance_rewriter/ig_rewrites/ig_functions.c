@@ -59,6 +59,21 @@ extern List *getAsciiAggrs(List *projExprs);
 
 AttributeReference *getAttrRefFromArListByPos(List* arList, int pos);
 
+extern int searchArListForPos(List *arList, char *ch);
+
+int searchArListForPos(List *arList, char *ch)
+{
+	FOREACH(AttributeReference, ar, arList)
+	{
+		if(streq(ar->name, ch))
+		{
+			return ar->attrPosition;
+		}
+	}
+	return -1; // -1 = attribute not found
+}
+
+
 AttributeReference *getAttrRefFromArListByPos(List* arList, int pos)
 {
 	FOREACH(AttributeReference, ar, arList)
@@ -193,6 +208,15 @@ Ascii *convertArtoAscii(AttributeReference *a)
 List *toAsciiList(ProjectionOperator *op)
 {
 	List *projExprs = NIL;
+
+	//changing schema for string attributes
+	FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
+	{
+		if(isPrefix(adef->attrName, "ig") && adef->dataType == DT_STRING)
+		{
+			adef->dataType = DT_INT;
+		}
+	}
 
 	FOREACH(AttributeReference, a, op->projExprs)
 	{

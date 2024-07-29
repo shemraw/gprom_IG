@@ -20,6 +20,7 @@ extern int searchAdefList(List *adefList, char *ch);
 extern List *removeDupeAr(List *arList);
 extern int searchArListByPos(List *arList, int pos);
 AttributeReference *getAttrRefFromArListByPos(List* arList, int pos);
+extern int searchArListForPos(List *arList, char *ch);
 
 extern QueryOperator *rewriteIG_test (QueryOperator *qo);
 
