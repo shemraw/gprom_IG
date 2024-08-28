@@ -236,6 +236,18 @@ static QueryOperator *
 rewriteIG_Conversion (ProjectionOperator *op)
 {
 
+	// exprs to include for conversion only
+	List *inputQueryattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_INPUT_PROP);
+	List *joinattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_JOIN_PROP);
+	List *convExprs = NIL;
+	List *convNames = NIL;
+
+	FOREACH(AttributeReference, ar, inputQueryattrs)
+	{
+
+	}
+
+
 	List *projExprs = NIL;
 	List *attrNames = NIL;
 
@@ -1933,7 +1945,9 @@ rewriteIG_Projection (ProjectionOperator *op)
 				copyObject(GET_STRING_PROP(OP_LCHILD(op), PROP_JOIN_OP_IG)));
 	}
     else
+    {
     	SET_STRING_PROP(op, PROP_JOIN_OP_IG, OP_LCHILD(op));
+    }
 
 
     // temporary expression list to grab the case when from the input
@@ -1989,7 +2003,8 @@ rewriteIG_Projection (ProjectionOperator *op)
 
     ProjectionOperator *newProj = createProjectionOp(retPorjExpr, NULL, NIL, retProjName);
 	addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
-	switchSubtrees((QueryOperator *) child, (QueryOperator *) newProj);
+	switchSubtrees((QueryOperator *) op, (QueryOperator *) newProj);
+
 
     INFO_OP_LOG("Rewritten Projection Operator ----------", (QueryOperator *) newProj);
     return (QueryOperator *) newProj;
@@ -2503,14 +2518,16 @@ rewriteIG_Join (JoinOperator *op)
     QueryOperator *rChild = OP_RCHILD(op);
 
     int LeftLen = LIST_LENGTH(lChild->schema->attrDefs);
-//    int RightLen = LIST_LENGTH(rChild->schema->attrDefs);
+//  int RightLen = LIST_LENGTH(rChild->schema->attrDefs);
 
+    //    List *inpptExprs = copyObject(GET_STRING_PROP(op, IG_INPUT_PROP));
 	SET_STRING_PROP(rChild, IG_INPUT_PROP,
 			copyObject(GET_STRING_PROP(op, IG_INPUT_PROP)));
 
 
 	SET_STRING_PROP(lChild, IG_INPUT_PROP,
 			copyObject(GET_STRING_PROP(op, IG_INPUT_PROP)));
+
 
 	List *joinExprs = getAttrReferences((Node *) op);
 
@@ -2603,6 +2620,8 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	List *input = NIL; // all
 	List *inputName = NIL;
 	List *allattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_INPUT_PROP);
+	List *joinattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_JOIN_PROP);
+
     FOREACH(AttributeReference, ar, allattrs)
     {
     	if(isSuffix(ar->name,"1"))
@@ -2610,7 +2629,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
     		ar->name = replaceSubstr(ar->name,"1","");
     	}
     }
-	List *joinattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_JOIN_PROP);
+
 	if(tablePos == 0)
 	{
 		globalLeftTableLen = LIST_LENGTH(op->op.schema->attrDefs);
@@ -2924,6 +2943,9 @@ rewriteIG_TableAccess(TableAccessOperator *op)
     }
 
 	ProjectionOperator *po = createProjectionOp(projExpr, NULL, NIL, attrNames);
+	addChildOperator((QueryOperator *) po, (QueryOperator *) op);
+	// Switch the subtree with this newly created projection operator.
+	switchSubtrees((QueryOperator *) op, (QueryOperator *) po);
 	SET_BOOL_STRING_PROP((QueryOperator *) po, PROP_PROJ_IG_ATTR_DUP);
 	tablePos = tablePos + 1; // to change 0 from 1
 
