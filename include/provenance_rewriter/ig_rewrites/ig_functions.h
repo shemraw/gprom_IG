@@ -39,6 +39,8 @@ extern List *getAsciiAggrs(List *projExprs);
 //clean up functions
 extern QueryOperator *cleanEXPL(QueryOperator *qo);
 
+extern int hasAscii(List *arList);
+
 
 
 #endif /* IG_FUNCTIONS_H_ */

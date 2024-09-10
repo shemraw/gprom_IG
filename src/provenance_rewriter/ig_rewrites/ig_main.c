@@ -244,17 +244,6 @@ rewriteIG_Conversion (ProjectionOperator *op)
 {
 
 	// exprs to include for conversion only
-//	List *inputQueryattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_INPUT_PROP);
-//	List *joinattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_JOIN_PROP);
-//	List *convExprs = NIL;
-//	List *convNames = NIL;
-
-//	FOREACH(AttributeReference, ar, inputQueryattrs)
-//	{
-//
-//	}
-
-
 	List *projExprs = NIL;
 	List *attrNames = NIL;
 
@@ -342,75 +331,142 @@ rewriteIG_Conversion (ProjectionOperator *op)
 		}
 	}
 
-	addChildOperator((QueryOperator *) ao, (QueryOperator *) cleanpo);
-	// Switch the subtree with this newly created projection operator.
-	switchSubtrees((QueryOperator *) cleanpo, (QueryOperator *) ao);
-
-	// CREATING THE NEW PROJECTION OPERATOR
-	projExprs = NIL;
-	projExprs = getARfromAttrDefs(ao->op.schema->attrDefs);
-
-	//create projection operator upon selection operator from select clause
-	ProjectionOperator *newPo = createProjectionOp(projExprs, NULL, NIL, newNames);
-
-	addChildOperator((QueryOperator *) newPo, (QueryOperator *) ao);
-	// Switch the subtree with this newly created projection operator.
-	switchSubtrees((QueryOperator *) ao, (QueryOperator *) newPo);
-
-	// CAST_EXPR
-	List *newProjExprs = NIL;
-
-	FOREACH(AttributeReference, a, newPo->projExprs)
+	ProjectionOperator *addPo = NULL;
+	//----------------------------------------
+	//if ascii ar exist then att the aggregate operator
+	if(hasAscii(po->projExprs) == 1)
 	{
-		if(isPrefix(a->name, "ig"))
-		{
+		addChildOperator((QueryOperator *) ao, (QueryOperator *) cleanpo);
+		// Switch the subtree with this newly created projection operator.
+		switchSubtrees((QueryOperator *) cleanpo, (QueryOperator *) ao);
+		// CREATING THE NEW PROJECTION OPERATOR
+		projExprs = NIL;
+		projExprs = getARfromAttrDefs(ao->op.schema->attrDefs);
 
-				CastExpr *castInt;
-				CastExpr *cast;
-				castInt = createCastExpr((Node *) a, DT_INT);
-				cast = createCastExpr((Node *) castInt, DT_BIT10);
+		//create projection operator upon selection operator from select clause
+		ProjectionOperator *newPo = createProjectionOp(projExprs, NULL, NIL, newNames);
 
-				newProjExprs = appendToTailOfList(newProjExprs, cast);
-		}
-		else
+		addChildOperator((QueryOperator *) newPo, (QueryOperator *) ao);
+		// Switch the subtree with this newly created projection operator.
+		switchSubtrees((QueryOperator *) ao, (QueryOperator *) newPo);
+
+		// CAST_EXPR
+		List *newProjExprs = NIL;
+
+		FOREACH(AttributeReference, a, newPo->projExprs)
 		{
-			newProjExprs = appendToTailOfList(newProjExprs, a);
+			if(isPrefix(a->name, "ig"))
+			{
+
+					CastExpr *castInt;
+					CastExpr *cast;
+					castInt = createCastExpr((Node *) a, DT_INT);
+					cast = createCastExpr((Node *) castInt, DT_BIT10);
+
+					newProjExprs = appendToTailOfList(newProjExprs, cast);
+			}
+			else
+			{
+				newProjExprs = appendToTailOfList(newProjExprs, a);
+			}
+
 		}
+
+		newPo->projExprs = newProjExprs;
+
+		// matching the datatype of attribute def in the projection
+		FOREACH(AttributeDef, a, newPo->op.schema->attrDefs)
+		{
+			if(isPrefix(a->attrName,"ig"))
+			{
+				a->dataType = DT_BIT10;
+			}
+		}
+
+	//	retrieve the original order of the projection attributes
+		projExprs = NIL;
+		newNames = NIL;
+
+		projExprs = getARfromAttrDefswPos((QueryOperator *) newPo, po->op.schema->attrDefs);
+
+		//TODO: duplicate function created
+		newNames = getAttrNames(po->op.schema);
+
+
+//		ProjectionOperator *addPo = createProjectionOp(projExprs, NULL, NIL, newNames);
+		addPo = createProjectionOp(projExprs, NULL, NIL, newNames);
+
+		addChildOperator((QueryOperator *) addPo, (QueryOperator *) newPo);
+
+		// Switch the subtree with this newly created projection operator.
+		switchSubtrees((QueryOperator *) newPo, (QueryOperator *) addPo);
+
+
+//		LOG_RESULT("Converted Operator tree", addPo);
+//		return (QueryOperator *) addPo;
 
 	}
-
-	newPo->projExprs = newProjExprs;
-
-	// matching the datatype of attribute def in the projection
-	FOREACH(AttributeDef, a, newPo->op.schema->attrDefs)
+	//----------------------------------------
+	else if(hasAscii(po->projExprs) == 0)
 	{
-		if(isPrefix(a->attrName,"ig"))
+		// CAST_EXPR
+		List *newProjExprs = NIL;
+
+		FOREACH(AttributeReference, a, cleanpo->projExprs)
 		{
-			a->dataType = DT_BIT10;
+			if(isPrefix(a->name, "ig"))
+			{
+
+					CastExpr *castInt;
+					CastExpr *cast;
+					castInt = createCastExpr((Node *) a, DT_INT);
+					cast = createCastExpr((Node *) castInt, DT_BIT10);
+
+					newProjExprs = appendToTailOfList(newProjExprs, cast);
+			}
+			else
+			{
+				newProjExprs = appendToTailOfList(newProjExprs, a);
+			}
+
 		}
+
+		cleanpo->projExprs = newProjExprs;
+
+		// matching the datatype of attribute def in the projection
+		FOREACH(AttributeDef, a, cleanpo->op.schema->attrDefs)
+		{
+			if(isPrefix(a->attrName,"ig"))
+			{
+				a->dataType = DT_BIT10;
+			}
+		}
+
+	//	retrieve the original order of the projection attributes
+		projExprs = NIL;
+		newNames = NIL;
+
+		projExprs = getARfromAttrDefswPos((QueryOperator *) cleanpo, po->op.schema->attrDefs);
+
+		//TODO: duplicate function created
+		newNames = getAttrNames(po->op.schema);
+
+
+//		ProjectionOperator *addPo = createProjectionOp(projExprs, NULL, NIL, newNames);
+		addPo = createProjectionOp(projExprs, NULL, NIL, newNames);
+
+		addChildOperator((QueryOperator *) addPo, (QueryOperator *) cleanpo);
+
+		// Switch the subtree with this newly created projection operator.
+		switchSubtrees((QueryOperator *) cleanpo, (QueryOperator *) addPo);
+
+
+//		LOG_RESULT("Converted Operator tree", addPo);
+//		return (QueryOperator *) addPo;
+
 	}
-
-//	retrieve the original order of the projection attributes
-	projExprs = NIL;
-	newNames = NIL;
-
-	projExprs = getARfromAttrDefswPos((QueryOperator *) newPo, po->op.schema->attrDefs);
-
-	//TODO: duplicate function created
-	newNames = getAttrNames(po->op.schema);
-
-
-	ProjectionOperator *addPo = createProjectionOp(projExprs, NULL, NIL, newNames);;
-
-	addChildOperator((QueryOperator *) addPo, (QueryOperator *) newPo);
-
-	// Switch the subtree with this newly created projection operator.
-	switchSubtrees((QueryOperator *) newPo, (QueryOperator *) addPo);
-
-
 	LOG_RESULT("Converted Operator tree", addPo);
 	return (QueryOperator *) addPo;
-
 }
 
 /*

@@ -61,6 +61,20 @@ AttributeReference *getAttrRefFromArListByPos(List* arList, int pos);
 
 extern int searchArListForPos(List *arList, char *ch);
 
+extern int hasAscii(List *arList);
+
+int hasAscii(List *arList)
+{
+	FOREACH(AttributeReference, ar, arList)
+	{
+		if(isA(ar, Ascii))
+		{
+			return 1;
+		}
+	}
+	return 0; // 0 = FALSE, not found
+}
+
 int searchArListForPos(List *arList, char *ch)
 {
 	FOREACH(AttributeReference, ar, arList)
@@ -219,7 +233,7 @@ List *toAsciiList(ProjectionOperator *op)
 
 	FOREACH(AttributeReference, a, op->projExprs)
 	{
-		if(isPrefix(a->name, "ig"))
+		if(isPrefix(a->name, "ig") && a->attrType == DT_STRING)
 		{
 			if (a->attrType == DT_STRING)
 			{
