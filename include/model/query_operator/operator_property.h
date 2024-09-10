@@ -214,7 +214,8 @@
 #define IG_PROP_ORIG_ATTR "IG_PROP_ORIG_ATTR"
 #define IG_INPUT_PROP "IG_INPUT_PROP"
 #define IG_JOIN_PROP "IG_JOIN_PROP"
-//#define IG_L_PROP "IG_L_PROP"
+#define IG_L_PROP "IG_L_PROP"
+#define IG_R_PROP "IG_R_PROP"
 
 
 /* properties for aggregation operators created by lateral rewrite */

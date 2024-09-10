@@ -71,8 +71,8 @@ static RelCount *nameState;
 List *attrL = NIL;
 List *attrR = NIL;
 
-int tablePos = 0; // 0 = L || 1 = R
-int globalLeftTableLen = 0;
+int tablePos = 0;
+
 //int globalRightTableLen = 0;
 static boolean explFlag;
 static boolean igFlag;
@@ -191,6 +191,13 @@ rewriteIG_Selection (SelectionOperator *op) //where clause
 	SET_STRING_PROP(OP_LCHILD(op), PROP_WHERE_CLAUSE, op->cond);
     rewriteIG_Operator(child);
 
+    SET_STRING_PROP(op, IG_L_PROP,
+    			copyObject(GET_STRING_PROP(child, IG_L_PROP)));
+
+    SET_STRING_PROP(op, IG_R_PROP,
+    			copyObject(GET_STRING_PROP(child, IG_R_PROP)));
+
+
     // update selection
 	Operator *cond = (Operator *) op->cond;
 
@@ -237,15 +244,15 @@ rewriteIG_Conversion (ProjectionOperator *op)
 {
 
 	// exprs to include for conversion only
-	List *inputQueryattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_INPUT_PROP);
-	List *joinattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_JOIN_PROP);
-	List *convExprs = NIL;
-	List *convNames = NIL;
+//	List *inputQueryattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_INPUT_PROP);
+//	List *joinattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_JOIN_PROP);
+//	List *convExprs = NIL;
+//	List *convNames = NIL;
 
-	FOREACH(AttributeReference, ar, inputQueryattrs)
-	{
-
-	}
+//	FOREACH(AttributeReference, ar, inputQueryattrs)
+//	{
+//
+//	}
 
 
 	List *projExprs = NIL;
@@ -1925,7 +1932,6 @@ rewriteIG_Analysis (AggregationOperator *patterns)
 	return (QueryOperator *) lpo;
 
 }
-
 */
 
 static QueryOperator *
@@ -1988,8 +1994,14 @@ rewriteIG_Projection (ProjectionOperator *op)
 
     QueryOperator *child = OP_LCHILD(op);
 
+
     // rewrite child
     rewriteIG_Operator(child);
+
+    // LEFT TABLE ATTRIBUTES 0
+    // IG_L_PROP
+    // RIGHT TABLE ATTRIBUTES 1
+    // IG_R_PROP
 
     List *retProjName = NIL;
     List *retPorjExpr = NIL;
@@ -2006,10 +2018,11 @@ rewriteIG_Projection (ProjectionOperator *op)
 	switchSubtrees((QueryOperator *) op, (QueryOperator *) newProj);
 
 
+	//--------------------------------
     INFO_OP_LOG("Rewritten Projection Operator ----------", (QueryOperator *) newProj);
     return (QueryOperator *) newProj;
 
-    /*
+	/*
 	// Getting Table name and length of table name here
 	char *tblNameL = "";
 	HashMap *attrLNames = NEW_MAP(Constant, Node);
@@ -2363,25 +2376,25 @@ rewriteIG_Projection (ProjectionOperator *op)
     List *allExprs = CONCAT_LISTS(newProjExprWithCaseWhen,addIgExprs);
     List *allAttrs = CONCAT_LISTS(newAttrNames,addIgAttrs);
 
-	ProjectionOperator *newProj = createProjectionOp(allExprs, NULL, NIL, allAttrs);
-    addChildOperator((QueryOperator *) newProj, (QueryOperator *) child);
-    switchSubtrees((QueryOperator *) op, (QueryOperator *) newProj);
-    */
-//    return (QueryOperator *) newProj;
+	ProjectionOperator *newProj1 = createProjectionOp(allExprs, NULL, NIL, allAttrs);
+    addChildOperator((QueryOperator *) newProj1, (QueryOperator *) child);
+    switchSubtrees((QueryOperator *) op, (QueryOperator *) newProj1);
 
-    /*
+    //--------------------------------------
+//    return (QueryOperator *) newProj1;
+
 
     // TODO: coalesce becomes DT_STRING
     int pos = 0;
     List *newProjExprs = NIL;
 
-    FOREACH(Node, n, newProj->projExprs)
+    FOREACH(Node, n, newProj1->projExprs)
     {
     	if(isA(n,FunctionCall))
     	{
     		// change the datatype in attrDef to original datatype
-    		AttributeDef *a = getAttrDefByPos((QueryOperator *) newProj,pos);
-    		QueryOperator *child = (QueryOperator *) getHeadOfListP(newProj->op.inputs);
+    		AttributeDef *a = getAttrDefByPos((QueryOperator *) newProj1,pos);
+    		QueryOperator *child = (QueryOperator *) getHeadOfListP(newProj1->op.inputs);
     		AttributeDef *childa = getAttrDefByName(child,a->attrName);
     		a->dataType = childa->dataType;
 
@@ -2397,27 +2410,27 @@ rewriteIG_Projection (ProjectionOperator *op)
     	pos++;
     }
 
-    newProj->projExprs = newProjExprs;
+    newProj1->projExprs = newProjExprs;
 
     // if there is PROP_JOIN_ATTRS_FOR_HAMMING set then copy over the properties to the new proj op
     if(HAS_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING))
     {
-        SET_STRING_PROP(newProj, PROP_JOIN_ATTRS_FOR_HAMMING,
+        SET_STRING_PROP(newProj1, PROP_JOIN_ATTRS_FOR_HAMMING,
                 copyObject(GET_STRING_PROP(child, PROP_JOIN_ATTRS_FOR_HAMMING)));
     }
 
     //add property for common attributes
-    SET_STRING_PROP(newProj, IG_PROP_JOIN_ATTR, joinAttrNames);
-    SET_STRING_PROP(newProj, IG_PROP_JOIN_ATTR_R, joinAttrNamesR);
+    SET_STRING_PROP(newProj1, IG_PROP_JOIN_ATTR, joinAttrNames);
+    SET_STRING_PROP(newProj1, IG_PROP_JOIN_ATTR_R, joinAttrNamesR);
 
-    SET_STRING_PROP(newProj, IG_PROP_NON_JOIN_COMMON_ATTR, commonAttrNames);
-    SET_STRING_PROP(newProj, IG_PROP_NON_JOIN_COMMON_ATTR_R, commonAttrNamesR);
+    SET_STRING_PROP(newProj1, IG_PROP_NON_JOIN_COMMON_ATTR, commonAttrNames);
+    SET_STRING_PROP(newProj1, IG_PROP_NON_JOIN_COMMON_ATTR_R, commonAttrNamesR);
 
     //origAttrs gets declared in line 1925
-    SET_STRING_PROP(newProj, IG_PROP_ORIG_ATTR, origAttrs);
+    SET_STRING_PROP(newProj1, IG_PROP_ORIG_ATTR, origAttrs);
 
     // store the join query
-	SET_STRING_PROP(newProj, PROP_JOIN_OP_IG,
+	SET_STRING_PROP(newProj1, PROP_JOIN_OP_IG,
 			copyObject(GET_STRING_PROP(op, PROP_JOIN_OP_IG)));
 
 
@@ -2505,7 +2518,7 @@ rewriteIG_Projection (ProjectionOperator *op)
 		return cleanqo;
 	}
 
-	*/
+*/
 
 }
 
@@ -2528,18 +2541,25 @@ rewriteIG_Join (JoinOperator *op)
 	SET_STRING_PROP(lChild, IG_INPUT_PROP,
 			copyObject(GET_STRING_PROP(op, IG_INPUT_PROP)));
 
+	List *lProp = copyObject(lChild->schema->attrDefs);
+	List *rProp = copyObject(rChild->schema->attrDefs);
+
+
 
 	List *joinExprs = getAttrReferences((Node *) op);
 
-	SET_STRING_PROP(rChild, IG_JOIN_PROP, joinExprs);
 	SET_STRING_PROP(lChild, IG_JOIN_PROP, joinExprs);
+	SET_STRING_PROP(rChild, IG_JOIN_PROP, joinExprs);
 
-	List *lProp = NIL;
-	FOREACH(AttributeDef, adef, lChild->schema->attrDefs)
-	{
-		lProp = appendToTailOfList(lProp, createFullAttrReference(adef->attrName, 0, 0,
-				0, adef->dataType));
-	}
+	// sending property up the tree to selection op and projection
+	SET_STRING_PROP(op, IG_L_PROP, lProp);
+	SET_STRING_PROP(op, IG_R_PROP, rProp);
+
+	// sending property down the tree to table access op
+	SET_STRING_PROP(lChild, IG_L_PROP, lProp);
+	SET_STRING_PROP(rChild, IG_L_PROP, lProp);
+	SET_STRING_PROP(lChild, IG_R_PROP, rProp);
+	SET_STRING_PROP(rChild, IG_R_PROP, rProp);
 
 	if(HAS_STRING_PROP(op, PROP_WHERE_CLAUSE))
 	{
@@ -2548,22 +2568,26 @@ rewriteIG_Join (JoinOperator *op)
 		List *arList = condOp->args;
 		FOREACH(AttributeReference, ar, arList)
 		{
-			if(ar->attrPosition > LeftLen)
+			if(isA(ar, AttributeReference))
 			{
-				SET_STRING_PROP(rChild, PROP_WHERE_CLAUSE,
-						copyObject(GET_STRING_PROP(op, PROP_WHERE_CLAUSE)));
+				if(ar->attrPosition > LeftLen)
+				{
+					SET_STRING_PROP(rChild, PROP_WHERE_CLAUSE,
+							copyObject(GET_STRING_PROP(op, PROP_WHERE_CLAUSE)));
+				}
+				else if(ar->attrPosition >= LeftLen)
+				{
+					SET_STRING_PROP(lChild, PROP_WHERE_CLAUSE,
+							copyObject(GET_STRING_PROP(op, PROP_WHERE_CLAUSE)));
+				}
 			}
-//			else
-//			{
-//				SET_STRING_PROP(lChild, PROP_WHERE_CLAUSE,
-//						copyObject(GET_STRING_PROP(op, PROP_WHERE_CLAUSE)));
-//			}
 		}
 	}
 
 
 	lChild = rewriteIG_Operator(lChild);
     rChild = rewriteIG_Operator(rChild);
+
 
 	// update the attribute def for join operator
     List *lAttrDefs = copyObject(getNormalAttrs(lChild));
@@ -2617,12 +2641,14 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	//creating input for conversion
 	List *inputL = NIL; // owned
 	List *inputR = NIL; // shared
-	List *input = NIL; // all
 	List *inputName = NIL;
-	List *allattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_INPUT_PROP);
+	List *input_attrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_INPUT_PROP);
 	List *joinattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_JOIN_PROP);
 
-    FOREACH(AttributeReference, ar, allattrs)
+	List *left_attrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_L_PROP);
+//	List *right_attrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_R_PROP);
+
+    FOREACH(AttributeReference, ar, input_attrs)
     {
     	if(isSuffix(ar->name,"1"))
     	{
@@ -2630,10 +2656,9 @@ rewriteIG_TableAccess(TableAccessOperator *op)
     	}
     }
 
-	if(tablePos == 0)
-	{
-		globalLeftTableLen = LIST_LENGTH(op->op.schema->attrDefs);
-	}
+	//globalLeftTableLen
+	int left_len = LIST_LENGTH(left_attrs);
+//	int right_len = LIST_LENGTH(right_attrs);
 
 	//adding join attributes
 	FOREACH(Node, n, joinattrs)
@@ -2641,54 +2666,59 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 		if(isA(n,AttributeReference))
 		{
 			AttributeReference *ar = (AttributeReference *) n;
-//			if(tablePos == 0)
-//			{
 			if(ar->fromClauseItem == 0)
 			{
 				inputL = appendToTailOfList(inputL, ar);
 				inputName = appendToTailOfList(inputName, ar->name);
 			}
-//			}
-//			else if(tablePos == 1)
-//			{
 			if(ar->fromClauseItem == 1)
 			{
 				inputR = appendToTailOfList(inputR, ar);
 				inputName = appendToTailOfList(inputName, ar->name);
 			}
-//			}
 		}
 	}
 
 
 	// adding input attributes
-	FOREACH(AttributeReference, ar, allattrs) // loop for all attrRef in properties
+	FOREACH(AttributeReference, ar, input_attrs) // loop for all attrRef in properties
 	{
-		if(tablePos == 0 && (ar->attrPosition < globalLeftTableLen)) // creating left list
+		if(ar->attrPosition < left_len) // creating left list
 		{
-			// we plan to keep all attributes now from the input table just heir values should be 0
-			// so the new left and right should change
 			if(isA(ar, AttributeReference))
 			{
 				inputL = appendToTailOfList(inputL, ar);
-				ar->attrPosition = getAttrPos((QueryOperator *) op, ar->name);
 				inputName = appendToTailOfList(inputName, ar->name);
 			}
 		}
-		else if(tablePos == 1 && (ar->attrPosition >= globalLeftTableLen))
+		else if(ar->attrPosition >= left_len)
 		{
 			if(isA(ar, AttributeReference))
 			{
 				inputR = appendToTailOfList(inputR, ar);
-				ar->attrPosition = getAttrPos((QueryOperator *) op, ar->name);
 				inputName = appendToTailOfList(inputName, ar->name);
+			}
+		}
+	}
+
+	//adding the s.maqi to left side if it exist in owned table
+	FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
+	{
+		if(searchArList(inputL, adef->attrName) == 0)
+		{
+			if(searchArList(inputR, adef->attrName) == 1)
+			{
+				AttributeReference *ar = createFullAttrReference(adef->attrName, 0,
+						getAttrPos((QueryOperator *) op, adef->attrName), 0, adef->dataType);
+				inputL = appendToTailOfList(inputL, ar);
+				inputName = appendToTailOfList(inputName, adef->attrName);
 			}
 		}
 	}
 
 	//getting inputs from case when expression
 	List *caswWhenAttrs = NIL;
-	FOREACH(AttributeReference, ar, allattrs)
+	FOREACH(AttributeReference, ar, input_attrs)
 	{
 		if(isA(ar, CaseExpr))
 		{
@@ -2736,12 +2766,6 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 		}
 	}
 
-	// order in which case when is stored : operator -> isNullExpr -> then -> else
-//	List *noDupesAr = removeDupeAr(caswWhenAttrs);
-
-//	List *rightAttributes = NIL; // right attribute from input query
-	//leftAttributes seems useless clean it up later
-//	List *leftAttributes = NIL; // all the left attributes fron the input query
 	List *currentAttributes = NIL; // all the attributes in current table || for first iteration its in owned table
 	FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
 	{
@@ -2749,153 +2773,108 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 				createFullAttrReference(adef->attrName, 0, 0, 0, adef->dataType));
 	}
 
-	// adding attributes to Left side (owned) if they exist on the Right side (shared)
-	// this is not required anymore
-//	if(tablePos == 0)
-//	{
-//		// populating rightAttributes for next step
-//		FOREACH(AttributeReference, ar , allattrs)
-//		{
-//			if(!isA(ar, CaseExpr))
-//			{
-//				if(ar->attrPosition >= globalLeftTableLen)
-//				{
-//					int l = strlen(ar->name);
-//					ar->name = substr(ar->name, 0, l - 2);
-//					rightAttributes = appendToTailOfList(rightAttributes, ar);
-//				}
-//				else if(ar->attrPosition < globalLeftTableLen)
-//				{
-//					leftAttributes = appendToTailOfList(leftAttributes, ar);
-//				}
-//			}
-//		}
-//
-//		//adding attributes that are in input query, in the shared table but also exist in owned table
-//		//adds attributs to the Left side (owend) that also exist Right side (shared)
-//		FOREACH(AttributeReference, arR, rightAttributes)
-//		{
-//			if(!isA(arR, CaseExpr))
-//			{
-//				if((searchArList(inputL, arR->name) == 0) &&
-//						(searchArList(currentAttributes, arR->name) == 1))
-//				{
-//					arR->attrPosition = getAttrPos((QueryOperator *) op, arR->name);
-//					inputL = appendToTailOfList(inputL, arR);
-//					inputName = appendToTailOfList(inputName, arR->name);
-//				}
-//			}
-//		}
-//
-//
-//		FOREACH(AttributeReference, ar, noDupesAr)
-//		{
-//
-//			if(ar->attrPosition < globalLeftTableLen)
-//			{
-//				leftAttributes = appendToTailOfList(leftAttributes, ar);
-//				inputL = appendToTailOfList(inputL, ar);
-//				inputName = appendToTailOfList(inputName, ar->name);
-//			}
-//		}
-//	}
-//
-//	else if(tablePos == 1)
-//	{
-//
-//		FOREACH(AttributeReference, ar, noDupesAr)
-//		{
-//			if(ar->attrPosition >= globalLeftTableLen)
-//			{
-//		    	if(isSuffix(ar->name,"1"))
-//		    	{
-//		    		ar->name = replaceSubstr(ar->name,"1","");
-//		    		if(searchAdefList(op->op.schema->attrDefs, ar->name) == 1)
-//					{
-//		    			inputR = appendToTailOfList(inputR, ar);
-//						inputName = appendToTailOfList(inputName, ar->name);
-//					}
-//		    	}
-//	    		else
-//	    		{
-//	    			inputR = appendToTailOfList(inputR, ar);
-//					inputName = appendToTailOfList(inputName, ar->name);
-//	    		}
-//			}
-//		}
-//	}
-//
-//	//TODO: add an attribute appearing in the input attributes but not in the projection
-//	if(tablePos == 1)
-//	{
-//		int pos = 0;
-//
-//		FOREACH(AttributeDef, ad, op->op.schema->attrDefs)
-//		{
-//			FOREACH(AttributeReference, ar, allattrs)
-//			{
-//				if(streq(ad->attrName,ar->name)
-//						&& !searchListString(inputName,ad->attrName))
-//				{
-//					AttributeReference *newAr = ar;
-//					newAr->attrPosition = pos;
-//
-//					inputR = appendToTailOfList(inputR, newAr);
-//					inputName = appendToTailOfList(inputName, ad->attrName);
-//				}
-//			}
-//			pos++;
-//		}
-//	}
+//	input = CONCAT_LISTS(inputL, inputR); // all attrDefs
+	List *cleanL = NIL;
+	List *cleanR = NIL;
 
-	// add attributes from right_input_QUERY to left_INPUT table if they exist in both sides
-//	if(tablePos == 0)
-//	{
-//		FOREACH(AttributeReference, ar, inputR)
-//		{
-//			if(searchArList(inputL, ar->name) == 0)
-//			{
-//
-//			}
-//		}
-//	}
-
-
-
-	input = CONCAT_LISTS(inputL, inputR); // all attrDefs
-
-	//reordering the list
-	List *cleaninput = NIL;
-	List *cleaninputNames = NIL;
-
-	for(int i = 0; i < LIST_LENGTH(input); i++ )
+	FOREACH(AttributeReference, ar, inputL)
 	{
-		AttributeReference *ar = getAttrRefFromArListByPos(input, i);
-		if(ar != NULL)
+		if(cleanL == NIL)
 		{
-			cleaninput = appendToTailOfList(cleaninput, ar);
-			cleaninputNames = appendToTailOfList(cleaninputNames, ar->name);
+			cleanL = appendToTailOfList(cleanL, ar);
+		}
+		else if(searchArList(cleanL, ar->name) == 0)
+		{
+			cleanL = appendToTailOfList(cleanL, ar);
+		}
+		else
+		{
+			continue;
 		}
 	}
 
-	ProjectionOperator *inputPo = createProjectionOp(cleaninput, NULL, NIL, cleaninputNames);
+	FOREACH(AttributeReference, ar, inputR)
+	{
+		if(cleanR == NIL)
+		{
+			cleanR = appendToTailOfList(cleanR, ar);
+		}
+		else if(searchArList(cleanR, ar->name) == 0)
+		{
+			cleanR = appendToTailOfList(cleanR, ar);
+		}
+		else
+		{
+			continue;
+		}
+	}
+
+//	CONCAT_LISTS is not working here creating weird bug. its messing with other functions
+//	input1 = CONCAT_LISTS(cleanL, cleanR);
 
 	List *attrNames = NIL;
 	List *projExpr = NIL;
 
-	// normal attributes
-	FOREACH(AttributeDef, attr, inputPo->op.schema->attrDefs)
+	//normal attributes
+	FOREACH(AttributeDef, attr, op->op.schema->attrDefs)
 	{
 		attrNames = appendToTailOfList(attrNames, strdup(attr->attrName));
 		projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0,
 				getAttrPos((QueryOperator *) op, attr->attrName), 0, attr->dataType));
 	}
 
+	ProjectionOperator *inputPo = createProjectionOp(projExpr, NULL, NIL, attrNames);
+
+	//inputL and inputR contains join attributes and input query attributes
+	//removing those attributes from projExpr so i can duplicate them to create ig_ attributes
+	List *newProjExpr = NIL;
+	List *newProjNames = NIL;
+	if(tablePos == 0)
+	{
+		newProjExpr = NIL;
+		newProjNames = NIL;
+		FOREACH(AttributeReference, ar, cleanL)
+		{
+			//removing the join condition attributes
+			if(searchArList(joinattrs, ar->name) == 1)
+			{
+				continue;
+			}
+			//removing the attributes from left list that do not exist in the right list
+			else if(searchArList(cleanR, ar->name) == 0)
+			{
+				continue;
+			}
+			else if((searchArList(joinattrs, ar->name) == 0) && (searchArList(cleanR, ar->name) == 1))
+			{
+				newProjExpr = appendToTailOfList(newProjExpr, ar);
+				newProjNames = appendToTailOfList(newProjNames, ar->name);
+			}
+		}
+	}
+	else if(tablePos == 1)
+	{
+		newProjExpr = NIL;
+		newProjNames = NIL;
+		FOREACH(AttributeReference, ar, cleanR)
+		{
+			//removing the join condition attributes
+			if(searchArList(joinattrs, ar->name) == 1)
+			{
+				continue;
+			}
+			else
+			{
+				newProjExpr = appendToTailOfList(newProjExpr, ar);
+				newProjNames = appendToTailOfList(newProjNames, ar->name);
+			}
+		}
+	}
+
 	// Creating IG attributes
     char *newAttrName;
-//    List *copyAllattrs = copyObject(input);
-    List *copyAllattrs = copyObject(cleaninput);
-//    List *copyAllattrs = NIL;
+//  List *copyAllattrs = copyObject(cleaninput);
+    List *copyAllattrs = copyObject(newProjExpr);
 
     //TODO: retrieve the original attribute name
     FOREACH(AttributeReference, ar, copyAllattrs)
@@ -2906,7 +2885,6 @@ rewriteIG_TableAccess(TableAccessOperator *op)
     	}
     }
 
-
 	// duplicating IG attributes
     if(tablePos == 0)
     {
@@ -2915,13 +2893,11 @@ rewriteIG_TableAccess(TableAccessOperator *op)
         	//check an attribute is an attribute in the projection operation of input query
         	if(searchArList(copyAllattrs, attr->attrName) == 1)
         	{
-    //        	newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
             	newAttrName = getIgAttrName("left", attr->attrName, relAccessCount);
             	attrNames = appendToTailOfList(attrNames, newAttrName);
             	projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0,
             					getAttrPos((QueryOperator *) op, attr->attrName), 0, attr->dataType));
         	}
-
         }
     }
 
@@ -2932,7 +2908,6 @@ rewriteIG_TableAccess(TableAccessOperator *op)
         	//check an attribute is an attribute in the projection operation of input query
         	if(searchArList(copyAllattrs, attr->attrName) == 1)
         	{
-    //        	newAttrName = getIgAttrName(op->tableName, attr->attrName, relAccessCount);
             	newAttrName = getIgAttrName("right", attr->attrName, relAccessCount);
             	attrNames = appendToTailOfList(attrNames, newAttrName);
             	projExpr = appendToTailOfList(projExpr, createFullAttrReference(attr->attrName, 0,
@@ -2943,57 +2918,58 @@ rewriteIG_TableAccess(TableAccessOperator *op)
     }
 
 	ProjectionOperator *po = createProjectionOp(projExpr, NULL, NIL, attrNames);
-	addChildOperator((QueryOperator *) po, (QueryOperator *) op);
-	// Switch the subtree with this newly created projection operator.
-	switchSubtrees((QueryOperator *) op, (QueryOperator *) po);
+//	addChildOperator((QueryOperator *) po, (QueryOperator *) op);
+//	// Switch the subtree with this newly created projection operator.
+//	switchSubtrees((QueryOperator *) op, (QueryOperator *) po);
 	SET_BOOL_STRING_PROP((QueryOperator *) po, PROP_PROJ_IG_ATTR_DUP);
-	tablePos = tablePos + 1; // to change 0 from 1
 
-	return rewriteIG_Conversion(po);
-//	if(HAS_STRING_PROP(op, PROP_WHERE_CLAUSE))
-//	{
-//		Node *selCond = GET_STRING_PROP(op, PROP_WHERE_CLAUSE);
-//		Operator *selOp = (Operator *) selCond;
-//		List *argsOp = (List *) selOp->args;
-//		FOREACH(AttributeReference, ar, argsOp)
-//		{
-//			ar->attrPosition = searchArListForPos(po->projExprs, ar->name);
-//			break;
-//		}
-//
-//		List *whereNames = NIL;
-//		FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
-//		{
-//			whereNames = appendToTailOfList(whereNames, adef->attrName);
-//		}
-//		//adding where clause i.e selection operator
-//		SelectionOperator *so = createSelectionOp(selCond, NULL, NIL, whereNames);
-//		so->op.schema->attrDefs = op->op.schema->attrDefs;
-//
-//		addChildOperator((QueryOperator *) so, (QueryOperator *) op);
-//		// Switch the subtree with this newly created projection operator.
-//		switchSubtrees((QueryOperator *) op, (QueryOperator *) so);
-//
-//
-//		addChildOperator((QueryOperator *) po, (QueryOperator *) so);
-//		// Switch the subtree with this newly created projection operator.
-//	    switchSubtrees((QueryOperator *) so, (QueryOperator *) po);
-//
-//	    tablePos = tablePos + 1; // to change 0 from 1
-//	    DEBUG_LOG("table access after adding additional attributes for ig: %s", operatorToOverviewString((Node *) po));
-//	    return rewriteIG_Conversion(po);
-//	}
-//
-//	else
-//	{
-//
-//		addChildOperator((QueryOperator *) po, (QueryOperator *) op);
-//		// Switch the subtree with this newly created projection operator.
-//	    switchSubtrees((QueryOperator *) op, (QueryOperator *) po);
-//
-//	    tablePos = tablePos + 1; // to change 0 from 1
-//	    DEBUG_LOG("table access after adding additional attributes for ig: %s", operatorToOverviewString((Node *) po));
-//	    return rewriteIG_Conversion(po);
-//	}
+//	tablePos = tablePos + 1; // to change 0 from 1
+//	return rewriteIG_Conversion(po);
+
+	if(HAS_STRING_PROP(op, PROP_WHERE_CLAUSE))
+	{
+		Node *selCond = GET_STRING_PROP(op, PROP_WHERE_CLAUSE);
+		Operator *selOp = (Operator *) selCond;
+		List *argsOp = (List *) selOp->args;
+		FOREACH(AttributeReference, ar, argsOp)
+		{
+			ar->attrPosition = searchArListForPos(po->projExprs, ar->name);
+			break;
+		}
+
+		List *whereNames = NIL;
+		FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
+		{
+			whereNames = appendToTailOfList(whereNames, adef->attrName);
+		}
+		//adding where clause i.e selection operator
+		SelectionOperator *so = createSelectionOp(selCond, NULL, NIL, whereNames);
+		so->op.schema->attrDefs = op->op.schema->attrDefs;
+
+		addChildOperator((QueryOperator *) so, (QueryOperator *) op);
+		// Switch the subtree with this newly created projection operator.
+		switchSubtrees((QueryOperator *) op, (QueryOperator *) so);
+
+
+		addChildOperator((QueryOperator *) po, (QueryOperator *) so);
+		// Switch the subtree with this newly created projection operator.
+	    switchSubtrees((QueryOperator *) so, (QueryOperator *) po);
+
+	    tablePos = tablePos + 1; // to change 0 from 1
+	    DEBUG_LOG("table access after adding additional attributes for ig: %s", operatorToOverviewString((Node *) po));
+	    return rewriteIG_Conversion(po);
+	}
+
+	else
+	{
+
+		addChildOperator((QueryOperator *) po, (QueryOperator *) op);
+		// Switch the subtree with this newly created projection operator.
+	    switchSubtrees((QueryOperator *) op, (QueryOperator *) po);
+
+	    tablePos = tablePos + 1; // to change 0 from 1
+	    DEBUG_LOG("table access after adding additional attributes for ig: %s", operatorToOverviewString((Node *) po));
+	    return rewriteIG_Conversion(po);
+	}
 }
 

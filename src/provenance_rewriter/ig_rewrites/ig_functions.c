@@ -70,7 +70,7 @@ int searchArListForPos(List *arList, char *ch)
 			return ar->attrPosition;
 		}
 	}
-	return -1; // -1 = attribute not found
+	return -1; // -1 = attribute no
 }
 
 
@@ -99,7 +99,6 @@ int searchArListByPos(List *arList, int pos)
 }
 
 
-
 List *removeDupeAr(List *arList)
 {
 	List *cleanArList = NIL;
@@ -122,7 +121,7 @@ int searchArList(List *arList, char *ch)
 {
 	FOREACH(AttributeReference, ar, arList)
 	{
-		if(streq(ar->name, ch))
+		if(strcmp(ar->name, ch) == 0)
 		{
 			return 1; // 1 = TRUE
 		}
