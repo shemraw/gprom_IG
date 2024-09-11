@@ -2722,23 +2722,23 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 //	int right_len = LIST_LENGTH(right_attrs);
 
 	//adding join attributes
-	FOREACH(Node, n, joinattrs)
-	{
-		if(isA(n,AttributeReference))
-		{
-			AttributeReference *ar = (AttributeReference *) n;
-			if(ar->fromClauseItem == 0)
-			{
-				inputL = appendToTailOfList(inputL, ar);
-				inputName = appendToTailOfList(inputName, ar->name);
-			}
-			if(ar->fromClauseItem == 1)
-			{
-				inputR = appendToTailOfList(inputR, ar);
-				inputName = appendToTailOfList(inputName, ar->name);
-			}
-		}
-	}
+//	FOREACH(Node, n, joinattrs)
+//	{
+//		if(isA(n,AttributeReference))
+//		{
+//			AttributeReference *ar = (AttributeReference *) n;
+//			if(ar->fromClauseItem == 0)
+//			{
+//				inputL = appendToTailOfList(inputL, ar);
+//				inputName = appendToTailOfList(inputName, ar->name);
+//			}
+//			if(ar->fromClauseItem == 1)
+//			{
+//				inputR = appendToTailOfList(inputR, ar);
+//				inputName = appendToTailOfList(inputName, ar->name);
+//			}
+//		}
+//	}
 
 
 	// adding input attributes
@@ -2778,14 +2778,15 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	}
 
 	//getting inputs from case when expression
-	List *caswWhenAttrs = NIL;
-	CaseExpr *caseInput = NULL;
+	List *caseWhenAttrs = NIL;
+	List *thenElseAttrs = NIL;
+//	CaseExpr *caseInput = NULL;
 	FOREACH(AttributeReference, ar, input_attrs)
 	{
 		if(isA(ar, CaseExpr))
 		{
 			CaseExpr *ce = (CaseExpr *) ar;
-			caseInput = ce;
+//			caseInput = ce;
 			FOREACH(CaseWhen, cw, ce->whenClauses)
 			{
 				// when condition
@@ -2800,7 +2801,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 							if(isA(arg, AttributeReference))
 							{
 								AttributeReference *ar = (AttributeReference *) arg;
-								caswWhenAttrs = appendToTailOfList(caswWhenAttrs, ar);
+								caseWhenAttrs = appendToTailOfList(caseWhenAttrs, ar);
 							}
 
 							if(isA(arg, IsNullExpr))
@@ -2811,7 +2812,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 								Node *ofisN = isN->expr;
 								// this gets the AttributeReference in the node(ofisN) and stores it in arofisN
 								AttributeReference *arofisN = (AttributeReference *) ofisN;
-								caswWhenAttrs = appendToTailOfList(caswWhenAttrs, arofisN);
+								caseWhenAttrs = appendToTailOfList(caseWhenAttrs, arofisN);
 							}
 						}
 					}
@@ -2819,13 +2820,23 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 
 				// then
 				AttributeReference *then = (AttributeReference *) cw->then;
-				caswWhenAttrs = appendToTailOfList(caswWhenAttrs, then);
+				caseWhenAttrs = appendToTailOfList(caseWhenAttrs, then);
+				thenElseAttrs = appendToTailOfList(thenElseAttrs, then);
 			}
 
 			// else
 			AttributeReference *els = (AttributeReference *) ce->elseRes;
-			caswWhenAttrs = appendToTailOfList(caswWhenAttrs, els);
+			caseWhenAttrs = appendToTailOfList(caseWhenAttrs, els);
+			thenElseAttrs = appendToTailOfList(thenElseAttrs, els);
 		}
+	}
+
+	FOREACH(AttributeReference, ar , thenElseAttrs)
+	{
+    	if(isSuffix(ar->name,"1"))
+    	{
+    		ar->name = replaceSubstr(ar->name,"1","");
+    	}
 	}
 
 	int pos = searchCasePosinArList(input_attrs);
@@ -2844,43 +2855,63 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 		}
 	}
 
-	if(pos != -1)
-	{
-		FOREACH(AttributeDef, adef, left_attrs)
-		{
-			// if found in left list
-			if(strcmp(adef->attrName, caseDef->attrName) == 0) // if they are same
-			{
-//				inputL = appendToTailOfList(inputL,
-//							createFullAttrReference(caseDef->attrName, 0,
-//									getAttrPos((QueryOperator *) op, caseDef->attrName), 0, caseDef->dataType));
-				inputL = appendToTailOfList(inputL, caseInput);
-				break;
-			}
-		}
+//	if(pos != -1)
+//	{
+//		FOREACH(AttributeDef, adef, left_attrs)
+//		{
+//			// if found in left list
+//			if(strcmp(adef->attrName, caseDef->attrName) == 0) // if they are same
+//			{
+////				inputL = appendToTailOfList(inputL,
+////							createFullAttrReference(caseDef->attrName, 0,
+////									getAttrPos((QueryOperator *) op, caseDef->attrName), 0, caseDef->dataType));
+//				inputL = appendToTailOfList(inputL, caseInput);
+//				break;
+//			}
+//		}
+//
+//		FOREACH(AttributeDef, adef, right_attrs)
+//		{
+//			// if found in left list
+//			if(strcmp(adef->attrName, caseDef->attrName) == 0) // if they are same
+//			{
+////				inputR = appendToTailOfList(inputR,
+////							createFullAttrReference(caseDef->attrName, 0,
+////									getAttrPos((QueryOperator *) op, caseDef->attrName), 0, caseDef->dataType));
+//				inputR = appendToTailOfList(inputR, caseInput);
+//				break;
+//			}
+//		}
+//	}
 
-		FOREACH(AttributeDef, adef, right_attrs)
+
+
+	//adding case when attribute(dayswaqi) for Q2 to its proper place here
+	FOREACH(AttributeDef, adef, left_attrs)
+	{
+		// if found in left list
+		if(strcmp(adef->attrName, caseDef->attrName) == 0) // if they are same
 		{
-			// if found in left list
-			if(strcmp(adef->attrName, caseDef->attrName) == 0) // if they are same
-			{
-//				inputR = appendToTailOfList(inputR,
-//							createFullAttrReference(caseDef->attrName, 0,
-//									getAttrPos((QueryOperator *) op, caseDef->attrName), 0, caseDef->dataType));
-				inputR = appendToTailOfList(inputR, caseInput);
-				break;
-			}
+			inputL = appendToTailOfList(inputL,
+						createFullAttrReference(caseDef->attrName, 0,
+						getAttrPos((QueryOperator *) op, caseDef->attrName), 0, caseDef->dataType));
+			break;
 		}
 	}
 
-	List *currentAttributes = NIL; // all the attributes in current table || for first iteration its in owned table
-	FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
+	FOREACH(AttributeDef, adef, right_attrs)
 	{
-		currentAttributes = appendToTailOfList(currentAttributes,
-				createFullAttrReference(adef->attrName, 0, 0, 0, adef->dataType));
+		// if found in left list
+		if(strcmp(adef->attrName, caseDef->attrName) == 0) // if they are same
+		{
+			inputR = appendToTailOfList(inputR,
+						createFullAttrReference(caseDef->attrName, 0,
+						getAttrPos((QueryOperator *) op, caseDef->attrName), 0, caseDef->dataType));
+			break;
+		}
 	}
 
-//	input = CONCAT_LISTS(inputL, inputR); // all attrDefs
+	// removing duplicates here
 	List *cleanL = NIL;
 	List *cleanR = NIL;
 
@@ -2922,7 +2953,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	List *attrNames = NIL;
 	List *projExpr = NIL;
 
-	//normal attributes
+	//normal attributes for the current table
 	FOREACH(AttributeDef, attr, op->op.schema->attrDefs)
 	{
 		attrNames = appendToTailOfList(attrNames, strdup(attr->attrName));
@@ -2932,7 +2963,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 
 	ProjectionOperator *inputPo = createProjectionOp(projExpr, NULL, NIL, attrNames);
 
-	//inputL and inputR contains join attributes and input query attributes
+	//cleanL and cleanR contains input query attributes without duplicates
 	//removing those attributes from projExpr so i can duplicate them to create ig_ attributes
 	List *newProjExpr = NIL;
 	List *newProjNames = NIL;
@@ -2958,6 +2989,16 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 				newProjNames = appendToTailOfList(newProjNames, ar->name);
 			}
 		}
+
+		//adding case attributes to input here, NOTE: We only need then and else attributes here
+		FOREACH(AttributeReference, ar , thenElseAttrs)
+		{
+			if(ar->attrPosition < left_len) // creating left list
+			{
+				newProjExpr = appendToTailOfList(newProjExpr, ar);
+				newProjNames = appendToTailOfList(newProjNames, ar->name);
+			}
+		}
 	}
 	else if(tablePos == 1)
 	{
@@ -2976,10 +3017,20 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 				newProjNames = appendToTailOfList(newProjNames, ar->name);
 			}
 		}
+
+		//adding case attributes to input here, NOTE: We only need then and else attributes here
+		FOREACH(AttributeReference, ar , thenElseAttrs)
+		{
+			if(ar->attrPosition >= left_len)
+			{
+				newProjExpr = appendToTailOfList(newProjExpr, ar);
+				newProjNames = appendToTailOfList(newProjNames, ar->name);
+			}
+		}
 	}
 
 	// Creating IG attributes
-    char *newAttrName;
+    char *newAttrName = NULL;
 //  List *copyAllattrs = copyObject(cleaninput);
     List *copyAllattrs = copyObject(newProjExpr);
 
