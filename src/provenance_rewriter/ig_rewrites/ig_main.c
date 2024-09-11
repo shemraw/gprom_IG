@@ -2840,18 +2840,47 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	}
 
 	int pos = searchCasePosinArList(input_attrs);
-	int i = 0;
-	AttributeDef *caseDef = NULL;
-	FOREACH(AttributeDef, adef, input_defs)
+
+	if(pos != -1)
 	{
-		if(i != pos)
+		int i = 0;
+		AttributeDef *caseDef = NULL;
+		FOREACH(AttributeDef, adef, input_defs)
 		{
-			i = i + 1;
+			if(i != pos)
+			{
+				i = i + 1;
+			}
+			else if(i == pos)
+			{
+				caseDef = adef;
+				break;
+			}
 		}
-		else if(i == pos)
+
+		//adding case when attribute(dayswaqi) for Q2 to its proper place here
+		FOREACH(AttributeDef, adef, left_attrs)
 		{
-			caseDef = adef;
-			break;
+			// if found in left list
+			if(strcmp(adef->attrName, caseDef->attrName) == 0) // if they are same
+			{
+				inputL = appendToTailOfList(inputL,
+							createFullAttrReference(caseDef->attrName, 0,
+							getAttrPos((QueryOperator *) op, caseDef->attrName), 0, caseDef->dataType));
+				break;
+			}
+		}
+
+		FOREACH(AttributeDef, adef, right_attrs)
+		{
+			// if found in left list
+			if(strcmp(adef->attrName, caseDef->attrName) == 0) // if they are same
+			{
+				inputR = appendToTailOfList(inputR,
+							createFullAttrReference(caseDef->attrName, 0,
+							getAttrPos((QueryOperator *) op, caseDef->attrName), 0, caseDef->dataType));
+				break;
+			}
 		}
 	}
 
@@ -2884,32 +2913,6 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 //		}
 //	}
 
-
-
-	//adding case when attribute(dayswaqi) for Q2 to its proper place here
-	FOREACH(AttributeDef, adef, left_attrs)
-	{
-		// if found in left list
-		if(strcmp(adef->attrName, caseDef->attrName) == 0) // if they are same
-		{
-			inputL = appendToTailOfList(inputL,
-						createFullAttrReference(caseDef->attrName, 0,
-						getAttrPos((QueryOperator *) op, caseDef->attrName), 0, caseDef->dataType));
-			break;
-		}
-	}
-
-	FOREACH(AttributeDef, adef, right_attrs)
-	{
-		// if found in left list
-		if(strcmp(adef->attrName, caseDef->attrName) == 0) // if they are same
-		{
-			inputR = appendToTailOfList(inputR,
-						createFullAttrReference(caseDef->attrName, 0,
-						getAttrPos((QueryOperator *) op, caseDef->attrName), 0, caseDef->dataType));
-			break;
-		}
-	}
 
 	// removing duplicates here
 	List *cleanL = NIL;
@@ -3091,6 +3094,10 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 		List *argsOp = (List *) selOp->args;
 		FOREACH(AttributeReference, ar, argsOp)
 		{
+	    	if(isSuffix(ar->name,"1"))
+	    	{
+	    		ar->name = replaceSubstr(ar->name,"1","");
+	    	}
 			ar->attrPosition = searchArListForPos(po->projExprs, ar->name);
 			break;
 		}
@@ -3117,7 +3124,6 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	    DEBUG_LOG("table access after adding additional attributes for ig: %s", operatorToOverviewString((Node *) po));
 	    return rewriteIG_Conversion(po);
 	}
-
 	else
 	{
 
