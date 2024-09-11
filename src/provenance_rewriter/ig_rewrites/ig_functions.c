@@ -61,7 +61,28 @@ AttributeReference *getAttrRefFromArListByPos(List* arList, int pos);
 
 extern int searchArListForPos(List *arList, char *ch);
 
+extern int searchCasePosinArList(List *arList);
+
 extern int hasAscii(List *arList);
+
+
+int searchCasePosinArList(List *arList)
+{
+	int pos = 0;
+	FOREACH(AttributeReference, ar, arList)
+	{
+		if(isA(ar, CaseExpr))
+		{
+			return pos;
+		}
+		else
+		{
+			pos = pos + 1;
+		}
+	}
+
+	return -1; // case when not found
+}
 
 int hasAscii(List *arList)
 {
@@ -138,6 +159,7 @@ int searchArList(List *arList, char *ch)
 		if(strcmp(ar->name, ch) == 0)
 		{
 			return 1; // 1 = TRUE
+			break;
 		}
 	}
 	return 0; // 0 = FALSE
@@ -145,11 +167,12 @@ int searchArList(List *arList, char *ch)
 
 int searchAdefList(List *adefList, char *ch)
 {
-	FOREACH(AttributeDef, ar, adefList)
+	FOREACH(AttributeDef, adef, adefList)
 	{
-		if(streq(ar->attrName, ch))
+		if(strcmp(adef->attrName, ch))
 		{
 			return 1; // 1 = TRUE
+			break;
 		}
 	}
 	return 0; // 0 = FALSE

@@ -41,6 +41,8 @@ extern QueryOperator *cleanEXPL(QueryOperator *qo);
 
 extern int hasAscii(List *arList);
 
+extern int searchCasePosinArList(List *arList);
+
 
 
 #endif /* IG_FUNCTIONS_H_ */

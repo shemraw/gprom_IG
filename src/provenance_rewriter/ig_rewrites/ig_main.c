@@ -2704,10 +2704,10 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	List *inputR = NIL; // shared
 	List *inputName = NIL;
 	List *input_attrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_INPUT_PROP);
-//	List *input_defs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_INPUT_DEFS_PROP);
+	List *input_defs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_INPUT_DEFS_PROP);
 	List *joinattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_JOIN_PROP);
 	List *left_attrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_L_PROP);
-//	List *right_attrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_R_PROP);
+	List *right_attrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_R_PROP);
 
     FOREACH(AttributeReference, ar, input_attrs)
     {
@@ -2779,12 +2779,13 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 
 	//getting inputs from case when expression
 	List *caswWhenAttrs = NIL;
+	CaseExpr *caseInput = NULL;
 	FOREACH(AttributeReference, ar, input_attrs)
 	{
 		if(isA(ar, CaseExpr))
 		{
 			CaseExpr *ce = (CaseExpr *) ar;
-
+			caseInput = ce;
 			FOREACH(CaseWhen, cw, ce->whenClauses)
 			{
 				// when condition
@@ -2827,6 +2828,50 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 		}
 	}
 
+	int pos = searchCasePosinArList(input_attrs);
+	int i = 0;
+	AttributeDef *caseDef = NULL;
+	FOREACH(AttributeDef, adef, input_defs)
+	{
+		if(i != pos)
+		{
+			i = i + 1;
+		}
+		else if(i == pos)
+		{
+			caseDef = adef;
+			break;
+		}
+	}
+
+	if(pos != -1)
+	{
+		FOREACH(AttributeDef, adef, left_attrs)
+		{
+			// if found in left list
+			if(strcmp(adef->attrName, caseDef->attrName) == 0) // if they are same
+			{
+//				inputL = appendToTailOfList(inputL,
+//							createFullAttrReference(caseDef->attrName, 0,
+//									getAttrPos((QueryOperator *) op, caseDef->attrName), 0, caseDef->dataType));
+				inputL = appendToTailOfList(inputL, caseInput);
+				break;
+			}
+		}
+
+		FOREACH(AttributeDef, adef, right_attrs)
+		{
+			// if found in left list
+			if(strcmp(adef->attrName, caseDef->attrName) == 0) // if they are same
+			{
+//				inputR = appendToTailOfList(inputR,
+//							createFullAttrReference(caseDef->attrName, 0,
+//									getAttrPos((QueryOperator *) op, caseDef->attrName), 0, caseDef->dataType));
+				inputR = appendToTailOfList(inputR, caseInput);
+				break;
+			}
+		}
+	}
 
 	List *currentAttributes = NIL; // all the attributes in current table || for first iteration its in owned table
 	FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
