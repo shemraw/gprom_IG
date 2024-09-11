@@ -187,8 +187,11 @@ rewriteIG_Selection (SelectionOperator *op) //where clause
 
     // rewrite child first
     List *inputProjExpr = (List *) GET_STRING_PROP(op,IG_INPUT_PROP);
+    List *inputProjDefs = (List *) GET_STRING_PROP(op, IG_INPUT_DEFS_PROP);
     SET_STRING_PROP(OP_LCHILD(op), IG_INPUT_PROP, inputProjExpr);
+	SET_STRING_PROP(OP_LCHILD(op), IG_INPUT_DEFS_PROP, inputProjDefs);
 	SET_STRING_PROP(OP_LCHILD(op), PROP_WHERE_CLAUSE, op->cond);
+
     rewriteIG_Operator(child);
 
     SET_STRING_PROP(op, IG_L_PROP,
@@ -2045,8 +2048,10 @@ rewriteIG_Projection (ProjectionOperator *op)
 	}
 
     //setting input query as string property
-	List *attrRefs = getAttrReferences((Node *) op->projExprs);
-    SET_STRING_PROP(OP_LCHILD(op), IG_INPUT_PROP, attrRefs);
+//	List *attrRefs = getAttrReferences((Node *) op->projExprs);
+//    SET_STRING_PROP(OP_LCHILD(op), IG_INPUT_PROP, attrRefs);
+    SET_STRING_PROP(OP_LCHILD(op), IG_INPUT_PROP, op->projExprs);
+    SET_STRING_PROP(OP_LCHILD(op), IG_INPUT_DEFS_PROP, op->op.schema->attrDefs);
 
     QueryOperator *child = OP_LCHILD(op);
 
@@ -2590,18 +2595,18 @@ rewriteIG_Join (JoinOperator *op)
 //  int RightLen = LIST_LENGTH(rChild->schema->attrDefs);
 
     //    List *inpptExprs = copyObject(GET_STRING_PROP(op, IG_INPUT_PROP));
-	SET_STRING_PROP(rChild, IG_INPUT_PROP,
-			copyObject(GET_STRING_PROP(op, IG_INPUT_PROP)));
-
-
 	SET_STRING_PROP(lChild, IG_INPUT_PROP,
 			copyObject(GET_STRING_PROP(op, IG_INPUT_PROP)));
 
+	SET_STRING_PROP(rChild, IG_INPUT_PROP,
+			copyObject(GET_STRING_PROP(op, IG_INPUT_PROP)));
+
+	List *projDefsProp = (List *) GET_STRING_PROP(op, IG_INPUT_DEFS_PROP);
+	SET_STRING_PROP(lChild, IG_INPUT_DEFS_PROP, projDefsProp);
+	SET_STRING_PROP(rChild, IG_INPUT_DEFS_PROP, projDefsProp);
+
 	List *lProp = copyObject(lChild->schema->attrDefs);
 	List *rProp = copyObject(rChild->schema->attrDefs);
-
-
-
 	List *joinExprs = getAttrReferences((Node *) op);
 
 	SET_STRING_PROP(lChild, IG_JOIN_PROP, joinExprs);
@@ -2699,8 +2704,8 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	List *inputR = NIL; // shared
 	List *inputName = NIL;
 	List *input_attrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_INPUT_PROP);
+//	List *input_defs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_INPUT_DEFS_PROP);
 	List *joinattrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_JOIN_PROP);
-
 	List *left_attrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_L_PROP);
 //	List *right_attrs = (List *) GET_STRING_PROP((QueryOperator *) op, IG_R_PROP);
 
@@ -2821,6 +2826,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 			caswWhenAttrs = appendToTailOfList(caswWhenAttrs, els);
 		}
 	}
+
 
 	List *currentAttributes = NIL; // all the attributes in current table || for first iteration its in owned table
 	FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
