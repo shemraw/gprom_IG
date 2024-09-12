@@ -143,23 +143,23 @@ List *removeDupeAr(List *arList)
 		{
 			cleanArList = appendToTailOfList(cleanArList, ar);
 		}
-//		else if(searchArListByPos(cleanArList, ar->attrPosition) == 1)
-//		{
-//			continue;
-//		}
 	}
 
 	return cleanArList;
 }
 
+// this function does not check for case when, only attribute reference
 int searchArList(List *arList, char *ch)
 {
 	FOREACH(AttributeReference, ar, arList)
 	{
-		if(strcmp(ar->name, ch) == 0)
+		if(isA(ar, AttributeReference))
 		{
-			return 1; // 1 = TRUE
-			break;
+			if(strcmp(ar->name, ch) == 0)
+			{
+				return 1; // 1 = TRUE
+				break;
+			}
 		}
 	}
 	return 0; // 0 = FALSE

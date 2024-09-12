@@ -2613,23 +2613,23 @@ rewriteIG_Join (JoinOperator *op)
 	AttributeReference *jt = NULL;
 	if(op->joinType == 0)
 	{
-		jt = createFullAttrReference("JOIN_INNER", 0, 0, 0, DT_STRING);
+		jt = createFullAttrReference("INNER_JOIN", 0, 0, 0, DT_STRING);
 	}
 	else if(op->joinType == 1)
 	{
-		jt = createFullAttrReference("JOIN_CROSS", 0, 0, 0, DT_STRING);
+		jt = createFullAttrReference("CROSS_JOIN", 0, 0, 0, DT_STRING);
 	}
 	else if(op->joinType == 2)
 	{
-		jt = createFullAttrReference("JOIN_LEFT_OUTER", 0, 0, 0, DT_STRING);
+		jt = createFullAttrReference("LEFT_OUTER_JOIN", 0, 0, 0, DT_STRING);
 	}
 	else if(op->joinType == 3)
 	{
-		jt = createFullAttrReference("JOIN_RIGHT_OUTER", 0, 0, 0, DT_STRING);
+		jt = createFullAttrReference("RIGHT_OUTER_JOIN", 0, 0, 0, DT_STRING);
 	}
 	else if(op->joinType == 4)
 	{
-		jt = createFullAttrReference("JOIN_FULL_OUTER", 0, 0, 0, DT_STRING);
+		jt = createFullAttrReference("FULL_OUTER_JOIN", 0, 0, 0, DT_STRING);
 	}
 
 	SET_STRING_PROP(lChild, IG_JOIN_TYPE, jt);
@@ -2782,27 +2782,6 @@ rewriteIG_Join (JoinOperator *op)
 		}
 	}
 
-
-
-//		FOREACH(AttributeReference, ar, arList)
-//		{
-//			if(isA(ar, AttributeReference))
-//			{
-//				if(ar->attrPosition > LeftLen)
-//				{
-//					SET_STRING_PROP(rChild, PROP_WHERE_CLAUSE,
-//							copyObject(GET_STRING_PROP(op, PROP_WHERE_CLAUSE)));
-//				}
-//				else if(ar->attrPosition >= LeftLen)
-//				{
-//					SET_STRING_PROP(lChild, PROP_WHERE_CLAUSE,
-//							copyObject(GET_STRING_PROP(op, PROP_WHERE_CLAUSE)));
-//				}
-//			}
-//		}
-
-
-
 	lChild = rewriteIG_Operator(lChild);
 	rChild = rewriteIG_Operator(rChild);
 
@@ -2917,13 +2896,11 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	//getting inputs from case when expression
 	List *caseWhenAttrs = NIL;
 	List *thenElseAttrs = NIL;
-//	CaseExpr *caseInput = NULL;
 	FOREACH(AttributeReference, ar, input_attrs)
 	{
 		if(isA(ar, CaseExpr))
 		{
 			CaseExpr *ce = (CaseExpr *) ar;
-//			caseInput = ce;
 			FOREACH(CaseWhen, cw, ce->whenClauses)
 			{
 				// when condition
@@ -3021,35 +2998,6 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 		}
 	}
 
-//	if(pos != -1)
-//	{
-//		FOREACH(AttributeDef, adef, left_attrs)
-//		{
-//			// if found in left list
-//			if(strcmp(adef->attrName, caseDef->attrName) == 0) // if they are same
-//			{
-////				inputL = appendToTailOfList(inputL,
-////							createFullAttrReference(caseDef->attrName, 0,
-////									getAttrPos((QueryOperator *) op, caseDef->attrName), 0, caseDef->dataType));
-//				inputL = appendToTailOfList(inputL, caseInput);
-//				break;
-//			}
-//		}
-//
-//		FOREACH(AttributeDef, adef, right_attrs)
-//		{
-//			// if found in left list
-//			if(strcmp(adef->attrName, caseDef->attrName) == 0) // if they are same
-//			{
-////				inputR = appendToTailOfList(inputR,
-////							createFullAttrReference(caseDef->attrName, 0,
-////									getAttrPos((QueryOperator *) op, caseDef->attrName), 0, caseDef->dataType));
-//				inputR = appendToTailOfList(inputR, caseInput);
-//				break;
-//			}
-//		}
-//	}
-
 
 	// removing duplicates here
 	List *cleanL = NIL;
@@ -3086,9 +3034,6 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 			continue;
 		}
 	}
-
-//	CONCAT_LISTS is not working here creating weird bug. its messing with other functions
-//	input1 = CONCAT_LISTS(cleanL, cleanR);
 
 	List *attrNames = NIL;
 	List *projExpr = NIL;
@@ -3215,8 +3160,59 @@ rewriteIG_TableAccess(TableAccessOperator *op)
         }
     }
 
-	ProjectionOperator *po = createProjectionOp(projExpr, NULL, NIL, attrNames);
+    //removing duplicates from joinattrs to be added again FOR FULL OUTER JOIN AND RIGHT OUTER JOIN
+    List *joinattrs1 = NIL;
+	FOREACH(AttributeReference, ar, joinattrs)
+	{
+		if(joinattrs1 == NIL)
+		{
+			joinattrs1 = appendToTailOfList(joinattrs1, ar);
+		}
+		else if(searchArList(joinattrs1, ar->name) == 0)
+		{
+			joinattrs1 = appendToTailOfList(joinattrs1, ar);
+		}
+		else
+		{
+			continue;
+		}
+	}
 
+	// adding the join attributes if its a FULL OUTER JOIN OR RIGHT OUTER JOIN
+	if((strcmp(joinType->name, "FULL_OUTER_JOIN") == 0) ||
+			(strcmp(joinType->name, "RIGHT_OUTER_JOIN") == 0))
+	{
+		FOREACH(AttributeReference, ar, joinattrs1)
+		{
+			if(searchArList(projExpr, ar->name) == 1 && // if is PRESENT in the list to be converted
+						searchArList(input_attrs, ar->name) == 1) // if it IS FOUND in input_attrs
+			{
+
+				if(tablePos == 0)
+				{
+					// duplicating that attribute
+					projExpr = appendToTailOfList(projExpr, createFullAttrReference(ar->name, 0,
+								getAttrPos((QueryOperator *) op, ar->name), 0, ar->attrType));
+					char *name = getIgAttrName("left", ar->name, relAccessCount);
+					attrNames = appendToTailOfList(attrNames, name);
+				}
+
+				if(tablePos == 1)
+				{
+					projExpr = appendToTailOfList(projExpr, createFullAttrReference(ar->name, 0,
+								getAttrPos((QueryOperator *) op, ar->name), 0, ar->attrType));
+					char *name = getIgAttrName("right", ar->name, relAccessCount);
+					attrNames = appendToTailOfList(attrNames, name);
+				}
+			}
+			else
+			{
+				continue;
+			}
+		}
+	}
+
+	ProjectionOperator *po = createProjectionOp(projExpr, NULL, NIL, attrNames);
 	SET_BOOL_STRING_PROP((QueryOperator *) po, PROP_PROJ_IG_ATTR_DUP);
 
 	if(HAS_STRING_PROP(op, PROP_WHERE_CLAUSE))
