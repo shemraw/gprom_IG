@@ -2622,6 +2622,36 @@ rewriteIG_Join (JoinOperator *op)
 	SET_STRING_PROP(lChild, IG_R_PROP, rProp);
 	SET_STRING_PROP(rChild, IG_R_PROP, rProp);
 
+
+	// FOR SINGLE WHERE CLAUSE
+	if(HAS_STRING_PROP(op, PROP_WHERE_CLAUSE))
+	{
+		Node *cond = GET_STRING_PROP(op, PROP_WHERE_CLAUSE);
+		Operator *condOp = (Operator *) cond;
+		List *arList = condOp->args; // should only be 2 conditions for now simple cases only
+		int listLen = LIST_LENGTH(arList);
+		if(listLen == 2) // if 1 ar and 1 constant
+		{
+			FOREACH(AttributeReference, ar, arList)
+			{
+				if(isA(ar, AttributeReference))
+				{
+					if(ar->attrPosition > LeftLen)
+					{
+						SET_STRING_PROP(rChild, PROP_WHERE_CLAUSE,
+								copyObject(GET_STRING_PROP(op, PROP_WHERE_CLAUSE)));
+					}
+					else if(ar->attrPosition >= LeftLen)
+					{
+						SET_STRING_PROP(lChild, PROP_WHERE_CLAUSE,
+								copyObject(GET_STRING_PROP(op, PROP_WHERE_CLAUSE)));
+					}
+				}
+			}
+		}
+	}
+
+	// FOR AND OR / MULTIPLE WHERE CLAUSES
 	int countL = 0;
 	int countR = 0;
 
@@ -2743,11 +2773,11 @@ rewriteIG_Join (JoinOperator *op)
 //				}
 //			}
 //		}
-//	}
+
 
 
 	lChild = rewriteIG_Operator(lChild);
-    rChild = rewriteIG_Operator(rChild);
+	rChild = rewriteIG_Operator(rChild);
 
 
 	// update the attribute def for join operator
@@ -3190,6 +3220,105 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	if(HAS_STRING_PROP(op, PROP_WHERE_CLAUSE))
 	{
 		Node *selCond = GET_STRING_PROP(op, PROP_WHERE_CLAUSE);
+		Operator *condforselect = NULL;
+		if(isA(selCond, Operator))
+		{
+			if((strcmp(((Operator *) selCond)->name,"AND") == 0) ||
+					(strcmp(((Operator *) selCond)->name,"OR") == 0))
+			{
+				Operator *cond = (Operator *) selCond;
+				List *argsOp = (List *) cond->args;
+				int argsLen = LIST_LENGTH(argsOp);
+				if(argsLen == 2)
+				{
+					FOREACH(Operator, o, argsOp)
+					{
+						FOREACH(AttributeReference, ar, o->args)
+						{
+							if(isA(ar, AttributeReference))
+							{
+						    	if(isSuffix(ar->name,"1"))
+						    	{
+						    		ar->name = replaceSubstr(ar->name,"1","");
+						    	}
+								ar->attrPosition = searchArListForPos(po->projExprs, ar->name);
+								break;
+							}
+						}
+					}
+
+					condforselect = (Operator *) selCond;
+					List *whereNames = NIL;
+					FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
+					{
+						whereNames = appendToTailOfList(whereNames, adef->attrName);
+					}
+					//adding where clause i.e selection operator
+					SelectionOperator *so = createSelectionOp(condforselect, NULL, NIL, whereNames);
+					so->op.schema->attrDefs = op->op.schema->attrDefs;
+
+					addChildOperator((QueryOperator *) so, (QueryOperator *) op);
+					// Switch the subtree with this newly created projection operator.
+					switchSubtrees((QueryOperator *) op, (QueryOperator *) so);
+
+
+					addChildOperator((QueryOperator *) po, (QueryOperator *) so);
+					// Switch the subtree with this newly created projection operator.
+				    switchSubtrees((QueryOperator *) so, (QueryOperator *) po);
+
+				}
+			}
+		}
+
+		if(isA(selCond, Operator))
+		{
+			if((strcmp(((Operator *) selCond)->name,"AND") != 0) ||
+					(strcmp(((Operator *) selCond)->name,"OR") != 0))
+			{
+				Operator *cond = (Operator *) selCond;
+				List *argsOp = (List *) cond->args;
+				int argsLen = LIST_LENGTH(argsOp);
+				if(argsLen == 2)
+				{
+					FOREACH(Operator, o, argsOp)
+					{
+						FOREACH(AttributeReference, ar, o->args)
+						{
+							if(isA(ar, AttributeReference))
+							{
+						    	if(isSuffix(ar->name,"1"))
+						    	{
+						    		ar->name = replaceSubstr(ar->name,"1","");
+						    	}
+								ar->attrPosition = searchArListForPos(po->projExprs, ar->name);
+								break;
+							}
+						}
+					}
+
+					condforselect = (Operator *) selCond;
+					List *whereNames = NIL;
+					FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
+					{
+						whereNames = appendToTailOfList(whereNames, adef->attrName);
+					}
+					//adding where clause i.e selection operator
+					SelectionOperator *so = createSelectionOp(condforselect, NULL, NIL, whereNames);
+					so->op.schema->attrDefs = op->op.schema->attrDefs;
+
+					addChildOperator((QueryOperator *) so, (QueryOperator *) op);
+					// Switch the subtree with this newly created projection operator.
+					switchSubtrees((QueryOperator *) op, (QueryOperator *) so);
+
+
+					addChildOperator((QueryOperator *) po, (QueryOperator *) so);
+					// Switch the subtree with this newly created projection operator.
+				    switchSubtrees((QueryOperator *) so, (QueryOperator *) po);
+
+				}
+			}
+		}
+
 		Operator *selOp = (Operator *) selCond;
 		List *argsOp = (List *) selOp->args;
 		int argsLen = LIST_LENGTH(argsOp);
@@ -3210,12 +3339,6 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 						break;
 					}
 				}
-//		    	if(isSuffix(ar->name,"1"))
-//		    	{
-//		    		ar->name = replaceSubstr(ar->name,"1","");
-//		    	}
-//				ar->attrPosition = searchArListForPos(po->projExprs, ar->name);
-//				break;
 			}
 
 			List *whereNames = NIL;
