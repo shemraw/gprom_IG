@@ -217,6 +217,7 @@
 #define IG_JOIN_PROP "IG_JOIN_PROP"
 #define IG_L_PROP "IG_L_PROP"
 #define IG_R_PROP "IG_R_PROP"
+#define IG_JOIN_TYPE "IG_JOIN_TYPE"
 
 
 /* properties for aggregation operators created by lateral rewrite */
