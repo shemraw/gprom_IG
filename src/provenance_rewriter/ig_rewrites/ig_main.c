@@ -2661,7 +2661,7 @@ rewriteIG_Join (JoinOperator *op)
 		Node *cond = GET_STRING_PROP(op, PROP_WHERE_CLAUSE);
 		Operator *condOp = (Operator *) cond;
 		List *arList = condOp->args; // should only be 2 conditions for now simple cases only
-		if(strcmp(condOp->name, "AND") == 0) // if the op name is AND
+		if(streq(condOp->name, "AND")) // if the op name is AND
 		{
 			FOREACH(Operator, o, arList)
 			{
@@ -2687,6 +2687,7 @@ rewriteIG_Join (JoinOperator *op)
 		}
 	}
 
+	//TODO: dealing with more than two conditions
 	if(countL == 2)
 	{
 		SET_STRING_PROP(lChild, PROP_WHERE_CLAUSE,
@@ -2708,7 +2709,7 @@ rewriteIG_Join (JoinOperator *op)
 			List *arList = condOp->args; // should only be 2 conditions for now simple cases only
 	//		List *pCond = NIL;
 	//		getSelectionCondOperatorList(cond,&pCond); // pCond now had now have the same values as arList above
-			if(strcmp(condOp->name, "AND") == 0) // if the op name is AND
+			if(streq(condOp->name, "AND")) // if the op name is AND
 			{
 				FOREACH(Operator, o, arList)
 				{
@@ -2734,7 +2735,7 @@ rewriteIG_Join (JoinOperator *op)
 					}
 				}
 			}
-			else if(strcmp(condOp->name, "OR") == 0) // if the op name is AND
+			else if(streq(condOp->name, "OR")) // if the op name is AND
 			{
 				FOREACH(Operator, o, arList)
 				{
