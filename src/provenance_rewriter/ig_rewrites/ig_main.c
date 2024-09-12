@@ -3426,9 +3426,9 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 //		}
 
 
-	    tablePos = tablePos + 1; // to change 0 from 1
-	    DEBUG_LOG("table access after adding additional attributes for ig: %s", operatorToOverviewString((Node *) po));
-	    return rewriteIG_Conversion(po);
+//	    tablePos = tablePos + 1; // to change 0 from 1
+//	    DEBUG_LOG("table access after adding additional attributes for ig: %s", operatorToOverviewString((Node *) po));
+//	    return rewriteIG_Conversion(po);
 	}
 	else
 	{
@@ -3436,10 +3436,10 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 		addChildOperator((QueryOperator *) po, (QueryOperator *) op);
 		// Switch the subtree with this newly created projection operator.
 	    switchSubtrees((QueryOperator *) op, (QueryOperator *) po);
-
-	    tablePos = tablePos + 1; // to change 0 from 1
-	    DEBUG_LOG("table access after adding additional attributes for ig: %s", operatorToOverviewString((Node *) po));
-	    return rewriteIG_Conversion(po);
 	}
+
+    tablePos = tablePos + 1; // to change 0 from 1
+    DEBUG_LOG("table access after adding additional attributes for ig: %s", operatorToOverviewString((Node *) po));
+    return rewriteIG_Conversion(po);
 }
 
