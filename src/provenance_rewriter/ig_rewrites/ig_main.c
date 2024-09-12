@@ -3221,13 +3221,18 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	{
 		Node *selCond = GET_STRING_PROP(op, PROP_WHERE_CLAUSE);
 		Operator *condforselect = NULL;
+		List *argsOp = (List *) ((Operator *) selCond)->args;
+
 		if(isA(selCond, Operator))
 		{
-			if((strcmp(((Operator *) selCond)->name,"AND") == 0) ||
-					(strcmp(((Operator *) selCond)->name,"OR") == 0))
+			// concatenated conditions
+			if((streq(((Operator *) selCond)->name,"AND")) ||
+					(streq(((Operator *) selCond)->name,"OR")))
 			{
-				Operator *cond = (Operator *) selCond;
-				List *argsOp = (List *) cond->args;
+//				Operator *cond = (Operator *) selCond;
+//				List *argsOp = (List *) cond->args;
+
+				//TODO: dealing with more than two conditions
 				int argsLen = LIST_LENGTH(argsOp);
 				if(argsLen == 2)
 				{
@@ -3254,7 +3259,7 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 						whereNames = appendToTailOfList(whereNames, adef->attrName);
 					}
 					//adding where clause i.e selection operator
-					SelectionOperator *so = createSelectionOp(condforselect, NULL, NIL, whereNames);
+					SelectionOperator *so = createSelectionOp((Node *) condforselect, NULL, NIL, whereNames);
 					so->op.schema->attrDefs = op->op.schema->attrDefs;
 
 					addChildOperator((QueryOperator *) so, (QueryOperator *) op);
@@ -3268,127 +3273,157 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 
 				}
 			}
-		}
-
-		if(isA(selCond, Operator))
-		{
-			if((strcmp(((Operator *) selCond)->name,"AND") != 0) ||
-					(strcmp(((Operator *) selCond)->name,"OR") != 0))
+			else // single condition
 			{
-				Operator *cond = (Operator *) selCond;
-				List *argsOp = (List *) cond->args;
-				int argsLen = LIST_LENGTH(argsOp);
-				if(argsLen == 2)
+				FOREACH(AttributeReference, ar, argsOp)
 				{
-					FOREACH(Operator, o, argsOp)
-					{
-						FOREACH(AttributeReference, ar, o->args)
-						{
-							if(isA(ar, AttributeReference))
-							{
-						    	if(isSuffix(ar->name,"1"))
-						    	{
-						    		ar->name = replaceSubstr(ar->name,"1","");
-						    	}
-								ar->attrPosition = searchArListForPos(po->projExprs, ar->name);
-								break;
-							}
-						}
-					}
-
-					condforselect = (Operator *) selCond;
-					List *whereNames = NIL;
-					FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
-					{
-						whereNames = appendToTailOfList(whereNames, adef->attrName);
-					}
-					//adding where clause i.e selection operator
-					SelectionOperator *so = createSelectionOp(condforselect, NULL, NIL, whereNames);
-					so->op.schema->attrDefs = op->op.schema->attrDefs;
-
-					addChildOperator((QueryOperator *) so, (QueryOperator *) op);
-					// Switch the subtree with this newly created projection operator.
-					switchSubtrees((QueryOperator *) op, (QueryOperator *) so);
-
-
-					addChildOperator((QueryOperator *) po, (QueryOperator *) so);
-					// Switch the subtree with this newly created projection operator.
-				    switchSubtrees((QueryOperator *) so, (QueryOperator *) po);
-
+			    	if(isSuffix(ar->name,"1"))
+			    	{
+			    		ar->name = replaceSubstr(ar->name,"1","");
+			    	}
+					ar->attrPosition = searchArListForPos(po->projExprs, ar->name);
+					break;
 				}
-			}
-		}
 
-		Operator *selOp = (Operator *) selCond;
-		List *argsOp = (List *) selOp->args;
-		int argsLen = LIST_LENGTH(argsOp);
-		if(argsLen == 4) // its 4 instead of 2 because there is an attrRef and a constant in the condition
-		{
-			FOREACH(Operator, o, argsOp)
-			{
-
-				FOREACH(AttributeReference, ar, o->args)
+				List *whereNames = NIL;
+				FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
 				{
-					if(isA(ar, AttributeReference))
-					{
-				    	if(isSuffix(ar->name,"1"))
-				    	{
-				    		ar->name = replaceSubstr(ar->name,"1","");
-				    	}
-						ar->attrPosition = searchArListForPos(po->projExprs, ar->name);
-						break;
-					}
+					whereNames = appendToTailOfList(whereNames, adef->attrName);
 				}
+				//adding where clause i.e selection operator
+				SelectionOperator *so = createSelectionOp(selCond, NULL, NIL, whereNames);
+				so->op.schema->attrDefs = op->op.schema->attrDefs;
+
+				addChildOperator((QueryOperator *) so, (QueryOperator *) op);
+				// Switch the subtree with this newly created projection operator.
+				switchSubtrees((QueryOperator *) op, (QueryOperator *) so);
+
+
+				addChildOperator((QueryOperator *) po, (QueryOperator *) so);
+				// Switch the subtree with this newly created projection operator.
+			    switchSubtrees((QueryOperator *) so, (QueryOperator *) po);
 			}
-
-			List *whereNames = NIL;
-			FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
-			{
-				whereNames = appendToTailOfList(whereNames, adef->attrName);
-			}
-			//adding where clause i.e selection operator
-			SelectionOperator *so = createSelectionOp(selCond, NULL, NIL, whereNames);
-			so->op.schema->attrDefs = op->op.schema->attrDefs;
-
-			addChildOperator((QueryOperator *) so, (QueryOperator *) op);
-			// Switch the subtree with this newly created projection operator.
-			switchSubtrees((QueryOperator *) op, (QueryOperator *) so);
-
-
-			addChildOperator((QueryOperator *) po, (QueryOperator *) so);
-			// Switch the subtree with this newly created projection operator.
-		    switchSubtrees((QueryOperator *) so, (QueryOperator *) po);
 		}
-		else if(argsLen == 2)
-		{
-			FOREACH(AttributeReference, ar, argsOp)
-			{
-		    	if(isSuffix(ar->name,"1"))
-		    	{
-		    		ar->name = replaceSubstr(ar->name,"1","");
-		    	}
-				ar->attrPosition = searchArListForPos(po->projExprs, ar->name);
-				break;
-			}
 
-			List *whereNames = NIL;
-			FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
-			{
-				whereNames = appendToTailOfList(whereNames, adef->attrName);
-			}
-			//adding where clause i.e selection operator
-			SelectionOperator *so = createSelectionOp(selCond, NULL, NIL, whereNames);
-			so->op.schema->attrDefs = op->op.schema->attrDefs;
+//		if(isA(selCond, Operator))
+//		{
+//			if((strcmp(((Operator *) selCond)->name,"AND") != 0) ||
+//					(strcmp(((Operator *) selCond)->name,"OR") != 0))
+//			{
+//				Operator *cond = (Operator *) selCond;
+//				List *argsOp = (List *) cond->args;
+//				int argsLen = LIST_LENGTH(argsOp);
+//				if(argsLen == 2)
+//				{
+//					FOREACH(Operator, o, argsOp)
+//					{
+//						FOREACH(AttributeReference, ar, o->args)
+//						{
+//							if(isA(ar, AttributeReference))
+//							{
+//						    	if(isSuffix(ar->name,"1"))
+//						    	{
+//						    		ar->name = replaceSubstr(ar->name,"1","");
+//						    	}
+//								ar->attrPosition = searchArListForPos(po->projExprs, ar->name);
+//								break;
+//							}
+//						}
+//					}
+//
+//					condforselect = (Operator *) selCond;
+//					List *whereNames = NIL;
+//					FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
+//					{
+//						whereNames = appendToTailOfList(whereNames, adef->attrName);
+//					}
+//					//adding where clause i.e selection operator
+//					SelectionOperator *so = createSelectionOp((Node *) condforselect, NULL, NIL, whereNames);
+//					so->op.schema->attrDefs = op->op.schema->attrDefs;
+//
+//					addChildOperator((QueryOperator *) so, (QueryOperator *) op);
+//					// Switch the subtree with this newly created projection operator.
+//					switchSubtrees((QueryOperator *) op, (QueryOperator *) so);
+//
+//
+//					addChildOperator((QueryOperator *) po, (QueryOperator *) so);
+//					// Switch the subtree with this newly created projection operator.
+//				    switchSubtrees((QueryOperator *) so, (QueryOperator *) po);
+//
+//				}
+//			}
+//		}
 
-			addChildOperator((QueryOperator *) so, (QueryOperator *) op);
-			// Switch the subtree with this newly created projection operator.
-			switchSubtrees((QueryOperator *) op, (QueryOperator *) so);
-
-
-			addChildOperator((QueryOperator *) po, (QueryOperator *) so);
-			// Switch the subtree with this newly created projection operator.
-		    switchSubtrees((QueryOperator *) so, (QueryOperator *) po);
-		}
+//		Operator *selOp = (Operator *) selCond;
+//		List *argsOp = (List *) selOp->args;
+//		int argsLen = LIST_LENGTH(argsOp);
+//		if(argsLen == 4) // its 4 instead of 2 because there is an attrRef and a constant in the condition
+//		{
+//			FOREACH(Operator, o, argsOp)
+//			{
+//
+//				FOREACH(AttributeReference, ar, o->args)
+//				{
+//					if(isA(ar, AttributeReference))
+//					{
+//				    	if(isSuffix(ar->name,"1"))
+//				    	{
+//				    		ar->name = replaceSubstr(ar->name,"1","");
+//				    	}
+//						ar->attrPosition = searchArListForPos(po->projExprs, ar->name);
+//						break;
+//					}
+//				}
+//			}
+//
+//			List *whereNames = NIL;
+//			FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
+//			{
+//				whereNames = appendToTailOfList(whereNames, adef->attrName);
+//			}
+//			//adding where clause i.e selection operator
+//			SelectionOperator *so = createSelectionOp(selCond, NULL, NIL, whereNames);
+//			so->op.schema->attrDefs = op->op.schema->attrDefs;
+//
+//			addChildOperator((QueryOperator *) so, (QueryOperator *) op);
+//			// Switch the subtree with this newly created projection operator.
+//			switchSubtrees((QueryOperator *) op, (QueryOperator *) so);
+//
+//
+//			addChildOperator((QueryOperator *) po, (QueryOperator *) so);
+//			// Switch the subtree with this newly created projection operator.
+//		    switchSubtrees((QueryOperator *) so, (QueryOperator *) po);
+//		}
+//		else if(argsLen == 2)
+//		{
+//			FOREACH(AttributeReference, ar, argsOp)
+//			{
+//		    	if(isSuffix(ar->name,"1"))
+//		    	{
+//		    		ar->name = replaceSubstr(ar->name,"1","");
+//		    	}
+//				ar->attrPosition = searchArListForPos(po->projExprs, ar->name);
+//				break;
+//			}
+//
+//			List *whereNames = NIL;
+//			FOREACH(AttributeDef, adef, op->op.schema->attrDefs)
+//			{
+//				whereNames = appendToTailOfList(whereNames, adef->attrName);
+//			}
+//			//adding where clause i.e selection operator
+//			SelectionOperator *so = createSelectionOp(selCond, NULL, NIL, whereNames);
+//			so->op.schema->attrDefs = op->op.schema->attrDefs;
+//
+//			addChildOperator((QueryOperator *) so, (QueryOperator *) op);
+//			// Switch the subtree with this newly created projection operator.
+//			switchSubtrees((QueryOperator *) op, (QueryOperator *) so);
+//
+//
+//			addChildOperator((QueryOperator *) po, (QueryOperator *) so);
+//			// Switch the subtree with this newly created projection operator.
+//		    switchSubtrees((QueryOperator *) so, (QueryOperator *) po);
+//		}
 
 
 	    tablePos = tablePos + 1; // to change 0 from 1
