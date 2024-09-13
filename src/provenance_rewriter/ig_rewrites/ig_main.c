@@ -551,15 +551,15 @@ rewriteIG_HammingFunctions (ProjectionOperator *newProj)
     	if(isPrefix(a->attrName,IG_PREFIX))
     	{
 
-    		//TODO: search corresponding attributes
-    		AttributeDef *al = (AttributeDef *) getNthOfListP(attrL,pos);
-    		char *corrAttrName = al->attrName;
+			//TODO: search corresponding attributes
+			AttributeDef *al = (AttributeDef *) getNthOfListP(attrL,pos);
+			char *corrAttrName = al->attrName;
 
-    		// store the corresponding ig attribute names in shared
-    		Node *alRef = (Node *) getAttrRefByName((QueryOperator *) child, corrAttrName);
-    		MAP_ADD_STRING_KEY(nameToIgAttrOpp, a->attrName, alRef);
+			// store the corresponding ig attribute names in shared
+			Node *alRef = (Node *) getAttrRefByName((QueryOperator *) child, corrAttrName);
+			MAP_ADD_STRING_KEY(nameToIgAttrOpp, a->attrName, alRef);
 
-    		// store the ig attributes' reference
+			// store the ig attributes' reference
 			Node *aRef = (Node *) getAttrRefByName((QueryOperator *) child, a->attrName);
 			MAP_ADD_STRING_KEY(nameToIgAttrRef, a->attrName, aRef);
     	}
@@ -2207,7 +2207,6 @@ rewriteIG_Projection (ProjectionOperator *op)
 		else
 		{
 			FunctionCall *coalesce = NULL;
-
 			if(isA(n,CaseExpr))
 			{
 				CaseExpr *ce = (CaseExpr *) n;
@@ -3076,33 +3075,41 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 		}
 	}
 
+	//cleanL and cleanR have the input query attributes
 	// adding the join attributes if its a FULL OUTER JOIN OR RIGHT OUTER JOIN
 	if((strcmp(joinType->name, "FULL_OUTER_JOIN") == 0) ||
 			(strcmp(joinType->name, "RIGHT_OUTER_JOIN") == 0))
 	{
 		FOREACH(AttributeReference, ar, joinattrs1)
 		{
-			if(searchArList(projExpr, ar->name) == 1 && // if is PRESENT in the list to be converted
-						searchArList(input_attrs, ar->name) == 1) // if it IS FOUND in input_attrs
-			{
+//			if(searchArList(projExpr, ar->name) == 1 && // if is PRESENT in the list to be converted
+//						searchArList(input_attrs, ar->name) == 1) // if it IS FOUND in input_attrs
+//			{
 
-				if(tablePos == 0)
+				if(tablePos == 0) // if owned
 				{
-					// duplicating that attribute
-					projExpr = appendToTailOfList(projExpr, createFullAttrReference(ar->name, 0,
-								getAttrPos((QueryOperator *) op, ar->name), 0, ar->attrType));
-					char *name = getIgAttrName("left", ar->name, relAccessCount);
-					attrNames = appendToTailOfList(attrNames, name);
+					if(searchArList(cleanR, ar->name) == 1 &&
+							searchArList(cleanL, ar->name) == 1) // if the join attribute exists in right input
+					{
+						// duplicating that attribute
+						projExpr = appendToTailOfList(projExpr, createFullAttrReference(ar->name, 0,
+									getAttrPos((QueryOperator *) op, ar->name), 0, ar->attrType));
+						char *name = getIgAttrName("left", ar->name, relAccessCount);
+						attrNames = appendToTailOfList(attrNames, name);
+					}
 				}
 
-				if(tablePos == 1)
+				if(tablePos == 1) // if shared
 				{
-					projExpr = appendToTailOfList(projExpr, createFullAttrReference(ar->name, 0,
-								getAttrPos((QueryOperator *) op, ar->name), 0, ar->attrType));
-					char *name = getIgAttrName("right", ar->name, relAccessCount);
-					attrNames = appendToTailOfList(attrNames, name);
+					if(searchArList(cleanR, ar->name) == 1)
+					{
+						projExpr = appendToTailOfList(projExpr, createFullAttrReference(ar->name, 0,
+									getAttrPos((QueryOperator *) op, ar->name), 0, ar->attrType));
+						char *name = getIgAttrName("right", ar->name, relAccessCount);
+						attrNames = appendToTailOfList(attrNames, name);
+					}
 				}
-			}
+//			}
 			else
 			{
 				continue;
