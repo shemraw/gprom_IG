@@ -3082,37 +3082,28 @@ rewriteIG_TableAccess(TableAccessOperator *op)
 	{
 		FOREACH(AttributeReference, ar, joinattrs1)
 		{
-//			if(searchArList(projExpr, ar->name) == 1 && // if is PRESENT in the list to be converted
-//						searchArList(input_attrs, ar->name) == 1) // if it IS FOUND in input_attrs
-//			{
-
-				if(tablePos == 0) // if owned
-				{
-					if(searchArList(cleanR, ar->name) == 1 &&
-							searchArList(cleanL, ar->name) == 1) // if the join attribute exists in right input
-					{
-						// duplicating that attribute
-						projExpr = appendToTailOfList(projExpr, createFullAttrReference(ar->name, 0,
-									getAttrPos((QueryOperator *) op, ar->name), 0, ar->attrType));
-						char *name = getIgAttrName("left", ar->name, relAccessCount);
-						attrNames = appendToTailOfList(attrNames, name);
-					}
-				}
-
-				if(tablePos == 1) // if shared
-				{
-					if(searchArList(cleanR, ar->name) == 1)
-					{
-						projExpr = appendToTailOfList(projExpr, createFullAttrReference(ar->name, 0,
-									getAttrPos((QueryOperator *) op, ar->name), 0, ar->attrType));
-						char *name = getIgAttrName("right", ar->name, relAccessCount);
-						attrNames = appendToTailOfList(attrNames, name);
-					}
-				}
-//			}
-			else
+			if(tablePos == 0) // if owned
 			{
-				continue;
+				if(searchArList(cleanR, ar->name) == 1 &&
+						searchArList(cleanL, ar->name) == 1) // if the join attribute exists in right input
+				{
+					// duplicating that attribute
+					projExpr = appendToTailOfList(projExpr, createFullAttrReference(ar->name, 0,
+								getAttrPos((QueryOperator *) op, ar->name), 0, ar->attrType));
+					char *name = getIgAttrName("left", ar->name, relAccessCount);
+					attrNames = appendToTailOfList(attrNames, name);
+				}
+			}
+
+			if(tablePos == 1) // if shared
+			{
+				if(searchArList(cleanR, ar->name) == 1)
+				{
+					projExpr = appendToTailOfList(projExpr, createFullAttrReference(ar->name, 0,
+								getAttrPos((QueryOperator *) op, ar->name), 0, ar->attrType));
+					char *name = getIgAttrName("right", ar->name, relAccessCount);
+					attrNames = appendToTailOfList(attrNames, name);
+				}
 			}
 		}
 	}
