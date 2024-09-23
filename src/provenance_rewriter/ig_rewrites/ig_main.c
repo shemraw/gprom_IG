@@ -2144,65 +2144,67 @@ rewriteIG_Projection (ProjectionOperator *op)
 		if(!isA(n, CaseExpr) && !isA(n, Operator))
 		{
 			AttributeReference *ar = (AttributeReference *) n;
-			if(MAP_HAS_STRING_KEY(attrLNames, ar->name) &&
-					MAP_HAS_STRING_KEY(attrRNames, ar->name))
-			{
-				//TODO: find the partner attribute
-				char *attrName = CONCAT_STRINGS(ar->name,"1");
-				AttributeReference *arr = NULL;
-
-				if(isA((Node *) child, SelectionOperator))
-				{
-					QueryOperator *grandChild = OP_LCHILD(child);
-					arr = createFullAttrReference(attrName, 0,
-							getAttrPos((QueryOperator *) grandChild, attrName), 0, ar->attrType);
-				}
-				else
-					arr = getAttrRefByName((QueryOperator *) child, attrName);
-
-				// common value
-				Node *cond = (Node *) createOpExpr(OPNAME_EQ, LIST_MAKE(ar,arr));
-				Node *then = (Node *) ar;
-				CaseWhen *caseWhen1 = createCaseWhen(cond, then);
-
-				// leftside null
-				cond = (Node *) createIsNullExpr((Node *) ar);
-				then = (Node *) arr;
-				CaseWhen *caseWhen2 = createCaseWhen(cond, then);
-
-				// rightside null
-				cond = (Node *) createIsNullExpr((Node *) arr);
-				then = (Node *) ar;
-				CaseWhen *caseWhen3 = createCaseWhen(cond, then);
-
-				// both null
-				cond = (Node *)createOpExpr(OPNAME_AND,
-						LIST_MAKE(createIsNullExpr((Node *) ar),createIsNullExpr((Node *) arr)));
-
-				if(ar->attrType == DT_STRING || ar->attrType == DT_VARCHAR2)
-					then = (Node *) createConstString("na");
-				if(ar->attrType == DT_INT || ar->attrType == DT_FLOAT || ar->attrType == DT_LONG)
-					then = (Node *) createConstInt(0);
-
-				CaseWhen *caseWhen4 = createCaseWhen(cond, then);
-
-				Node *els = (Node *) ar;
-				CaseExpr *caseExpr = createCaseExpr(NULL, LIST_MAKE(caseWhen1,caseWhen2,caseWhen3,caseWhen4), els);
-				newProjExprWithCaseWhen = appendToTailOfList(newProjExprWithCaseWhen, caseExpr);
-			}
-			else
-			{
-				AttributeReference *ar = (AttributeReference *) n;
-				FunctionCall *coalesce = NULL;
-
-				if(ar->attrType == DT_STRING || ar->attrType == DT_VARCHAR2)
-					coalesce = createFunctionCall("COALESCE", LIST_MAKE(n, (Node *) createConstString("na")));
-
-				if(ar->attrType == DT_INT || ar->attrType == DT_FLOAT || ar->attrType == DT_LONG)
-					coalesce = createFunctionCall("COALESCE", LIST_MAKE(n, (Node *) createConstInt(0)));
-
-				newProjExprWithCaseWhen = appendToTailOfList(newProjExprWithCaseWhen, (Node *) coalesce);
-			}
+			newProjExprWithCaseWhen = appendToTailOfList(newProjExprWithCaseWhen, ar);
+//			AttributeReference *ar = (AttributeReference *) n;
+//			if(MAP_HAS_STRING_KEY(attrLNames, ar->name) &&
+//					MAP_HAS_STRING_KEY(attrRNames, ar->name))
+//			{
+//				//TODO: find the partner attribute
+//				char *attrName = CONCAT_STRINGS(ar->name,"1");
+//				AttributeReference *arr = NULL;
+//
+//				if(isA((Node *) child, SelectionOperator))
+//				{
+//					QueryOperator *grandChild = OP_LCHILD(child);
+//					arr = createFullAttrReference(attrName, 0,
+//							getAttrPos((QueryOperator *) grandChild, attrName), 0, ar->attrType);
+//				}
+//				else
+//					arr = getAttrRefByName((QueryOperator *) child, attrName);
+//
+//				// common value
+//				Node *cond = (Node *) createOpExpr(OPNAME_EQ, LIST_MAKE(ar,arr));
+//				Node *then = (Node *) ar;
+//				CaseWhen *caseWhen1 = createCaseWhen(cond, then);
+//
+//				// leftside null
+//				cond = (Node *) createIsNullExpr((Node *) ar);
+//				then = (Node *) arr;
+//				CaseWhen *caseWhen2 = createCaseWhen(cond, then);
+//
+//				// rightside null
+//				cond = (Node *) createIsNullExpr((Node *) arr);
+//				then = (Node *) ar;
+//				CaseWhen *caseWhen3 = createCaseWhen(cond, then);
+//
+//				// both null
+//				cond = (Node *)createOpExpr(OPNAME_AND,
+//						LIST_MAKE(createIsNullExpr((Node *) ar),createIsNullExpr((Node *) arr)));
+//
+//				if(ar->attrType == DT_STRING || ar->attrType == DT_VARCHAR2)
+//					then = (Node *) createConstString("na");
+//				if(ar->attrType == DT_INT || ar->attrType == DT_FLOAT || ar->attrType == DT_LONG)
+//					then = (Node *) createConstInt(0);
+//
+//				CaseWhen *caseWhen4 = createCaseWhen(cond, then);
+//
+//				Node *els = (Node *) ar;
+//				CaseExpr *caseExpr = createCaseExpr(NULL, LIST_MAKE(caseWhen1,caseWhen2,caseWhen3,caseWhen4), els);
+//				newProjExprWithCaseWhen = appendToTailOfList(newProjExprWithCaseWhen, caseExpr);
+//			}
+//			else
+//			{
+//				AttributeReference *ar = (AttributeReference *) n;
+//				FunctionCall *coalesce = NULL;
+//
+//				if(ar->attrType == DT_STRING || ar->attrType == DT_VARCHAR2)
+//					coalesce = createFunctionCall("COALESCE", LIST_MAKE(n, (Node *) createConstString("na")));
+//
+//				if(ar->attrType == DT_INT || ar->attrType == DT_FLOAT || ar->attrType == DT_LONG)
+//					coalesce = createFunctionCall("COALESCE", LIST_MAKE(n, (Node *) createConstInt(0)));
+//
+//				newProjExprWithCaseWhen = appendToTailOfList(newProjExprWithCaseWhen, (Node *) coalesce);
+//			}
 		}
 		else
 		{
